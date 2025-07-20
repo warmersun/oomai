@@ -125,7 +125,7 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
     
     index_name = f"{node_type.lower()}_description_embeddings"
     embedding_model = "text-embedding-3-large"  # OpenAI's embedding model
-    llm_model = "grok-4"
+    llm_model = "grok-3-mini"
 
     async with neo4jdriver.session() as session:
         # Generate embedding for the new description using OpenAI
@@ -148,8 +148,10 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
         similar_nodes: List[Dict[str, Any]] = await similar_result.data()
 
         found_same_id = None
+        old_description = None
         for sim in similar_nodes:
             old_desc = sim['description']
+            logger.info(f"Checking similarity with node {sim['node_id']} with the old description: {old_desc}")
             # Use xAI's Grok4 LLM to check semantic equivalence
             equivalence_prompt = f"""
             Are these two descriptions describing essentially the same idea semantically? Respond with 'yes' or 'no' only.
@@ -171,9 +173,12 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
                 break
 
         if found_same_id:
+            logger.info(f"Found semantically equivalent node with id: {found_same_id}")
+            
             # Combine descriptions using xAI's Grok4 LLM
             combine_prompt = f"""
             Merge these two descriptions into a single, improved, coherent description. Retain key details from both, eliminate redundancies, and enhance clarity.
+            Return the combined description only.
 
             Description 1: {old_description}
 
@@ -185,6 +190,10 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
             )
             combine_response = await chat.sample()
             updated_description = combine_response.content.strip()
+
+            logger.info(f"Old description: {old_description}")
+            logger.info(f"New description: {description}")
+            logger.info(f"Combined description: {updated_description}")
 
             # Generate new embedding for the updated description using OpenAI
             updated_emb_response = await openai_client.embeddings.create(
@@ -204,6 +213,7 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
             update_record = await update_result.single()
             return update_record['id']
         else:
+            logger.info("No semantically equivalent node found, creating a new node.")
             # Create a new node
             create_query = f"""
             CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
@@ -263,10 +273,10 @@ async def on_message(message: cl.Message):
 @cl.action_callback("action_button")
 async def on_action(action: cl.Action):
     if action.payload["value"] == "idea1":
-        str = await smart_upsert("Idea", "Singularity", "The singulaty is when exponential progress becomes uncontrollable and irreversible, resulting in unforeseeable changes to human civilization.")
+        str = await smart_upsert("Idea", "Singularity", "The technological singularity is a hypothetical future point where artificial intelligence surpasses human intelligence, leading to unpredictable, rapid advancements in technology and society.")
         await cl.Message(content=f"node: {str}").send()
     elif action.payload["value"] == "idea2":
-        str = await smart_upsert("Idea", "Singularity", "The singularity a hypothetical point in time at which technological growth becomes completely alien to humans, uncontrollable and irreversible, resulting in unforeseeable consequences for human civilization.")
+        str = await smart_upsert("Idea", "Singularity", "The Singularity refers to a hypothetical future point when technological growth, driven by superintelligent AI, becomes uncontrollable and irreversible, profoundly transforming human civilization.")
         await cl.Message(content=f"node: {str}").send()
     elif action.payload["value"] == "idea3":
         str = await smart_upsert("Idea", "LEV", "LEV is a hypothetical point in time when technological growth becomes uncontrollable and irreversible, resulting in unforeseeable changes to human civilization.")
