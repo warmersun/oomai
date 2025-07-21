@@ -34,24 +34,26 @@ async def start_chat():
         cl.Action(
             name="action_button",
             icon="lightbulb",
-            payload={"value": "idea1"},
-            label="Singularity 1"
+            payload={"value": "singularity_is_near"},
+            label="The Singularity is Near"
         ),
         cl.Action(
             name="action_button",
             icon="lightbulb",
-            payload={"value": "idea2"},
-            label="Singularity 2"
+            payload={"value": "singularity_is_nearer"},
+            label="The Singularity is Nearer"
         ),
         cl.Action(
             name="action_button",
-            icon="lightbulb-off",
-            payload={"value": "idea3"},
-            label="LEV 1"
+            icon="lightbulb",
+            payload={"value": "how_to_create_a_mind"},
+            label="How to Create a Mind"
         )
     ]
 
     await cl.Message(content="Click here:", actions=actions).send()
+    nodes = []
+    cl.user_session.set("nodes", nodes)
 
 @cl.on_chat_end
 async def end_chat():
@@ -125,7 +127,7 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
     
     index_name = f"{node_type.lower()}_description_embeddings"
     embedding_model = "text-embedding-3-large"  # OpenAI's embedding model
-    llm_model = "grok-3-mini"
+    llm_model = "grok-4"
 
     async with neo4jdriver.session() as session:
         # Generate embedding for the new description using OpenAI
@@ -139,7 +141,7 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
         similar_query = """
         CALL db.index.vector.queryNodes($index_name, 100, $vector)
         YIELD node, score
-        WHERE score >= 0.9
+        WHERE score >= 0.8
         RETURN elementId(node) AS node_id, node.description AS description, score
         ORDER BY score DESC
         LIMIT 10
@@ -177,7 +179,7 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
             
             # Combine descriptions using xAI's Grok4 LLM
             combine_prompt = f"""
-            Merge these two descriptions into a single, improved, coherent description. Retain key details from both, eliminate redundancies, and enhance clarity.
+            Merge these two descriptions into a single, improved, coherent description. Retain key details from both, eliminate redundancies, and enhance clarity. If Description 2 does not add new information, just return Description 1.
             Return the combined description only.
 
             Description 1: {old_description}
@@ -269,14 +271,69 @@ async def on_message(message: cl.Message):
 
         response = await chat.sample()
         await cl.Message(content=response.content).send()
-            
+
+THE_SINGULARITY_IS_NEAR = [
+    ("The Singularity", "A future period in which the pace of technological change will be so rapid and its impact so profound that human life will be irreversibly transformed. It marks the point where the intelligence of our human-machine civilization will vastly exceed the intelligence of unenhanced biological humans."),
+    ("The Law of Accelerating Returns", "The core theory underlying the Singularity. It states that fundamental measures of information technology follow a predictable and exponential trajectory of growth. This is because evolution (both biological and technological) builds on its own increasing order, with each stage using the more sophisticated methods of the previous stage to progress, leading to an acceleration of the rate of progress itself."),
+    ("The Six Epochs of Evolution", "A framework for viewing the history of the universe as a series of six stages of evolution, each one faster than the last: Physics and Chemistry, Biology and DNA, Brains, Technology, The Merger of Human and Machine Intelligence, and The Universe Wakes Up."),
+    ("Exponential vs. Linear View of the Future", "Most people have an 'intuitive linear' view, expecting the future to unfold at the same pace as the recent past. However, the 'historical exponential' view shows that the rate of change is itself accelerating. This leads most people to dramatically underestimate the amount of technological progress that will occur in the coming decades."),
+    ("GNR (Genetics, Nanotechnology, Robotics)", "The three overlapping and synergistic revolutions that are driving us toward the Singularity: Genetics (reprogramming biology), Nanotechnology (manipulating matter at the molecular level), and Robotics (creating strong AI by reverse-engineering the human brain)."),
+    ("Reverse-Engineering the Human Brain", "The process of scanning and understanding the physical structure and information-processing methods of the human brain in sufficient detail to create nonbiological, software-based models that are functionally equivalent. This is considered the key to achieving strong AI."),
+    ("The S-Curve of a Technology Paradigm", "A specific technology or method follows an S-shaped life cycle: slow initial growth, followed by rapid explosive growth, and finally a leveling off as the paradigm matures and its potential is exhausted. The overall exponential trend of technology is a cascade of these S-curves, where a new, more powerful paradigm takes over when the previous one levels off.")
+]
+THE_SINGULARITY_IS_NEARER = [
+    ("The Singularity", "A future period, predicted around 2045, where the pace of technological change will be so rapid and its impact so profound that human life will be irreversibly transformed through the merging of human and artificial intelligence."),
+    ("Law of Accelerating Returns (LOAR)", "The core theory that information technologies progress exponentially because each advance facilitates the creation of the next, more powerful generation of technology. This is considered more fundamental than Moore's Law."),
+    ("The Six Epochs", "A model of the evolution of information processing in the universe, progressing from (1) Physics/Chemistry, to (2) Biology/DNA, to (3) Brains, to (4) Technology, to (5) The Merger of Human and Machine Intelligence, and finally to (6) The Universe Waking Up."),
+    ("Turing Test", "A test for artificial intelligence to determine if it can think and communicate indistinguishably from a human. Kurzweil predicts a robust version will be passed by 2029."),
+    ("Brain-Computer Interfaces (BCIs)", "Future technology, likely using nanobots, that will connect the human neocortex directly to the cloud, allowing for a vast expansion of human intelligence and memory."),
+    ("Connectionist AI", "An approach to AI based on networks of interconnected nodes (neural networks) that learn from data. This approach, particularly deep learning, has overcome the limitations of rule-based symbolic AI and is driving current AI progress."),
+    ("The Neocortex Model for AI", "The idea that the human neocortex, with its hierarchical and modular structure, serves as a blueprint for creating advanced artificial intelligence. AI is seen as re-creating the neocortex's pattern-recognition abilities."),
+    ("Panprotopsychism", "A philosophical view on consciousness suggesting it is a fundamental property of the universe. Complex information processing, as found in brains (biological or artificial), 'awakens' this latent potential for subjective experience."),
+    ("Digital Immortality / Mind Uploading", "The concept of preserving personal identity by transferring the information pattern of a human brain (memories, personality, skills) to a non-biological substrate, allowing for backups and continued existence beyond the biological body."),
+    ("After Life Technology (Replicants)", "The creation of AI-powered avatars of deceased individuals based on their digital footprint (texts, photos, videos). This serves as an early step towards full mind uploading and raises questions about identity and consciousness."),
+    ("Exponential Improvement of Human Well-being", "The argument that, contrary to common perception, technology is driving exponential improvements in nearly every aspect of human life, including wealth, health, education, and safety."),
+    ("Three Bridges to Radical Life Extension", "A three-stage strategy to extend human lifespan indefinitely. Bridge 1 uses today's medicine and health practices. Bridge 2 involves the biotechnology revolution to cure diseases like cancer and aging. Bridge 3 uses nanotechnology for cellular repair at the molecular level.")
+]
+HOW_TO_CREATE_A_MIND = [
+    ("Pattern Recognition Theory of Mind (PRTM)", "The theory that the basic algorithm of the neocortex is to recognize, remember, and predict patterns. It operates on a hierarchy of patterns, where complex patterns are composed of simpler ones."),
+    ("Hierarchical Thinking", "The ability of the neocortex to understand and build complex structures of ideas by recursively linking patterns. This is a key feature of human intelligence."),
+    ("Law of Accelerating Returns (LOAR)", "The concept that evolutionary processes, including both biological and technological evolution, accelerate over time. This applies to the exponential growth of information technology and has implications for the future of AI and the brain."),
+    ("The Old Brain", "The pre-mammalian parts of the brain that are responsible for basic drives like pleasure and fear. The neocortex modulates and sublimates these primitive motivations."),
+    ("Biologically Inspired Digital Neocortex", "The idea of creating artificial intelligence by reverse-engineering the principles of the human neocortex. A digital neocortex could be faster, more scalable, and able to share knowledge instantly."),
+    ("Thought Experiments on the Mind", "Using introspection and self-reflection to understand the processes of the mind, such as memory, perception, and the nature of thought."),
+    ("Hierarchical Hidden Markov Models (HHMM)", "A mathematical technique used in artificial intelligence for pattern recognition, especially in speech and language, which mirrors the hierarchical and probabilistic nature of the neocortex."),
+    ("The Role of Redundancy", "The brain stores important patterns with a high degree of redundancy, which allows for robust recognition even with variations and incomplete information."),
+    ("Creativity as Metaphor", "Creativity is the result of the neocortex's ability to act as a metaphor machine, recognizing patterns and making connections between different concepts and disciplines."),
+    ("Love as a Neocortical Process", "Love, from an evolutionary perspective, is a mechanism to ensure a stable environment for children while their neocortices develop. It involves both ancient brain chemistry and complex neocortical patterns.")
+]
+
 @cl.action_callback("action_button")
 async def on_action(action: cl.Action):
-    if action.payload["value"] == "idea1":
-        str = await smart_upsert("Idea", "Singularity", "The technological singularity is a hypothetical future point where artificial intelligence surpasses human intelligence, leading to unpredictable, rapid advancements in technology and society.")
-        await cl.Message(content=f"node: {str}").send()
-    elif action.payload["value"] == "idea2":
-        str = await smart_upsert("Idea", "Singularity", "The Singularity refers to a hypothetical future point when technological growth, driven by superintelligent AI, becomes uncontrollable and irreversible, profoundly transforming human civilization.")
-        await cl.Message(content=f"node: {str}").send()
-    elif action.payload["value"] == "idea3":
-        str = await smart_upsert("Idea", "LEV", "LEV is a hypothetical point in time when technological growth becomes uncontrollable and irreversible, resulting in unforeseeable changes to human civilization.")
+    nodes = cl.user_session.get("nodes")
+    assert nodes is not None, "No nodes found in user session"
+    if action.payload["value"] == "singularity_is_near":
+        for name, description in THE_SINGULARITY_IS_NEAR:
+            new_node= await smart_upsert("Idea", name, description)
+            if new_node in nodes:
+                await cl.Message(content=f"UPDATED {name}").send()
+            else:
+                await cl.Message(content=f"INSERTED {name}").send()
+                nodes.append(new_node)
+    elif action.payload["value"] == "singularity_is_nearer":
+        for name, description in THE_SINGULARITY_IS_NEARER:
+            new_node= await smart_upsert("Idea", name, description)
+            if new_node in nodes:
+                await cl.Message(content=f"UPDATED {name}").send()
+            else:
+                await cl.Message(content=f"INSERTED {name}").send()
+                nodes.append(new_node)
+    elif action.payload["value"] == "how_to_create_a_mind":
+        for name, description in HOW_TO_CREATE_A_MIND:
+            new_node= await smart_upsert("Idea", name, description)
+            if new_node in nodes:
+                await cl.Message(content=f"UPDATED {name}").send()
+            else:
+                await cl.Message(content=f"INSERTED {name}").send()
+                nodes.append(new_node)
+    cl.user_session.set("nodes",nodes)
