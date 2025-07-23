@@ -95,3 +95,36 @@ Describes how we build solutions and implementations from products.
 (:Idea)-[:RELATES_TO]->()  
 Ideas can relate to anything.  
 RELATES_TO has an optional `explanation` property (e.g., when the Law of Accelerating Returns relates to an EmTech, the `explanation` describes why).
+
+## taxonomy
+
+### EmTechs:
+- computing
+- energy
+- crypto-currency
+- artificial intelligence
+- robots
+- networks
+- transportation
+- 3D printing
+- internet of things
+- virtual reality
+- synthetic biology
+- quantum computing
+- geothermal power
+- tidal power
+- self-driving cars
+- drones
+- brain-computer interface
+- quantum internet
+- solar power
+- wind power
+- wave power
+- nuclear power
+- battery technology
+- space exploration
+- material science
+- nano-technology
+- genetic engineering
+- gene sequencing
+- alternative proteins
