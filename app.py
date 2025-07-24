@@ -1,7 +1,5 @@
 import chainlit as cl
 import os
-import neo4j
-from neo4j._work import query
 from xai_sdk import AsyncClient
 from xai_sdk.chat import system, user, tool, tool_result
 from neo4j import AsyncGraphDatabase
@@ -9,9 +7,7 @@ from neo4j.exceptions import Neo4jError
 from chainlit.logger import logger
 import json
 from openai import AsyncOpenAI
-import asyncio
 from typing import List, Dict, Any, Optional
-from typing import Optional, Dict, Any
     
     
 with open("knowledge_graph/schema.md", "r") as f:
@@ -187,9 +183,9 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
                 )
                 chat = xai_client.chat.create(
                     model=llm_model,
-                    messages=[{"role": "system", "content": equivalence_prompt}],
                     temperature=0.0
                 )
+                chat.append(system(equivalence_prompt))                
                 llm_response = await chat.sample()
                 answer = llm_response.content.strip().lower()
                 if answer == 'yes':
@@ -212,8 +208,8 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
                 )
                 chat = xai_client.chat.create(
                     model=llm_model,
-                    messages=[{"role": "system", "content": combine_prompt}],
                 )
+                chat.append(system(combine_prompt))
                 combine_response = await chat.sample()
                 updated_description = combine_response.content.strip()
 
@@ -359,13 +355,8 @@ async def on_message(message: cl.Message):
             The knowledge graph has the following schema:
             {schema}
 
-            When you do research, break it down to nodes in the kknowledge graph and connect them wih edges.
+            When you do research, or process an article break it down to nodes in the knowledge graph and connect them wih edges to capture relationships.
             
-            Use the `create_node` function tool to create a new node in the graph.
-            Use the `create_edge` function tool to create a new edge in the graph.
-
-            Use the `execute_cypher_query` function tool to query the graph.
-
             As a rule of thumb, write queries that return the entire node or edge so you can see all properties.
             When working with relationships the query should ask for the properties explicitly
             e.g. 
@@ -405,13 +396,15 @@ async def on_message(message: cl.Message):
                         tool_args["relationship_type"], 
                         tool_args.get("properties", {})
                     )
-                    chat.append(tool_result(json.dumps({"relationship": results})))
+                    rel_data = results["r"].data() if results else None
+                    chat.append(tool_result(json.dumps({"relationship": rel_data})))
                 else:
                     chat.append(tool_result(json.dumps({"error": f"Unknown tool: {tool_name}"})))
 
             except Exception as e:
                 chat.append(tool_result(json.dumps({"error": str(e)})))
 
+        logger.info(f"Tool calls done: {response.tool_calls}")
         response = await chat.sample()
         await cl.Message(content=response.content).send()
             
