@@ -12,6 +12,9 @@ from typing import List, Dict, Any, Optional
     
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
+
+embedding_model = "text-embedding-3-large"
+llm_model = "grok-4"
     
     
 @cl.on_chat_start
@@ -145,8 +148,6 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
         raise ValueError("No OpenAI client found in user session")
 
     index_name = f"{node_type.lower()}_description_embeddings"
-    embedding_model = "text-embedding-3-large"
-    llm_model = "grok-4"
 
     async with neo4jdriver.session() as session:
         try:
@@ -306,7 +307,11 @@ async def create_edge(source_id: str, target_id: str, relationship_type: str, pr
         params = {"source_id": source_id, "target_id": target_id}
         params.update(properties)
         result = await session.run(query, **params)
-        return await result.single()
+        record =  await result.single()
+        if record:
+            return record.data()['r'] # Returns a dict like {'elementId': '...', 'type': 'MAKES', 'properties': {...}, ...}
+        return None
+        
     
 create_edge_tool = tool(
     name="create_edge",
@@ -342,6 +347,64 @@ create_edge_tool = tool(
     }
 )
 
+async def find_node(query_text: str, node_type: str, top_k: int = 5):
+    openai_client = cl.user_session.get("openai_client")
+    assert openai_client is not None, "No OpenAI client found in user session"
+    neo4jdriver = cl.user_session.get("neo4jdriver")
+    assert neo4jdriver is not None, "No Neo4j driver found in user session"
+    
+    # calculate embedding for the query text
+    emb_response = await openai_client.embeddings.create(
+        model=embedding_model,
+        input=query_text
+    )
+    query_embedding = emb_response.data[0].embedding
+
+    async def vector_search(tx):
+        cypher_query = """
+        CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
+        YIELD node, score
+        RETURN {name: node.name, description: node.description} AS node, score
+        ORDER BY score DESC
+        """
+        result = await tx.run(cypher_query, index_name=f"{node_type.lower()}_description_embeddings", top_k=top_k, embedding=query_embedding)
+        return [await record.data() async for record in result]
+
+    # execute the query
+    async with neo4jdriver.session() as session:
+        results = await session.execute_read(vector_search)
+
+    return results
+
+find_node_tool = tool(
+    name="find_node",
+    description="""
+    Finds nodes in knowledge graph that are similar to a given query text.
+    Uses vector similarity search based on node descriptions.
+    Returns a list of nodes with their names, descriptions, and similarity scores.
+    """,
+    parameters={
+        "type": "object",
+        "properties": {
+            "query_text": {
+                "type": "string",
+                "description": "The text to search for similar nodes.",
+            },
+            "node_type": {
+                "type": "string",
+                "description": "The type of node to search for.",
+                "enum": ["Convergence", "Capability", "Milestone", "Trend", "Idea"]
+            },
+            "top_k": {
+                "type": "integer",
+                "description": "The number of top results to return (default is 5).",
+                "default": 5,
+            },
+        },
+        "required": ["query_text", "node_type"]
+    }
+)
+
 @cl.on_message
 async def on_message(message: cl.Message):
     # Your custom logic goes here...
@@ -357,19 +420,19 @@ async def on_message(message: cl.Message):
 
             When you do research, or process an article break it down to nodes in the knowledge graph and connect them wih edges to capture relationships.
             
-            As a rule of thumb, write queries that return the entire node or edge so you can see all properties.
+            As a rule of thumb, write queries that return the node with its `name` and `description` properties, but not the `embedding` vecotr and the edge with all its properties.
             When working with relationships the query should ask for the properties explicitly
             e.g. 
             instead of
             MATCH (i:Idea)-[r:RELATES_TO]->(n {{name:'3D printing'}}) RETURN i, r, n
             use
-            MATCH (i:Idea)-[r:RELATES_TO]->(n {{name:'3D printing'}}) RETURN i, r.properties AS relProps, n
+            MATCH (i:Idea)-[r:RELATES_TO]->(n {{name:'3D printing'}}) RETURN {{name: i.name, description: i.description}} AS i, r.properties AS relProps, {{name: n.name, description: n.description}} AS n
 
             Help the user to traverse the graph and find related nodes or edges but always talk in a simple, natural tone. The user does not need to know anything about the graph schema. Don't mention nodes, edges, node and edge types to the user. Just use what respondes you receive from the knowldege graph and make it interesting and fun.
 
             """
         )],
-        tools=[cypher_query_tool, create_node_tool, create_edge_tool],
+        tools=[cypher_query_tool, create_node_tool, create_edge_tool, find_node_tool],
     )
     chat.append(user(message.content))
     response = await chat.sample()
@@ -398,6 +461,9 @@ async def on_message(message: cl.Message):
                         )
                         rel_data = results["r"].data() if results else None
                         chat.append(tool_result(json.dumps({"relationship": rel_data})))
+                    elif tool_name == "find_node":
+                        results = await find_node(tool_args["query_text"], tool_args["node_type"], tool_args.get("top_k", 5))
+                        chat.append(tool_result(json.dumps(results)))
     
                 except Exception as e:
                     logger.error(f"Error executing tool {tool_name}: {str(e)}")

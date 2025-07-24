@@ -35,6 +35,10 @@ Describes an idea.
 ### Organization
 A company, research lab, or other group.
 
+## vector indices
+
+Convergence, Capability. Milestone, Trend, Idea has `embedding` property with embedding vector for semantic index.
+
 ## edge types:
 
 ### DECOMPOSES
