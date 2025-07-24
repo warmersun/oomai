@@ -347,6 +347,7 @@ create_edge_tool = tool(
     }
 )
 
+@cl.step(name="Find Node", type="tool", show_input=True)
 async def find_node(query_text: str, node_type: str, top_k: int = 5):
     openai_client = cl.user_session.get("openai_client")
     assert openai_client is not None, "No OpenAI client found in user session"
@@ -368,12 +369,14 @@ async def find_node(query_text: str, node_type: str, top_k: int = 5):
         ORDER BY score DESC
         """
         result = await tx.run(cypher_query, index_name=f"{node_type.lower()}_description_embeddings", top_k=top_k, embedding=query_embedding)
-        return [await record.data() async for record in result]
+        records = []
+        async for record in result:
+            records.append(record.data())
+        return records
 
     # execute the query
     async with neo4jdriver.session() as session:
         results = await session.execute_read(vector_search)
-
     return results
 
 find_node_tool = tool(
