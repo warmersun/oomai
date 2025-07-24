@@ -99,6 +99,9 @@ RELATES_TO has an optional `explanation` property (e.g., when the Law of Acceler
 ## taxonomy
 
 ### EmTechs:
+
+EmTechs are reference data. Do not create new EmTech nodes!
+
 - computing
 - energy
 - crypto-currency

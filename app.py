@@ -373,38 +373,42 @@ async def on_message(message: cl.Message):
     )
     chat.append(user(message.content))
     response = await chat.sample()
+    chat.append(response)
 
-    if response.content:
-        await cl.Message(content=response.content).send()
-        
-    if response.tool_calls:
-        for tool_call in response.tool_calls:
-            try:
-                tool_name = tool_call.function.name
-                tool_args = json.loads(tool_call.function.arguments)
-                
-                if tool_name == "cypher_query":
-                    results = await execute_cypher_query(tool_args["query"])
-                    chat.append(tool_result(json.dumps(results)))
-                elif tool_name == "create_node":
-                    results = await create_node(tool_args["node_type"], tool_args["name"], tool_args["description"])
-                    chat.append(tool_result(json.dumps({"elementId": results})))
-                elif tool_name == "create_edge":
-                    results = await create_edge(
-                        tool_args["source_id"], 
-                        tool_args["target_id"], 
-                        tool_args["relationship_type"], 
-                        tool_args.get("properties", {})
-                    )
-                    rel_data = results["r"].data() if results else None
-                    chat.append(tool_result(json.dumps({"relationship": rel_data})))
-                else:
-                    chat.append(tool_result(json.dumps({"error": f"Unknown tool: {tool_name}"})))
-
-            except Exception as e:
-                chat.append(tool_result(json.dumps({"error": str(e)})))
-
-        logger.info(f"Tool calls done: {response.tool_calls}")
-        response = await chat.sample()
-        await cl.Message(content=response.content).send()
+    while not response.content:
+        if response.tool_calls:
+            for tool_call in response.tool_calls:
+                tool_name = "unknown"
+                try:
+                    tool_name = tool_call.function.name
+                    tool_args = json.loads(tool_call.function.arguments)
+                    
+                    if tool_name == "cypher_query":
+                        results = await execute_cypher_query(tool_args["query"])
+                        chat.append(tool_result(json.dumps(results)))
+                    elif tool_name == "create_node":
+                        results = await create_node(tool_args["node_type"], tool_args["name"], tool_args["description"])
+                        chat.append(tool_result(json.dumps({"elementId": results})))
+                    elif tool_name == "create_edge":
+                        results = await create_edge(
+                            tool_args["source_id"], 
+                            tool_args["target_id"], 
+                            tool_args["relationship_type"], 
+                            tool_args.get("properties", {})
+                        )
+                        rel_data = results["r"].data() if results else None
+                        chat.append(tool_result(json.dumps({"relationship": rel_data})))
+    
+                except Exception as e:
+                    logger.error(f"Error executing tool {tool_name}: {str(e)}")
+                    chat.append(tool_result(json.dumps({"error": str(e)})))
+    
+            response = await chat.sample()            
+            chat.append(response)
             
+    await cl.Message(content=response.content).send()
+    logger.info(f"Final response: {response.content}")
+    logger.info(f"Finish reason: {response.finish_reason}")
+    logger.info(f"Reasoning tokens: {response.usage.reasoning_tokens}")
+    logger.info(f"Total tokens: {response.usage.total_tokens}")
+        
