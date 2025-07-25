@@ -106,6 +106,8 @@ cypher_query_tool = tool(
 async def create_node(node_type: str, name: str, description: str) -> str:
     if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
         return await smart_upsert(node_type, name, description)
+    elif node_type == "EmTech":
+        return "Do not create new EmTech type nodes. EmTechs are reference data, use existing ones."
     else:
         return await merge_node(node_type, name, description)    
 
