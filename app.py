@@ -48,6 +48,19 @@ async def execute_cypher_query(query: str) -> list:
     Raises:
         RuntimeError: If there is an error executing the Cypher query.
     """
+
+    def filter_embedding(obj):
+        """
+        Recursively removes the 'embedding' key from any dict in the structure,
+        handling nested dicts and lists (e.g., paths, collected nodes).
+        """
+        if isinstance(obj, dict):
+            return {k: filter_embedding(v) for k, v in obj.items() if k != 'embedding'}
+        elif isinstance(obj, list):
+            return [filter_embedding(item) for item in obj]
+        else:
+            return obj
+    
     neo4jdriver = cl.user_session.get("neo4jdriver")
     assert neo4jdriver is not None, "No Neo4j driver found in user session"
     try:
@@ -59,7 +72,12 @@ async def execute_cypher_query(query: str) -> list:
                 logger.warning("Query executed successfully but returned no results.")
                 # You can decide here whether to return an empty list or raise an error
                 return []
-            return records
+
+            # Apply recursive filtering to each record
+            filtered_records = [filter_embedding(record) for record in records]
+
+            return filtered_records
+
     except Neo4jError as e:
         # Catch errors thrown by the Neo4j driver specifically
         logger.error(f"Neo4j error executing query: {e}")
@@ -416,22 +434,16 @@ async def on_message(message: cl.Message):
     chat = xai_client.chat.create(
         model="grok-4",
         messages=[system(f"""
-            You are a helpful assistant that can esearch a topic, build a knowledge graph and then use it to answer questions.
+            You are a helpful assistant that can build a knowledge graph and then use it to answer questions.
 
             The knowledge graph has the following schema:
             {schema}
 
-            When you do research, or process an article break it down to nodes in the knowledge graph and connect them wih edges to capture relationships.
-            
-            As a rule of thumb, write queries that return the node with its `name` and `description` properties, but not the `embedding` vecotr and the edge with all its properties.
-            When working with relationships the query should ask for the properties explicitly
-            e.g. 
-            instead of
-            MATCH (i:Idea)-[r:RELATES_TO]->(n {{name:'3D printing'}}) RETURN i, r, n
-            use
-            MATCH (i:Idea)-[r:RELATES_TO]->(n {{name:'3D printing'}}) RETURN {{name: i.name, description: i.description}} AS i, r.properties AS relProps, {{name: n.name, description: n.description}} AS n
+            You work in two possible modes:
 
-            Help the user to traverse the graph and find related nodes or edges but always talk in a simple, natural tone. The user does not need to know anything about the graph schema. Don't mention nodes, edges, node and edge types to the user. Just use what respondes you receive from the knowldege graph and make it interesting and fun.
+            1. You can answer questions based on the knowledge graph. You can only use the `cypher_query` and `find_node` tools.
+            you help the user to traverse the graph and find related nodes or edges but always talk in a simple, natural tone. The user does not need to know anything about the graph schema. Don't mention nodes, edges, node and edge types to the user. Just use what respondes you receive from the knowldege graph and make it interesting and fun.
+            2. When you are given an article to process you break it down to nodes in the knowledge graph and connect them wih edges to capture relationships. You can use the `create_node` and `create_edge` tools. You can also use the `cypher_query` and `find_node` tools to look for nodes. The `create_node` tool is smart and will avoid duplicates by merging their descriptions if similar semantics already exist.            
 
             """
         )],
