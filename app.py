@@ -1,9 +1,10 @@
+from asyncio import CancelledError
 import chainlit as cl
 import os
 from xai_sdk import AsyncClient
 from xai_sdk.chat import system, user, tool, tool_result
-from neo4j import AsyncGraphDatabase
-from neo4j.exceptions import Neo4jError
+from neo4j import AsyncGraphDatabase, AsyncSession, AsyncTransaction
+from neo4j.exceptions import CypherSyntaxError, Neo4jError
 from chainlit.logger import logger
 import json
 from openai import AsyncOpenAI
@@ -36,8 +37,7 @@ async def end_chat():
     assert neo4jdriver is not None, "No Neo4j driver found in user session"
     await neo4jdriver.close()
     
-@cl.step(name="Cypher Query", type="tool", show_input=True)
-async def execute_cypher_query(query: str) -> list:
+async def execute_cypher_query(tx: AsyncTransaction, query: str) -> list:
     """
     Executes the provided Cypher query against the Neo4j database and returns the results.
     Robust error handling is implemented to catch exceptions from invalid queries or empty result sets.
@@ -49,43 +49,45 @@ async def execute_cypher_query(query: str) -> list:
         RuntimeError: If there is an error executing the Cypher query.
     """
 
-    def filter_embedding(obj):
-        """
-        Recursively removes the 'embedding' key from any dict in the structure,
-        handling nested dicts and lists (e.g., paths, collected nodes).
-        """
-        if isinstance(obj, dict):
-            return {k: filter_embedding(v) for k, v in obj.items() if k != 'embedding'}
-        elif isinstance(obj, list):
-            return [filter_embedding(item) for item in obj]
-        else:
-            return obj
+    async with cl.Step(name="Executing Cypher Query", type="tool") as step:
+        step.show_input = True
+        step.input = {"query": query}
     
-    neo4jdriver = cl.user_session.get("neo4jdriver")
-    assert neo4jdriver is not None, "No Neo4j driver found in user session"
-    try:
-        async with neo4jdriver.session() as session:
-            result = await session.run(query)
+        def filter_embedding(obj):
+            """
+            Recursively removes the 'embedding' key from any dict in the structure,
+            handling nested dicts and lists (e.g., paths, collected nodes).
+            """
+            if isinstance(obj, dict):
+                return {k: filter_embedding(v) for k, v in obj.items() if k != 'embedding'}
+            elif isinstance(obj, list):
+                return [filter_embedding(item) for item in obj]
+            else:
+                return obj
+        
+        try:
+            result = await tx.run(query)
             # Convert the results to a list of dictionaries
             records = await result.data()
             if not records:
                 logger.warning("Query executed successfully but returned no results.")
                 # You can decide here whether to return an empty list or raise an error
                 return []
-
+    
             # Apply recursive filtering to each record
             filtered_records = [filter_embedding(record) for record in records]
-
+            step.output = filtered_records
+    
             return filtered_records
-
-    except Neo4jError as e:
-        # Catch errors thrown by the Neo4j driver specifically
-        logger.error(f"Neo4j error executing query: {e}")
-        raise RuntimeError(f"Error executing query: {e}")
-    except Exception as e:
-        # Catch any other unexpected errors
-        logger.error(f"Unexpected error executing query: {e}")
-        raise RuntimeError(f"Unexpected error executing query: {e}")
+    
+        except Neo4jError as e:
+            # Catch errors thrown by the Neo4j driver specifically
+            logger.error(f"Neo4j error executing query: {e}")
+            raise RuntimeError(f"Error executing query: {e}")
+        except Exception as e:
+            # Catch any other unexpected errors
+            logger.error(f"Unexpected error executing query: {e}")
+            raise RuntimeError(f"Unexpected error executing query: {e}")
     
 cypher_query_tool = tool(
     name="cypher_query",
@@ -102,16 +104,19 @@ cypher_query_tool = tool(
     }
 )
 
-@cl.step(name="Create Node", type="tool", show_input=True)
-async def create_node(node_type: str, name: str, description: str) -> str:
-    if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
-        return await smart_upsert(node_type, name, description)
-    elif node_type == "EmTech":
-        return "Do not create new EmTech type nodes. EmTechs are reference data, use existing ones."
-    else:
-        return await merge_node(node_type, name, description)    
+async def create_node(tx: AsyncTransaction, node_type: str, name: str, description: str) -> str:
+    async with cl.Step(name="Creating Node", type="tool") as step:
+        step.show_input = True
+        step.input = {"node_type": node_type, "name": name, "description": description}
+        
+        if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
+            return await smart_upsert(tx, node_type, name, description)
+        elif node_type == "EmTech":
+            return "Do not create new EmTech type nodes. EmTechs are reference data, use existing ones."
+        else:
+            return await merge_node(tx, node_type, name, description)
 
-async def merge_node(node_type: str, name: str, description: str) -> str:
+async def merge_node(tx: AsyncTransaction, node_type: str, name: str, description: str) -> str:
     """
     Performs a simple MERGE operation to create or match a node in Neo4j with the given type, name, and description.
     If a node with the same name and type exists, it updates the description; otherwise, it creates a new node.
@@ -128,27 +133,23 @@ async def merge_node(node_type: str, name: str, description: str) -> str:
     Raises:
         RuntimeError: If the Neo4j driver is not found or the query fails.
     """
-    neo4jdriver = cl.user_session.get("neo4jdriver")
-    if neo4jdriver is None:
-        raise RuntimeError("No Neo4j driver found in user session")
 
-    async with neo4jdriver.session() as session:
-        try:
-            query = f"""
-            MERGE (n:`{node_type}` {{name: $name}})
-            SET n.description = $description
-            RETURN elementId(n) AS node_id
-            """
-            result = await session.run(query, name=name, description=description)
-            record = await result.single()
-            if record is None:
-                raise RuntimeError("Failed to merge node")
-            return record["node_id"]
-        except Exception as e:
-            logger.error(f"Error in merge_node: {str(e)}")
-            raise RuntimeError(f"Failed to merge node: {str(e)}")
+    try:
+        query = f"""
+        MERGE (n:`{node_type}` {{name: $name}})
+        SET n.description = $description
+        RETURN elementId(n) AS node_id
+        """
+        result = await tx.run(query, name=name, description=description)
+        record = await result.single()
+        if record is None:
+            raise RuntimeError("Failed to merge node")
+        return record["node_id"]
+    except Exception as e:
+        logger.error(f"Error in merge_node: {str(e)}")
+        raise RuntimeError(f"Failed to merge node: {str(e)}")
 
-async def smart_upsert(node_type: str, name: str, description: str) -> str:
+async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, description: str) -> str:
     """
     Performs a smart UPSERT for a node in Neo4j.
     - Queries for similar nodes based on description embedding similarity >= 0.8 (top 100 candidates, filtered).
@@ -157,9 +158,6 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
     - If not, creates a new node.
     - Returns the node's elementId.
     """
-    neo4jdriver = cl.user_session.get("neo4jdriver")
-    if neo4jdriver is None:
-        raise ValueError("No Neo4j driver found in user session")
     xai_client = cl.user_session.get("xai_client")
     if xai_client is None:
         raise ValueError("No xAI client found in user session")
@@ -169,109 +167,108 @@ async def smart_upsert(node_type: str, name: str, description: str) -> str:
 
     index_name = f"{node_type.lower()}_description_embeddings"
 
-    async with neo4jdriver.session() as session:
-        try:
-            # Generate embedding for the new description
-            emb_response = await openai_client.embeddings.create(
-                model=embedding_model,
-                input=description
+    try:
+        # Generate embedding for the new description
+        emb_response = await openai_client.embeddings.create(
+            model=embedding_model,
+            input=description
+        )
+        new_embedding = emb_response.data[0].embedding
+
+        # Query for similar nodes
+        similar_query = """
+        CALL db.index.vector.queryNodes($index_name, 100, $vector)
+        YIELD node, score
+        WHERE score >= 0.8
+        RETURN elementId(node) AS node_id, node.description AS description, score
+        ORDER BY score DESC
+        LIMIT 10
+        """
+        similar_result = await tx.run(similar_query, index_name=index_name, vector=new_embedding)
+        similar_nodes: List[Dict[str, Union[str, float]]] = await similar_result.data()
+
+        found_same_id = None
+        old_description = None
+        for sim in similar_nodes:
+            old_desc = sim['description']
+            logger.info(f"Checking similarity with node {sim['node_id']} (score: {sim['score']:.2f})")
+            # Check semantic equivalence with LLM
+            equivalence_prompt = (
+                "Are these two descriptions describing essentially the same idea semantically? "
+                "Respond with 'yes' or 'no' only.\n\n"
+                f"Description 1: {old_desc}\n\n"
+                f"Description 2: {description}"
             )
-            new_embedding = emb_response.data[0].embedding
+            chat = xai_client.chat.create(
+                model=llm_model,
+                temperature=0.0
+            )
+            chat.append(system(equivalence_prompt))                
+            llm_response = await chat.sample()
+            answer = llm_response.content.strip().lower()
+            if answer == 'yes':
+                found_same_id = sim['node_id']
+                old_description = old_desc
+                break
+            elif answer != 'no':
+                logger.warning(f"Unexpected LLM response: {answer}")
 
-            # Query for similar nodes
-            similar_query = """
-            CALL db.index.vector.queryNodes($index_name, 100, $vector)
-            YIELD node, score
-            WHERE score >= 0.8
-            RETURN elementId(node) AS node_id, node.description AS description, score
-            ORDER BY score DESC
-            LIMIT 10
+        if found_same_id:
+            logger.info(f"Found semantically equivalent node with id: {found_same_id}")
+
+            # Combine descriptions
+            combine_prompt = (
+                "Merge these two descriptions into a single, improved, coherent description. "
+                "Retain key details from both, eliminate redundancies, and enhance clarity. "
+                "If Description 2 does not add new information, return Description 1.\n\n"
+                f"Description 1: {old_description}\n\n"
+                f"Description 2: {description}"
+            )
+            chat = xai_client.chat.create(
+                model=llm_model,
+            )
+            chat.append(system(combine_prompt))
+            combine_response = await chat.sample()
+            updated_description = combine_response.content.strip()
+
+            logger.info(f"Old description: {old_description}")
+            logger.info(f"New description: {description}")
+            logger.info(f"Combined description: {updated_description}")
+
+            # Generate new embedding for the updated description
+            updated_emb_response = await openai_client.embeddings.create(
+                model=embedding_model,
+                input=updated_description
+            )
+            updated_embedding = updated_emb_response.data[0].embedding
+
+            # Update the existing node
+            update_query = """
+            MATCH (n)
+            WHERE elementId(n) = $node_id
+            SET n.description = $description, n.embedding = $embedding
+            RETURN elementId(n) AS id
             """
-            similar_result = await session.run(similar_query, index_name=index_name, vector=new_embedding)
-            similar_nodes: List[Dict[str, Union[str, float]]] = await similar_result.data()
-
-            found_same_id = None
-            old_description = None
-            for sim in similar_nodes:
-                old_desc = sim['description']
-                logger.info(f"Checking similarity with node {sim['node_id']} (score: {sim['score']:.2f})")
-                # Check semantic equivalence with LLM
-                equivalence_prompt = (
-                    "Are these two descriptions describing essentially the same idea semantically? "
-                    "Respond with 'yes' or 'no' only.\n\n"
-                    f"Description 1: {old_desc}\n\n"
-                    f"Description 2: {description}"
-                )
-                chat = xai_client.chat.create(
-                    model=llm_model,
-                    temperature=0.0
-                )
-                chat.append(system(equivalence_prompt))                
-                llm_response = await chat.sample()
-                answer = llm_response.content.strip().lower()
-                if answer == 'yes':
-                    found_same_id = sim['node_id']
-                    old_description = old_desc
-                    break
-                elif answer != 'no':
-                    logger.warning(f"Unexpected LLM response: {answer}")
-
-            if found_same_id:
-                logger.info(f"Found semantically equivalent node with id: {found_same_id}")
-
-                # Combine descriptions
-                combine_prompt = (
-                    "Merge these two descriptions into a single, improved, coherent description. "
-                    "Retain key details from both, eliminate redundancies, and enhance clarity. "
-                    "If Description 2 does not add new information, return Description 1.\n\n"
-                    f"Description 1: {old_description}\n\n"
-                    f"Description 2: {description}"
-                )
-                chat = xai_client.chat.create(
-                    model=llm_model,
-                )
-                chat.append(system(combine_prompt))
-                combine_response = await chat.sample()
-                updated_description = combine_response.content.strip()
-
-                logger.info(f"Old description: {old_description}")
-                logger.info(f"New description: {description}")
-                logger.info(f"Combined description: {updated_description}")
-
-                # Generate new embedding for the updated description
-                updated_emb_response = await openai_client.embeddings.create(
-                    model=embedding_model,
-                    input=updated_description
-                )
-                updated_embedding = updated_emb_response.data[0].embedding
-
-                # Update the existing node
-                update_query = """
-                MATCH (n)
-                WHERE elementId(n) = $node_id
-                SET n.description = $description, n.embedding = $embedding
-                RETURN elementId(n) AS id
-                """
-                update_result = await session.run(update_query, node_id=found_same_id, description=updated_description, embedding=updated_embedding)
-                update_record = await update_result.single()
-                if update_record is None:
-                    raise RuntimeError(f"Failed to update node with elementId: {found_same_id}")
-                return update_record['id']
-            else:
-                logger.info("No semantically equivalent node found, creating a new node.")
-                # Create a new node
-                create_query = f"""
-                CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
-                RETURN elementId(n) AS id
-                """
-                create_result = await session.run(create_query, name=name, description=description, embedding=new_embedding)
-                create_record = await create_result.single()
-                if create_record is None:
-                    raise RuntimeError("Failed to create new node")
-                return create_record['id']
-        except Exception as e:
-            logger.error(f"Error in smart_upsert: {str(e)}")
-            raise
+            update_result = await tx.run(update_query, node_id=found_same_id, description=updated_description, embedding=updated_embedding)
+            update_record = await update_result.single()
+            if update_record is None:
+                raise RuntimeError(f"Failed to update node with elementId: {found_same_id}")
+            return update_record['id']
+        else:
+            logger.info("No semantically equivalent node found, creating a new node.")
+            # Create a new node
+            create_query = f"""
+            CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
+            RETURN elementId(n) AS id
+            """
+            create_result = await tx.run(create_query, name=name, description=description, embedding=new_embedding)
+            create_record = await create_result.single()
+            if create_record is None:
+                raise RuntimeError("Failed to create new node")
+            return create_record['id']
+    except Exception as e:
+        logger.error(f"Error in smart_upsert: {str(e)}")
+        raise
 
 create_node_tool = tool(
     name="create_node",
@@ -303,19 +300,19 @@ create_node_tool = tool(
     }
 )
 
-@cl.step(name="Create Edge", type="tool", show_input=True)
-async def create_edge(source_id: str, target_id: str, relationship_type: str, properties: Optional[Dict[str, Any]] = None) -> Any:
+async def create_edge(tx: AsyncTransaction, source_id: str, target_id: str, relationship_type: str, properties: Optional[Dict[str, Any]] = None) -> Any:
     """
     Creates a directed edge (relationship) between two existing nodes in Neo4j.
     Takes source node elementId, target node elementId, relationship type, and optional properties for the edge.
     Assumes nodes exist and elementIds are valid.
     Returns the created relationship.
     """
-    neo4jdriver = cl.user_session.get("neo4jdriver")
-    assert neo4jdriver is not None, "No Neo4j driver found in user session"
-    if properties is None:
-        properties = {}
-    async with neo4jdriver.session() as session:
+    async with cl.Step(name="Creating Edge", type="tool") as step:
+        step.show_input = True
+        step.input = {"source_id": source_id, "target_id": target_id, "relationship_type": relationship_type, "properties": properties}
+        
+        if properties is None:
+            properties = {}
         prop_keys = ", ".join(f"{key}: ${key}" for key in properties)
         prop_str = f"{{{prop_keys}}}" if prop_keys else ""
         query = (
@@ -326,12 +323,11 @@ async def create_edge(source_id: str, target_id: str, relationship_type: str, pr
         )
         params = {"source_id": source_id, "target_id": target_id}
         params.update(properties)
-        result = await session.run(query, **params)
+        result = await tx.run(query, **params)
         record =  await result.single()
         if record:
             return record.data()
         return None
-        
     
 create_edge_tool = tool(
     name="create_edge",
@@ -367,38 +363,44 @@ create_edge_tool = tool(
     }
 )
 
-@cl.step(name="Find Node", type="tool", show_input=True)
-async def find_node(query_text: str, node_type: str, top_k: int = 5) -> list:
-    openai_client = cl.user_session.get("openai_client")
-    assert openai_client is not None, "No OpenAI client found in user session"
-    neo4jdriver = cl.user_session.get("neo4jdriver")
-    assert neo4jdriver is not None, "No Neo4j driver found in user session"
+async def find_node(tx: AsyncTransaction, query_text: str, node_type: str, top_k: int = 5) -> list:
+    """
+    Finds nodes in knowledge graph that are similar to a given query text.
+    Uses vector similarity search based on node descriptions.
+    Returns a list of nodes with their names, descriptions, and similarity scores.
+    """
+    async with cl.Step(name="Finding Node", type="tool") as step:
+        step.show_input = True
+        step.input = {"query_text": query_text, "node_type": node_type, "top_k": top_k}
     
-    # calculate embedding for the query text
-    emb_response = await openai_client.embeddings.create(
-        model=embedding_model,
-        input=query_text
-    )
-    query_embedding = emb_response.data[0].embedding
-
-    async def vector_search(tx):
-        cypher_query = """
-        CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
-        YIELD node, score
-        RETURN {name: node.name, description: node.description} AS node, score
-        ORDER BY score DESC
-        """
-        result = await tx.run(cypher_query, index_name=f"{node_type.lower()}_description_embeddings", top_k=top_k, embedding=query_embedding)
-        records = []
-        async for record in result:
-            records.append(record.data())
-        return records
-
-    # execute the query
-    async with neo4jdriver.session() as session:
-        results = await session.execute_read(vector_search)
-    return results
-
+        openai_client = cl.user_session.get("openai_client")
+        assert openai_client is not None, "No OpenAI client found in user session"
+        
+        # calculate embedding for the query text
+        emb_response = await openai_client.embeddings.create(
+            model=embedding_model,
+            input=query_text
+        )
+        query_embedding = emb_response.data[0].embedding
+    
+        async def vector_search(tx):
+            cypher_query = """
+            CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
+            YIELD node, score
+            RETURN {name: node.name, description: node.description} AS node, score
+            ORDER BY score DESC
+            """
+            result = await tx.run(cypher_query, index_name=f"{node_type.lower()}_description_embeddings", top_k=top_k, embedding=query_embedding)
+            records = []
+            async for record in result:
+                records.append(record.data())
+            return records
+    
+        # execute the query
+        results = await vector_search(tx)
+        step.output = results
+        return results
+    
 find_node_tool = tool(
     name="find_node",
     description="""
@@ -457,34 +459,61 @@ async def on_message(message: cl.Message):
 
     while not response.content:
         if response.tool_calls:
-            for tool_call in response.tool_calls:
+            neo4jdriver = cl.user_session.get("neo4jdriver")
+            assert neo4jdriver is not None, "No Neo4j driver found in user session"
+            async with neo4jdriver.session() as session:
+                tx = await session.begin_transaction()
                 tool_name = "unknown"
                 try:
-                    tool_name = tool_call.function.name
-                    tool_args = json.loads(tool_call.function.arguments)
-                    
-                    if tool_name == "cypher_query":
-                        results = await execute_cypher_query(tool_args["query"])
-                        chat.append(tool_result(json.dumps(results)))
-                    elif tool_name == "create_node":
-                        result = await create_node(tool_args["node_type"], tool_args["name"], tool_args["description"])
-                        chat.append(tool_result(json.dumps({"elementId": result})))
-                    elif tool_name == "create_edge":
-                        result = await create_edge(
-                            tool_args["source_id"], 
-                            tool_args["target_id"], 
-                            tool_args["relationship_type"], 
-                            tool_args.get("properties", {})
-                        )                        
-                        chat.append(tool_result(json.dumps(result)))
-                    elif tool_name == "find_node":
-                        results = await find_node(tool_args["query_text"], tool_args["node_type"], tool_args.get("top_k", 5))
-                        chat.append(tool_result(json.dumps(results)))
-    
+                    for tool_call in response.tool_calls:
+                        tool_name = tool_call.function.name
+                        tool_args = json.loads(tool_call.function.arguments)
+                        try:
+                        
+                            if tool_name == "cypher_query":
+                                results = await execute_cypher_query(
+                                    tx, 
+                                    tool_args["query"]
+                                )
+                                chat.append(tool_result(json.dumps(results)))
+                            elif tool_name == "create_node":
+                                result = await create_node(
+                                    tx, 
+                                    tool_args["node_type"], 
+                                    tool_args["name"], 
+                                    tool_args["description"]
+                                )
+                                chat.append(tool_result(json.dumps({"elementId": result})))
+                            elif tool_name == "create_edge":
+                                result = await create_edge(
+                                    tx,
+                                    tool_args["source_id"], 
+                                    tool_args["target_id"], 
+                                    tool_args["relationship_type"], 
+                                    tool_args.get("properties", {})
+                                )
+                                chat.append(tool_result(json.dumps(result)))
+                            elif tool_name == "find_node":
+                                results = await find_node(
+                                    tx, 
+                                    tool_args["query_text"], 
+                                    tool_args["node_type"], 
+                                    tool_args.get("top_k", 5)
+                                )
+                                chat.append(tool_result(json.dumps(results)))
+                
+                        except CypherSyntaxError as cypher_syntax_error:
+                            logger.error(f"Error executing tool {tool_name}. Cypher syntax error: {str(cypher_syntax_error)}")
+                            chat.append(tool_result(json.dumps({"Cypher syntax error": str(cypher_syntax_error)})))
+
+                    await tx.commit()
                 except Exception as e:
                     logger.error(f"Error executing tool {tool_name}: {str(e)}")
                     chat.append(tool_result(json.dumps({"error": str(e)})))
-    
+                    await tx.cancel()
+                finally:
+                    await tx.close()
+                    
             response = await chat.sample()            
             chat.append(response)
             
