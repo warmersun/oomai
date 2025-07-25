@@ -37,7 +37,7 @@ A company, research lab, or other group.
 
 ## vector indices
 
-Convergence, Capability. Milestone, Trend, Idea has `embedding` property with embedding vector for semantic index.
+Convergence, Capability. Milestone, Trend, Idea, LTC, LAC has `embedding` property with embedding vector for semantic index.
 
 ## edge types:
 

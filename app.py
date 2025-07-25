@@ -7,7 +7,7 @@ from neo4j.exceptions import Neo4jError
 from chainlit.logger import logger
 import json
 from openai import AsyncOpenAI
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
     
     
 with open("knowledge_graph/schema.md", "r") as f:
@@ -104,7 +104,7 @@ cypher_query_tool = tool(
 
 @cl.step(name="Create Node", type="tool", show_input=True)
 async def create_node(node_type: str, name: str, description: str) -> str:
-    if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea"]:
+    if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
         return await smart_upsert(node_type, name, description)
     else:
         return await merge_node(node_type, name, description)    
@@ -327,7 +327,7 @@ async def create_edge(source_id: str, target_id: str, relationship_type: str, pr
         result = await session.run(query, **params)
         record =  await result.single()
         if record:
-            return record.data()['r'] # Returns a dict like {'elementId': '...', 'type': 'MAKES', 'properties': {...}, ...}
+            return record.data()
         return None
         
     
@@ -366,7 +366,7 @@ create_edge_tool = tool(
 )
 
 @cl.step(name="Find Node", type="tool", show_input=True)
-async def find_node(query_text: str, node_type: str, top_k: int = 5):
+async def find_node(query_text: str, node_type: str, top_k: int = 5) -> list:
     openai_client = cl.user_session.get("openai_client")
     assert openai_client is not None, "No OpenAI client found in user session"
     neo4jdriver = cl.user_session.get("neo4jdriver")
@@ -465,17 +465,16 @@ async def on_message(message: cl.Message):
                         results = await execute_cypher_query(tool_args["query"])
                         chat.append(tool_result(json.dumps(results)))
                     elif tool_name == "create_node":
-                        results = await create_node(tool_args["node_type"], tool_args["name"], tool_args["description"])
-                        chat.append(tool_result(json.dumps({"elementId": results})))
+                        result = await create_node(tool_args["node_type"], tool_args["name"], tool_args["description"])
+                        chat.append(tool_result(json.dumps({"elementId": result})))
                     elif tool_name == "create_edge":
-                        results = await create_edge(
+                        result = await create_edge(
                             tool_args["source_id"], 
                             tool_args["target_id"], 
                             tool_args["relationship_type"], 
                             tool_args.get("properties", {})
-                        )
-                        rel_data = results["r"].data() if results else None
-                        chat.append(tool_result(json.dumps({"relationship": rel_data})))
+                        )                        
+                        chat.append(tool_result(json.dumps(result)))
                     elif tool_name == "find_node":
                         results = await find_node(tool_args["query_text"], tool_args["node_type"], tool_args.get("top_k", 5))
                         chat.append(tool_result(json.dumps(results)))

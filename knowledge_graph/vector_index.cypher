@@ -49,3 +49,23 @@ OPTIONS {
   }
 }
 ;
+CREATE VECTOR INDEX ltc_description_embeddings IF NOT EXISTS
+FOR (n:LTC)
+ON n.embedding
+OPTIONS {
+  indexConfig: {
+    `vector.dimensions`: 3072,
+    `vector.similarity_function`: 'cosine'
+  }
+}
+;
+CREATE VECTOR INDEX lac_description_embeddings IF NOT EXISTS
+FOR (n:LAC)
+ON n.embedding
+OPTIONS {
+  indexConfig: {
+    `vector.dimensions`: 3072,
+    `vector.similarity_function`: 'cosine'
+  }
+}
+;
