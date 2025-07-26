@@ -432,7 +432,8 @@ find_node_tool = tool(
 
 @cl.on_message
 async def on_message(message: cl.Message):
-    # Your custom logic goes here...
+    # reasoning = cl.Message(content="")
+    msg = cl.Message(content="")
     xai_client = cl.user_session.get("xai_client")
     assert xai_client is not None, "No xAI client found in user session"
     chat = xai_client.chat.create(
@@ -454,7 +455,17 @@ async def on_message(message: cl.Message):
         tools=[cypher_query_tool, create_node_tool, create_edge_tool, find_node_tool],
     )
     chat.append(user(message.content))
-    response = await chat.sample()
+    stream = chat.stream()
+    response = None
+    async for streamed_response, chunk in stream:
+        # if chunk.reasoning_content:
+        #     logger.info(f"Reasoning: {chunk.reasoning_content}")
+        #     await reasoning.stream_token(chunk.reasoning_content)
+        if chunk.content:
+            await msg.stream_token(chunk.content)            
+        response = streamed_response
+
+    assert response is not None, "No response from xAI client"
     chat.append(response)
 
     while not response.content:
@@ -514,10 +525,21 @@ async def on_message(message: cl.Message):
                 finally:
                     await tx.close()
                     
-            response = await chat.sample()            
+            stream = chat.stream()
+            response = None
+            async for streamed_response, chunk in stream:
+                # if chunk.reasoning_content:
+                #     await reasoning.stream_token(chunk.reasoning_content)
+                #     logger.info(f"Reasoning: {chunk.reasoning_content}")
+                if chunk.content:
+                    await msg.stream_token(chunk.content)            
+                response = streamed_response
+
+            assert response is not None, "No response from xAI client"
             chat.append(response)
-            
-    await cl.Message(content=response.content).send()
+
+    # await reasoning.update()
+    await msg.update()
     logger.info(f"Final response: {response.content}")
     logger.info(f"Finish reason: {response.finish_reason}")
     logger.info(f"Reasoning tokens: {response.usage.reasoning_tokens}")
