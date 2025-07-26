@@ -32,8 +32,8 @@ A trend examines how some capability is progressing and makes predictions about 
 ### Idea
 Describes an idea.
 
-### Organization
-A company, research lab, or other group.
+### Party
+An organization like a company, research lab, or other group; or a person.
 
 ## vector indices
 

@@ -2,13 +2,16 @@ from asyncio import CancelledError
 import chainlit as cl
 import os
 from xai_sdk import AsyncClient
-from xai_sdk.chat import system, user, tool, tool_result
+from xai_sdk.chat import SearchParameters, system, user, tool, tool_result
 from neo4j import AsyncGraphDatabase, AsyncSession, AsyncTransaction
 from neo4j.exceptions import CypherSyntaxError, Neo4jError
 from chainlit.logger import logger
 import json
 from openai import AsyncOpenAI
 from typing import List, Dict, Any, Optional, Union
+from datetime import datetime
+
+from xai_sdk.search import rss_source, x_source
     
     
 with open("knowledge_graph/schema.md", "r") as f:
@@ -123,7 +126,7 @@ async def merge_node(tx: AsyncTransaction, node_type: str, name: str, descriptio
     Returns the Neo4j elementId of the matched or created node as a string.
 
     Args:
-        node_type (str): The type/label of the node (e.g., 'EmTech', 'Capability', 'Organization').
+        node_type (str): The type/label of the node (e.g., 'EmTech', 'Capability', 'Party').
         name (str): A short, unique name for the node (e.g., 'AI', 'OpenAI').
         description (str): A detailed description of the node.
 
@@ -277,7 +280,7 @@ create_node_tool = tool(
     If a similar node exists, it updates the node with a merged description. If not, it creates a new node. 
     Returns the node's elementId (a unique string identifier).
 
-    Use this tool to add or update nodes like technologies, capabilities, or organizations in the graph. 
+    Use this tool to add or update nodes like technologies, capabilities, or parties in the graph. 
     Provide the node type, a short name, and a detailed description.
     """,
     parameters={
@@ -285,7 +288,7 @@ create_node_tool = tool(
         "properties": {
             "node_type": {
                 "type": "string",
-                "description": "The type of node (e.g., 'EmTech', 'Capability', 'Organization').",
+                "description": "The type of node (e.g., 'EmTech', 'Capability', 'Party').",
             },
             "name": {
                 "type": "string",
@@ -447,12 +450,34 @@ async def on_message(message: cl.Message):
             You work in two possible modes:
 
             1. You can answer questions based on the knowledge graph. You can only use the `cypher_query` and `find_node` tools.
-            you help the user to traverse the graph and find related nodes or edges but always talk in a simple, natural tone. The user does not need to know anything about the graph schema. Don't mention nodes, edges, node and edge types to the user. Just use what respondes you receive from the knowldege graph and make it interesting and fun.
+            You help the user to traverse the graph and find related nodes or edges but always talk in a simple, natural tone. The user does not need to know anything about the graph schema. Don't mention nodes, edges, node and edge types to the user. Just use what respondes you receive from the knowldege graph and make it interesting and fun.
+            Ocasionally you may discover that a connection is missing. In that case, you can use the `create_edge` tool to add it.
+            
             2. When you are given an article to process you break it down to nodes in the knowledge graph and connect them wih edges to capture relationships. You can use the `create_node` and `create_edge` tools. You can also use the `cypher_query` and `find_node` tools to look for nodes. The `create_node` tool is smart and will avoid duplicates by merging their descriptions if similar semantics already exist.            
 
+            ---
+            
+            Note: there is no elementId property. Use the elementId function to get the elementId of a node or edge. e.g.
+            MATCH (n:EmTech {{name: 'computing'}}) RETURN elementId(n) AS elementId
             """
         )],
         tools=[cypher_query_tool, create_node_tool, create_edge_tool, find_node_tool],
+        # live search setup
+        #
+        # RSS feed
+        # search_parameters=SearchParameters(
+        #     mode="on", 
+        #     from_date=datetime(2025, 7, 24), 
+        #     max_search_results=2,
+        #     sources=[rss_source(["https://news.smol.ai/rss.xml"])]
+        # )
+        # X search
+        # search_parameters=SearchParameters(
+        #     mode="on",
+        #     from_date=datetime(2025, 7, 24),
+        #     max_search_results=30,
+        #     sources=[x_source(included_x_handles=["EMostaque", "elonmusk", "DavidSacks", "EpochAIResearch", "BasedBeffJezos", "warmersun"])]
+        # )
     )
     chat.append(user(message.content))
     stream = chat.stream()

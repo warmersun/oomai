@@ -1,3 +1,3 @@
 CREATE CONSTRAINT unique_ptc_name IF NOT EXISTS FOR (n:PTC) REQUIRE n.name IS UNIQUE;
 CREATE CONSTRAINT unique_pac_name IF NOT EXISTS FOR (n:PAC) REQUIRE n.name IS UNIQUE;
-CREATE CONSTRAINT unique_organization_name IF NOT EXISTS FOR (n:Organization) REQUIRE n.name IS UNIQUE;
+CREATE CONSTRAINT unique_party_name IF NOT EXISTS FOR (n:Party) REQUIRE n.name IS UNIQUE;
