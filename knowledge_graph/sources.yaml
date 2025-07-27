@@ -1,0 +1,28 @@
+# Configuration for scheduled job sources
+sources:
+  - name: ai_news
+    prompt: "Summarize the latest AI news from this RSS feed, process it and capture it in the knowledge graph."
+    source_type: RSS
+    url: "https://news.smol.ai/rss.xml"
+
+  - name: thought_leaders
+    prompt: "Capture ideas from thought leaders in the knowledge graph."
+    source_type: X
+    handles:
+      - EMostaque
+      - elonmusk
+      - EpochAIResearch
+      - DavidSacks
+      - BasedBeffJezos
+
+  - name: openai_announcements
+    prompt: "List product launches, research, ideas, new capabilities and milestones by OpenAI Capture these in the knowledge graph."
+    source_type: X
+    handles:
+      - OpenAI
+      - OpenAINewsroom
+      - OpenAIDevs
+      - ChatGPTapp
+      - sama
+      - gdb
+      

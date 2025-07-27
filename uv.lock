@@ -1868,6 +1868,7 @@ dependencies = [
     { name = "chainlit" },
     { name = "neo4j" },
     { name = "openai" },
+    { name = "pydantic" },
     { name = "xai-sdk" },
 ]
 
@@ -1876,6 +1877,7 @@ requires-dist = [
     { name = "chainlit", specifier = ">=2.6.2" },
     { name = "neo4j", specifier = ">=5.28.1" },
     { name = "openai", specifier = ">=1.97.0" },
+    { name = "pydantic", specifier = ">=2.11.7" },
     { name = "xai-sdk", specifier = ">=1.0.0" },
 ]
 
