@@ -34,6 +34,13 @@ async def start_chat():
     cl.user_session.set("xai_client", xai_client)
     openai_client = AsyncOpenAI(api_key=os.environ['OPENAI_API_KEY'])
     cl.user_session.set("openai_client",openai_client)
+    await cl.context.emitter.set_commands([
+        {
+            "id": "Search",
+            "icon": "search",
+            "description": "Search on the web and on X",
+        }
+    ])
 
 @cl.on_chat_end
 async def end_chat():
@@ -446,7 +453,7 @@ async def on_message(message: cl.Message):
     msg = cl.Message(content="")
     xai_client = cl.user_session.get("xai_client")
     assert xai_client is not None, "No xAI client found in user session"
-    chat = xai_client.chat.create(
+    chat_kwargs = dict(
         model="grok-4",
         messages=[system(f"""
             You are a helpful assistant that can build a knowledge graph and then use it to answer questions.
@@ -486,6 +493,10 @@ async def on_message(message: cl.Message):
         #     sources=[x_source(included_x_handles=["EMostaque", "elonmusk", "DavidSacks", "EpochAIResearch", "BasedBeffJezos", "warmersun"])]
         # )
     )
+    if message.command == "Search":
+        chat_kwargs["search_parameters"] = SearchParameters(mode="on")
+
+    chat = xai_client.chat.create(**chat_kwargs)
     chat.append(user(message.content))
     stream = chat.stream()
     response = None
