@@ -9,6 +9,7 @@ from chainlit.logger import logger
 import json
 from openai import AsyncOpenAI
 from typing import List, Dict, Any, Optional, Union
+from pydantic import BaseModel
 from datetime import datetime
 
 from xai_sdk.search import rss_source, x_source
@@ -156,9 +157,11 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
     """
     Performs a smart UPSERT for a node in Neo4j.
     - Queries for similar nodes based on description embedding similarity >= 0.8 (top 100 candidates, filtered).
-    - Uses Grok4 LLM to check if any is semantically the same.
-    - If same, combines descriptions using LLM and updates the node.
-    - If not, creates a new node.
+    - Uses the Grok4 LLM with structured outputs to determine if any candidate
+      is semantically the same based on name and description.
+    - If the same, the LLM also returns an improved name and a merged
+      description which are then used to update the node.
+    - If no match is found, creates a new node.
     - Returns the node's elementId.
     """
     xai_client = cl.user_session.get("xai_client")
@@ -169,6 +172,11 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
         raise ValueError("No OpenAI client found in user session")
 
     index_name = f"{node_type.lower()}_description_embeddings"
+
+    class CompareResult(BaseModel):
+        different: bool
+        name: Optional[str] = None
+        description: Optional[str] = None
 
     try:
         # Generate embedding for the new description
@@ -183,7 +191,7 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
         CALL db.index.vector.queryNodes($index_name, 100, $vector)
         YIELD node, score
         WHERE score >= 0.8
-        RETURN elementId(node) AS node_id, node.description AS description, score
+        RETURN elementId(node) AS node_id, node.name AS name, node.description AS description, score
         ORDER BY score DESC
         LIMIT 10
         """
@@ -191,52 +199,45 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
         similar_nodes: List[Dict[str, Union[str, float]]] = await similar_result.data()
 
         found_same_id = None
-        old_description = None
+        updated_name = name
+        updated_description = description
         for sim in similar_nodes:
+            old_name = sim['name']
             old_desc = sim['description']
             logger.info(f"Checking similarity with node {sim['node_id']} (score: {sim['score']:.2f})")
-            # Check semantic equivalence with LLM
-            equivalence_prompt = (
-                "Are these two descriptions describing essentially the same idea semantically? "
-                "Respond with 'yes' or 'no' only.\n\n"
-                f"Description 1: {old_desc}\n\n"
-                f"Description 2: {description}"
+
+            compare_prompt = (
+                "Determine whether the following two nodes represent the same concept. "
+                "If they are the same, provide a short improved name and a merged description. "
+                "Respond in JSON matching this schema: {different: bool, name?: string, description?: string}."
             )
+
             chat = xai_client.chat.create(
                 model=llm_model,
-                temperature=0.0
+                temperature=0.0,
             )
-            chat.append(system(equivalence_prompt))                
-            llm_response = await chat.sample()
-            answer = llm_response.content.strip().lower()
-            if answer == 'yes':
+            chat.append(system(compare_prompt))
+            chat.append(user(
+                f"Node A name: {old_name}\nNode A description: {old_desc}\n\n"
+                f"Node B name: {name}\nNode B description: {description}"
+            ))
+
+            try:
+                _, result = await chat.parse(CompareResult)
+            except Exception as e:
+                logger.warning(f"Failed to parse LLM response: {e}")
+                continue
+
+            if not result.different:
                 found_same_id = sim['node_id']
-                old_description = old_desc
+                updated_name = result.name or old_name
+                updated_description = result.description or description
                 break
-            elif answer != 'no':
-                logger.warning(f"Unexpected LLM response: {answer}")
 
         if found_same_id:
             logger.info(f"Found semantically equivalent node with id: {found_same_id}")
-
-            # Combine descriptions
-            combine_prompt = (
-                "Merge these two descriptions into a single, improved, coherent description. "
-                "Retain key details from both, eliminate redundancies, and enhance clarity. "
-                "If Description 2 does not add new information, return Description 1.\n\n"
-                f"Description 1: {old_description}\n\n"
-                f"Description 2: {description}"
-            )
-            chat = xai_client.chat.create(
-                model=llm_model,
-            )
-            chat.append(system(combine_prompt))
-            combine_response = await chat.sample()
-            updated_description = combine_response.content.strip()
-
-            logger.info(f"Old description: {old_description}")
-            logger.info(f"New description: {description}")
-            logger.info(f"Combined description: {updated_description}")
+            logger.info(f"Updated name: {updated_name}")
+            logger.info(f"Updated description: {updated_description}")
 
             # Generate new embedding for the updated description
             updated_emb_response = await openai_client.embeddings.create(
@@ -245,14 +246,20 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
             )
             updated_embedding = updated_emb_response.data[0].embedding
 
-            # Update the existing node
+            # Update the existing node with new name, description and embedding
             update_query = """
             MATCH (n)
             WHERE elementId(n) = $node_id
-            SET n.description = $description, n.embedding = $embedding
+            SET n.name = $name, n.description = $description, n.embedding = $embedding
             RETURN elementId(n) AS id
             """
-            update_result = await tx.run(update_query, node_id=found_same_id, description=updated_description, embedding=updated_embedding)
+            update_result = await tx.run(
+                update_query,
+                node_id=found_same_id,
+                name=updated_name,
+                description=updated_description,
+                embedding=updated_embedding,
+            )
             update_record = await update_result.single()
             if update_record is None:
                 raise RuntimeError(f"Failed to update node with elementId: {found_same_id}")
