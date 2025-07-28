@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Optional, Union
 from pydantic import BaseModel
 
 from xai_sdk.search import rss_source, x_source
+from datetime import datetime, timezone
     
     
 with open("knowledge_graph/schema.md", "r") as f:
@@ -19,6 +20,33 @@ with open("knowledge_graph/schema.md", "r") as f:
 
 embedding_model = "text-embedding-3-large"
 llm_model = "grok-4"
+
+# File used to persist the timestamp of the last batch run
+LAST_RUN_FILE = "last_run_timestamp.txt"
+
+
+def _load_last_run() -> Optional[datetime]:
+    """Return the timestamp of the previous batch run if available."""
+    if not os.path.exists(LAST_RUN_FILE):
+        return None
+    try:
+        with open(LAST_RUN_FILE, "r") as f:
+            ts = f.read().strip()
+        if not ts:
+            return None
+        return datetime.fromisoformat(ts)
+    except Exception as exc:  # pragma: no cover - best effort logging
+        logger.error(f"Failed to read {LAST_RUN_FILE}: {exc}")
+        return None
+
+
+def _save_last_run(dt: datetime) -> None:
+    """Persist the provided timestamp for the next batch run."""
+    try:
+        with open(LAST_RUN_FILE, "w") as f:
+            f.write(dt.isoformat())
+    except Exception as exc:  # pragma: no cover - best effort logging
+        logger.error(f"Failed to write {LAST_RUN_FILE}: {exc}")
     
     
 @cl.on_chat_start
@@ -464,14 +492,19 @@ def _build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[Se
     if not source:
         return None
 
+    last_run = _load_last_run()
+    params: Dict[str, Any] = {"mode": "on"}
+    if last_run is not None:
+        params["from_date"] = last_run
+
     if source.get("source_type") == "RSS" and "url" in source:
         return SearchParameters(
-            mode="on",
+            **params,
             sources=[rss_source([source["url"]])],
         )
     if source.get("source_type") == "X" and "handles" in source:
         return SearchParameters(
-            mode="on",
+            **params,
             sources=[x_source(included_x_handles=source["handles"])],
         )
     return None
@@ -621,4 +654,7 @@ async def action_button_callback(action: cl.Action):
         params = _build_search_params(source)
         result = await run_chat(source.get("prompt", ""), params, stream=False)
         await cl.Message(content=f"Processed {source.get('name')}:\n{result}").send()
+
+    # Persist the timestamp after processing all sources
+    _save_last_run(datetime.now(timezone.utc))
         
