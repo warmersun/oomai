@@ -1,16 +1,15 @@
-from asyncio import CancelledError
 import chainlit as cl
 import os
 from xai_sdk import AsyncClient
 from xai_sdk.chat import SearchParameters, system, user, tool, tool_result
-from neo4j import AsyncGraphDatabase, AsyncSession, AsyncTransaction
+from neo4j import AsyncGraphDatabase, AsyncTransaction
 from neo4j.exceptions import CypherSyntaxError, Neo4jError
 from chainlit.logger import logger
 import json
+import yaml
 from openai import AsyncOpenAI
 from typing import List, Dict, Any, Optional, Union
 from pydantic import BaseModel
-from datetime import datetime
 
 from xai_sdk.search import rss_source, x_source
     
@@ -41,6 +40,18 @@ async def start_chat():
             "description": "Search on the web and on X",
         }
     ])
+    # Display an action button to manually trigger the daily batch
+    await cl.Message(
+        content="",
+        actions=[
+            cl.Action(
+                name="action_button",
+                icon="list-checks",
+                payload={"value": "example_value"},
+                label="Run daily batch!",
+            )
+        ],
+    ).send()
 
 @cl.on_chat_end
 async def end_chat():
@@ -447,15 +458,43 @@ find_node_tool = tool(
     }
 )
 
-@cl.on_message
-async def on_message(message: cl.Message):
-    # reasoning = cl.Message(content="")
-    msg = cl.Message(content="")
+
+def _build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[SearchParameters]:
+    """Create SearchParameters from a source config dict."""
+    if not source:
+        return None
+
+    if source.get("source_type") == "RSS" and "url" in source:
+        return SearchParameters(
+            mode="on",
+            sources=[rss_source([source["url"]])],
+        )
+    if source.get("source_type") == "X" and "handles" in source:
+        return SearchParameters(
+            mode="on",
+            sources=[x_source(included_x_handles=source["handles"])],
+        )
+    return None
+
+
+async def run_chat(
+    prompt: str,
+    search_parameters: Optional[SearchParameters] = None,
+    *,
+    stream: bool = True,
+) -> str:
+    """Execute the LLM chat loop with optional streaming."""
+
     xai_client = cl.user_session.get("xai_client")
     assert xai_client is not None, "No xAI client found in user session"
+
+    msg: Optional[cl.Message] = cl.Message(content="") if stream else None
+
     chat_kwargs = dict(
-        model="grok-4",
-        messages=[system(f"""
+        model=llm_model,
+        messages=[
+            system(
+                f"""
             You are a helpful assistant that can build a knowledge graph and then use it to answer questions.
 
             The knowledge graph has the following schema:
@@ -466,46 +505,29 @@ async def on_message(message: cl.Message):
             1. You can answer questions based on the knowledge graph. You can only use the `cypher_query` and `find_node` tools.
             You help the user to traverse the graph and find related nodes or edges but always talk in a simple, natural tone. The user does not need to know anything about the graph schema. Don't mention nodes, edges, node and edge types to the user. Just use what respondes you receive from the knowldege graph and make it interesting and fun.
             Ocasionally you may discover that a connection is missing. In that case, you can use the `create_edge` tool to add it.
-            
-            2. When you are given an article to process you break it down to nodes in the knowledge graph and connect them wih edges to capture relationships. You can use the `create_node` and `create_edge` tools. You can also use the `cypher_query` and `find_node` tools to look for nodes. The `create_node` tool is smart and will avoid duplicates by merging their descriptions if similar semantics already exist.            
+
+            2. When you are given an article to process you break it down to nodes in the knowledge graph and connect them wih edges to capture relationships. You can use the `create_node` and `create_edge` tools. You can also use the `cypher_query` and `find_node` tools to look for nodes. The `create_node` tool is smart and will avoid duplicates by merging their descriptions if similar semantics already exist.
 
             ---
-            
+
             Note: there is no elementId property. Use the elementId function to get the elementId of a node or edge. e.g.
             MATCH (n:EmTech {{name: 'computing'}}) RETURN elementId(n) AS elementId
             """
-        )],
+            )
+        ],
         tools=[cypher_query_tool, create_node_tool, create_edge_tool, find_node_tool],
-        # live search setup
-        #
-        # RSS feed
-        # search_parameters=SearchParameters(
-        #     mode="on", 
-        #     from_date=datetime(2025, 7, 24), 
-        #     max_search_results=2,
-        #     sources=[rss_source(["https://news.smol.ai/rss.xml"])]
-        # )
-        # X search
-        # search_parameters=SearchParameters(
-        #     mode="on",
-        #     from_date=datetime(2025, 7, 24),
-        #     max_search_results=30,
-        #     sources=[x_source(included_x_handles=["EMostaque", "elonmusk", "DavidSacks", "EpochAIResearch", "BasedBeffJezos", "warmersun"])]
-        # )
     )
-    if message.command == "Search":
-        chat_kwargs["search_parameters"] = SearchParameters(mode="on")
+    if search_parameters is not None:
+        chat_kwargs["search_parameters"] = search_parameters
 
     chat = xai_client.chat.create(**chat_kwargs)
-    chat.append(user(message.content))
-    stream = chat.stream()
+    chat.append(user(prompt))
+
+    stream_gen = chat.stream()
     response = None
-    async for streamed_response, chunk in stream:
-        # if chunk.reasoning_content:
-        #     logger.info(f"Reasoning: {chunk.reasoning_content}")
-        #     await reasoning.stream_token(chunk.reasoning_content)
-        if chunk.content:
-            await msg.stream_token(chunk.content)            
+    async for streamed_response, chunk in stream_gen:
+        if chunk.content and stream and msg is not None:
+            await msg.stream_token(chunk.content)
         response = streamed_response
 
     assert response is not None, "No response from xAI client"
@@ -523,41 +545,34 @@ async def on_message(message: cl.Message):
                         tool_name = tool_call.function.name
                         tool_args = json.loads(tool_call.function.arguments)
                         try:
-                        
                             if tool_name == "cypher_query":
-                                results = await execute_cypher_query(
-                                    tx, 
-                                    tool_args["query"]
-                                )
+                                results = await execute_cypher_query(tx, tool_args["query"])
                                 chat.append(tool_result(json.dumps(results)))
                             elif tool_name == "create_node":
-                                result = await create_node(
-                                    tx, 
-                                    tool_args["node_type"], 
-                                    tool_args["name"], 
-                                    tool_args["description"]
-                                )
+                                result = await create_node(tx, tool_args["node_type"], tool_args["name"], tool_args["description"])
                                 chat.append(tool_result(json.dumps({"elementId": result})))
                             elif tool_name == "create_edge":
                                 result = await create_edge(
                                     tx,
-                                    tool_args["source_id"], 
-                                    tool_args["target_id"], 
-                                    tool_args["relationship_type"], 
-                                    tool_args.get("properties", {})
+                                    tool_args["source_id"],
+                                    tool_args["target_id"],
+                                    tool_args["relationship_type"],
+                                    tool_args.get("properties", {}),
                                 )
                                 chat.append(tool_result(json.dumps(result)))
                             elif tool_name == "find_node":
                                 results = await find_node(
-                                    tx, 
-                                    tool_args["query_text"], 
-                                    tool_args["node_type"], 
-                                    tool_args.get("top_k", 5)
+                                    tx,
+                                    tool_args["query_text"],
+                                    tool_args["node_type"],
+                                    tool_args.get("top_k", 5),
                                 )
                                 chat.append(tool_result(json.dumps(results)))
-                
+
                         except CypherSyntaxError as cypher_syntax_error:
-                            logger.error(f"Error executing tool {tool_name}. Cypher syntax error: {str(cypher_syntax_error)}")
+                            logger.error(
+                                f"Error executing tool {tool_name}. Cypher syntax error: {str(cypher_syntax_error)}"
+                            )
                             chat.append(tool_result(json.dumps({"Cypher syntax error": str(cypher_syntax_error)})))
 
                     await tx.commit()
@@ -567,24 +582,43 @@ async def on_message(message: cl.Message):
                     await tx.cancel()
                 finally:
                     await tx.close()
-                    
-            stream = chat.stream()
+
+            stream_gen = chat.stream()
             response = None
-            async for streamed_response, chunk in stream:
-                # if chunk.reasoning_content:
-                #     await reasoning.stream_token(chunk.reasoning_content)
-                #     logger.info(f"Reasoning: {chunk.reasoning_content}")
-                if chunk.content:
-                    await msg.stream_token(chunk.content)            
+            async for streamed_response, chunk in stream_gen:
+                if chunk.content and stream and msg is not None:
+                    await msg.stream_token(chunk.content)
                 response = streamed_response
 
             assert response is not None, "No response from xAI client"
             chat.append(response)
 
-    # await reasoning.update()
-    await msg.update()
+    if stream and msg is not None:
+        await msg.update()
+
     logger.info(f"Final response: {response.content}")
     logger.info(f"Finish reason: {response.finish_reason}")
     logger.info(f"Reasoning tokens: {response.usage.reasoning_tokens}")
     logger.info(f"Total tokens: {response.usage.total_tokens}")
+
+    return response.content
+
+@cl.on_message
+async def on_message(message: cl.Message):
+    search_parameters = None
+    if message.command == "Search":
+        search_parameters = SearchParameters(mode="on")
+
+    await run_chat(message.content, search_parameters, stream=True)
+
+
+@cl.action_callback("action_button")
+async def action_button_callback(action: cl.Action):
+    """Run the daily batch when the action button is clicked."""
+    with open("knowledge_graph/sources.yaml", "r") as f:
+        config = yaml.safe_load(f)
+    for source in config.get("sources", []):
+        params = _build_search_params(source)
+        result = await run_chat(source.get("prompt", ""), params, stream=False)
+        await cl.Message(content=f"Processed {source.get('name')}:\n{result}").send()
         
