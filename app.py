@@ -68,18 +68,6 @@ async def start_chat():
             "description": "Search on the web and on X",
         }
     ])
-    # Display an action button to manually trigger the daily batch
-    await cl.Message(
-        content="",
-        actions=[
-            cl.Action(
-                name="action_button",
-                icon="list-checks",
-                payload={"value": "example_value"},
-                label="Run daily batch!",
-            )
-        ],
-    ).send()
 
 @cl.on_chat_end
 async def end_chat():
@@ -645,16 +633,4 @@ async def on_message(message: cl.Message):
     await run_chat(message.content, search_parameters, stream=True)
 
 
-@cl.action_callback("action_button")
-async def action_button_callback(action: cl.Action):
-    """Run the daily batch when the action button is clicked."""
-    with open("knowledge_graph/sources.yaml", "r") as f:
-        config = yaml.safe_load(f)
-    for source in config.get("sources", []):
-        params = _build_search_params(source)
-        result = await run_chat(source.get("prompt", ""), params, stream=False)
-        await cl.Message(content=f"Processed {source.get('name')}:\n{result}").send()
-
-    # Persist the timestamp after processing all sources
-    _save_last_run(datetime.now(timezone.utc))
         
