@@ -53,7 +53,7 @@ def _build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[Se
     last_run = _load_last_run()
     params: Dict[str, Any] = {"mode": "on"}
     if last_run is not None:
-        params["from_date"] = last_run
+        params["from_date"] = last_run.isoformat()
 
     if source.get("source_type") == "RSS" and "url" in source:
         return SearchParameters(
@@ -302,13 +302,7 @@ async def run_chat(prompt: str, *, search_parameters: Optional[SearchParameters]
             The knowledge graph has the following schema:
             {schema}
 
-            You work in two possible modes:
-
-            1. You can answer questions based on the knowledge graph. You can only use the `cypher_query` and `find_node` tools.
-            You help the user to traverse the graph and find related nodes or edges but always talk in a simple, natural tone. The user does not need to know anything about the graph schema. Don't mention nodes, edges, node and edge types to the user. Just use what respondes you receive from the knowldege graph and make it interesting and fun.
-            Ocasionally you may discover that a connection is missing. In that case, you can use the `create_edge` tool to add it.
-
-            2. When you are given an article to process you break it down to nodes in the knowledge graph and connect them wih edges to capture relationships. You can use the `create_node` and `create_edge` tools. You can also use the `cypher_query` and `find_node` tools to look for nodes. The `create_node` tool is smart and will avoid duplicates by merging their descriptions if similar semantics already exist.
+             When you are given an article to process you break it down to nodes in the knowledge graph and connect them wih edges to capture relationships. You can use the `create_node` and `create_edge` tools. You can also use the `cypher_query` and `find_node` tools to look for nodes. The `create_node` tool is smart and will avoid duplicates by merging their descriptions if similar semantics already exist.
 
             ---
 
@@ -374,9 +368,11 @@ async def run_chat(prompt: str, *, search_parameters: Optional[SearchParameters]
                 except Exception as e:
                     logging.error(f"Error executing tool {tool_name}: {e}")
                     chat.append(tool_result(json.dumps({"error": str(e)})))
-                    await tx.rollback()
+                    if tx is not None:
+                        await tx.cancel()
                 finally:
-                    await tx.close()
+                    if tx is not None:
+                        await tx.close()
 
             stream_gen = chat.stream()
             response = None

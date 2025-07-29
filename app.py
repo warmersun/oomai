@@ -483,7 +483,7 @@ def _build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[Se
     last_run = _load_last_run()
     params: Dict[str, Any] = {"mode": "on"}
     if last_run is not None:
-        params["from_date"] = last_run
+        params["from_date"] = last_run.isoformat()
 
     if source.get("source_type") == "RSS" and "url" in source:
         return SearchParameters(
@@ -600,9 +600,11 @@ async def run_chat(
                 except Exception as e:
                     logger.error(f"Error executing tool {tool_name}: {str(e)}")
                     chat.append(tool_result(json.dumps({"error": str(e)})))
-                    await tx.cancel()
+                    if tx is not None:
+                        await tx.cancel()
                 finally:
-                    await tx.close()
+                    if tx is not None:
+                        await tx.close()
 
             stream_gen = chat.stream()
             response = None
