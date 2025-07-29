@@ -13,6 +13,7 @@ What can I do with the technology that I couldn't do before? What services does 
 
 ### Milestone
 As a capability progresses, it reaches certain milestones; these unlock new applications.
+The `milestone_reached_date` is a date type property to track when the milestone was reached - with daily, monthly or yearly granularity, to our best knowledge.
 
 ### LTC
 A Logical Technology Component (LTC) is a product class—an abstract product category (e.g., Large Language Model).

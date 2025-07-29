@@ -6,7 +6,7 @@ sources:
     url: "https://news.smol.ai/rss.xml"
 
   - name: thought_leaders
-    prompt: "Capture ideas from thought leaders in the knowledge graph."
+    prompt: "Capture ideas from thought leaders in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
     source_type: X
     handles:
       - EMostaque
@@ -16,7 +16,7 @@ sources:
       - BasedBeffJezos
 
   - name: openai_announcements
-    prompt: "List product launches, research, ideas, new capabilities and milestones by OpenAI Capture these in the knowledge graph."
+    prompt: "List the latest product launches, research, ideas, new capabilities and milestones by OpenAI Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
     source_type: X
     handles:
       - OpenAI
@@ -25,4 +25,39 @@ sources:
       - ChatGPTapp
       - sama
       - gdb
+
+  - name: energy_news
+    prompt: "List the latest development, research, new capabilities and milestones in energy production, smart grid, energy storage, battery technology. Capture these in the knowledge graph."
+    source_type: X
+    handles:
+      - BESTmag_news
+      - EnergyStorageN
+      - REWorld
+      - PVTech
+      - BatteryPowerMag
+      - GreentechMedia
+      - AltEnergyMag
+
+  - name: crypto_news
+    prompt: "List the latest development, research, new capabilities and milestones in crypto, blockchain, web3, decentralized finance. Capture these in the knowledge graph."
+    source_type: X
+    handles:
+      - CoinMarketCap
+      - CoinDesk
+      - CoinTelegraph
+      - worldcoin
+
+  - name: synbio_news
+    prompt: "List the latest development, research, new capabilities and milestones in synthetic biology, gene sequencing, gene editing, alternative proteins, longevity, digital health. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
+    source_type: X
+    handles:
+      - nextmedhealth
+      - GoodFoodInst
+      - davidasinclair
+      - colossal
       
+      
+      
+      
+      
+    
