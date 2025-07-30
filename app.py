@@ -442,7 +442,13 @@ async def find_node(tx: AsyncTransaction, query_text: str, node_type: str, top_k
             cypher_query = """
             CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
             YIELD node, score
-            RETURN {name: node.name, description: node.description} AS node, score
+            RETURN
+                CASE
+                    WHEN node:Milestone
+                    THEN node { .name, .description, .milestone_reached_date }
+                    ELSE node { .name, .description }
+                END AS node,
+                score
             ORDER BY score DESC
             """
             result = await tx.run(cypher_query, index_name=f"{node_type.lower()}_description_embeddings", top_k=top_k, embedding=query_embedding)
