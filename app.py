@@ -18,8 +18,16 @@ from neo4j.time import Date, DateTime
 
 class Neo4jDateEncoder(json.JSONEncoder):
     def default(self, o):
-        if isinstance(o, (Date, DateTime)):
-            return o.iso_format()  # Convert Neo4j Date/DateTime to ISO 8601 string
+        # ---- Neo4j Date ----
+        if isinstance(o, Date):
+            # o.to_native() → datetime.date
+            return o.to_native().isoformat()          # e.g. "2025-07-30"
+
+        # ---- Neo4j DateTime ----
+        if isinstance(o, DateTime):
+            # o.to_native() → datetime.datetime
+            # Keep only the calendar date portion.
+            return o.to_native().date().isoformat()   # e.g. "2025-07-30"
         return super().default(o)
 
 with open("knowledge_graph/schema.md", "r") as f:
