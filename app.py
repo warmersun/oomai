@@ -13,8 +13,15 @@ from pydantic import BaseModel
 
 from xai_sdk.search import rss_source, x_source
 from datetime import datetime, timezone
-    
-    
+from neo4j.time import Date, DateTime
+
+
+class Neo4jDateEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, (Date, DateTime)):
+            return o.iso_format()  # Convert Neo4j Date/DateTime to ISO 8601 string
+        return super().default(o)
+
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
 
@@ -87,21 +94,25 @@ async def execute_cypher_query(tx: AsyncTransaction, query: str) -> list:
         RuntimeError: If there is an error executing the Cypher query.
     """
 
-    async with cl.Step(name="Executing Cypher Query", type="tool") as step:
+    async with cl.Step(name="Execute Cypher Query", type="tool") as step:
         step.show_input = True
         step.input = {"query": query}
     
+        from neo4j.time import Date, DateTime
+
         def filter_embedding(obj):
             """
-            Recursively removes the 'embedding' key from any dict in the structure,
-            handling nested dicts and lists (e.g., paths, collected nodes).
+            Recursively removes the 'embedding' key and converts Neo4j Date/DateTime to strings.
             """
             if isinstance(obj, dict):
                 return {k: filter_embedding(v) for k, v in obj.items() if k != 'embedding'}
             elif isinstance(obj, list):
                 return [filter_embedding(item) for item in obj]
-            else:
-                return obj
+            elif isinstance(obj, Date):
+                return obj.iso_format()  # Convert Neo4j Date to ISO 8601 string (e.g., "2025-07-28")
+            elif isinstance(obj, DateTime):
+                return obj.iso_format()  # Convert Neo4j DateTime to ISO 8601 string (e.g., "2025-07-28T10:55:00+00:00")
+            return obj
         
         try:
             result = await tx.run(query)
@@ -143,7 +154,7 @@ cypher_query_tool = tool(
 )
 
 async def create_node(tx: AsyncTransaction, node_type: str, name: str, description: str) -> str:
-    async with cl.Step(name="Creating Node", type="tool") as step:
+    async with cl.Step(name="Create Node", type="tool") as step:
         step.show_input = True
         step.input = {"node_type": node_type, "name": name, "description": description}
         
@@ -351,7 +362,7 @@ async def create_edge(tx: AsyncTransaction, source_id: str, target_id: str, rela
     Assumes nodes exist and elementIds are valid.
     Returns the created relationship.
     """
-    async with cl.Step(name="Creating Edge", type="tool") as step:
+    async with cl.Step(name="Create Edge", type="tool") as step:
         step.show_input = True
         step.input = {"source_id": source_id, "target_id": target_id, "relationship_type": relationship_type, "properties": properties}
         
@@ -413,7 +424,7 @@ async def find_node(tx: AsyncTransaction, query_text: str, node_type: str, top_k
     Uses vector similarity search based on node descriptions.
     Returns a list of nodes with their names, descriptions, and similarity scores.
     """
-    async with cl.Step(name="Finding Node", type="tool") as step:
+    async with cl.Step(name="Find Node", type="tool") as step:
         step.show_input = True
         step.input = {"query_text": query_text, "node_type": node_type, "top_k": top_k}
     
@@ -483,7 +494,7 @@ def _build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[Se
     last_run = _load_last_run()
     params: Dict[str, Any] = {"mode": "on"}
     if last_run is not None:
-        params["from_date"] = last_run.isoformat()
+        params["from_date"] = last_run
 
     if source.get("source_type") == "RSS" and "url" in source:
         return SearchParameters(
@@ -568,7 +579,7 @@ async def run_chat(
                         try:
                             if tool_name == "cypher_query":
                                 results = await execute_cypher_query(tx, tool_args["query"])
-                                chat.append(tool_result(json.dumps(results)))
+                                chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
                             elif tool_name == "create_node":
                                 result = await create_node(tx, tool_args["node_type"], tool_args["name"], tool_args["description"])
                                 chat.append(tool_result(json.dumps({"elementId": result})))
@@ -580,7 +591,7 @@ async def run_chat(
                                     tool_args["relationship_type"],
                                     tool_args.get("properties", {}),
                                 )
-                                chat.append(tool_result(json.dumps(result)))
+                                chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
                             elif tool_name == "find_node":
                                 results = await find_node(
                                     tx,
@@ -588,7 +599,7 @@ async def run_chat(
                                     tool_args["node_type"],
                                     tool_args.get("top_k", 5),
                                 )
-                                chat.append(tool_result(json.dumps(results)))
+                                chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
 
                         except CypherSyntaxError as cypher_syntax_error:
                             logger.error(

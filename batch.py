@@ -13,7 +13,14 @@ from pydantic import BaseModel
 from xai_sdk import AsyncClient
 from xai_sdk.chat import SearchParameters, system, user, tool, tool_result
 from xai_sdk.search import rss_source, x_source
+from neo4j.time import Date, DateTime
 
+
+class Neo4jDateEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, (Date, DateTime)):
+            return o.iso_format()  # Convert Neo4j Date/DateTime to ISO 8601 string
+        return super().default(o)
 
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
@@ -53,7 +60,7 @@ def _build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[Se
     last_run = _load_last_run()
     params: Dict[str, Any] = {"mode": "on"}
     if last_run is not None:
-        params["from_date"] = last_run.isoformat()
+        params["from_date"] = last_run
 
     if source.get("source_type") == "RSS" and "url" in source:
         return SearchParameters(
@@ -69,10 +76,15 @@ def _build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[Se
 
 
 async def execute_cypher_query(tx: AsyncTransaction, query: str) -> list:
+    from neo4j.time import Date, DateTime
+
     def filter_embedding(obj):
+        """
+        Recursively removes the 'embedding' key and converts Neo4j Date/DateTime to strings.
+        """
         if isinstance(obj, dict):
-            return {k: filter_embedding(v) for k, v in obj.items() if k != "embedding"}
-        if isinstance(obj, list):
+            return {k: filter_embedding(v) for k, v in obj.items() if k != 'embedding'}
+        elif isinstance(obj, list):
             return [filter_embedding(item) for item in obj]
         return obj
 
@@ -339,7 +351,7 @@ async def run_chat(prompt: str, *, search_parameters: Optional[SearchParameters]
                         try:
                             if tool_name == "cypher_query":
                                 results = await execute_cypher_query(tx, tool_args["query"])
-                                chat.append(tool_result(json.dumps(results)))
+                                chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
                             elif tool_name == "create_node":
                                 result = await create_node(tx, tool_args["node_type"], tool_args["name"], tool_args["description"], openai_client, xai_client)
                                 chat.append(tool_result(json.dumps({"elementId": result})))
@@ -351,7 +363,7 @@ async def run_chat(prompt: str, *, search_parameters: Optional[SearchParameters]
                                     tool_args["relationship_type"],
                                     tool_args.get("properties", {}),
                                 )
-                                chat.append(tool_result(json.dumps(result)))
+                                chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
                             elif tool_name == "find_node":
                                 results = await find_node(
                                     tx,
@@ -405,7 +417,7 @@ async def main() -> None:
     for source in config.get("sources", []):
         params = _build_search_params(source)
         prompt = source.get("prompt", "")
-        logging.info(f"Processing {source.get('name')}")
+        logging.info(f"Processing {source.get('name')} with params {params}")
         result = await run_chat(prompt, search_parameters=params, xai_client=xai_client, neo4jdriver=neo4jdriver, openai_client=openai_client)
         logging.info(f"Processed {source.get('name')}: {result}")
 
