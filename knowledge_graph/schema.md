@@ -88,8 +88,8 @@ For example, Large Language Models retain context and can conduct a dialog. That
 (:LAC)-[:IS_REALIZED_BY]->(:PAC)  
 Describes how abstract categories are realized by specific examples.
 
-### BUILDS
-(:Organization)-[:MAKES]->(:PTC)
+### MAKES
+(:Party)-[:MAKES]->(:PTC)
 
 ### USES
 (:LAC)-[:USES]->(:LTC)  
