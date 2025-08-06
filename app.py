@@ -10,7 +10,10 @@ from typing import List, Dict, Any, Optional, Union
 from pydantic import BaseModel
 
 from neo4j.time import Date, DateTime
-
+from function_tools import (
+    web_search_brave_tool,
+    web_search_brave,
+)
 
 class Neo4jDateEncoder(json.JSONEncoder):
     def default(self, o):
@@ -530,13 +533,19 @@ async def on_message(message: cl.Message):
         }
     ]
 
-    messages.append({"role": "user", "content": message.content})
+    messages += cl.chat_context.to_openai()
 
     while True:
         response = await groq_client.chat.completions.create(
             model=llm_model,
             messages=messages,
-            tools=[cypher_query_tool, create_node_tool, create_edge_tool, find_node_tool],
+            tools=[
+                cypher_query_tool, 
+                create_node_tool, 
+                create_edge_tool, 
+                find_node_tool, 
+                web_search_brave_tool
+            ],
             stream=False,
             reasoning_effort="high",
             # reasoning_format="hidden",
@@ -600,6 +609,16 @@ async def on_message(message: cl.Message):
                                     "role": "tool",
                                     "tool_call_id": tool_call.id,
                                     "content": json.dumps(results, cls=Neo4jDateEncoder),
+                                })
+                            elif tool_name == "web_search_brave":
+                                if "freshness" in tool_args:
+                                    result = await web_search_brave(tool_args["q"], freshness=tool_args["freshness"])
+                                else:
+                                    result = await web_search_brave(tool_args["q"])
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tool_call.id,
+                                    "content": json.dumps(result, cls=Neo4jDateEncoder),
                                 })
                         except CypherSyntaxError as cypher_syntax_error:
                             logger.error(
