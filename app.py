@@ -36,7 +36,19 @@ embedding_model = "text-embedding-3-large"
 llm_model = "openai/gpt-oss-120b"
 
     
-    
+@cl.set_chat_profiles
+async def chat_profile():
+    return [
+        cl.ChatProfile(
+            name="GPT-OSS-120b on Groq",
+            markdown_description="Fast and Cheap.",
+        ),
+        cl.ChatProfile(
+            name="Grok-4",
+            markdown_description="Good.",
+        ),
+    ]
+        
 @cl.on_chat_start
 async def start_chat():
     neo4jdriver = AsyncGraphDatabase.driver(os.environ['NEO4J_URI'], auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD']))
@@ -55,6 +67,10 @@ async def start_chat():
     #         "description": "Search on the web and on X",
     #     }
     # ])
+    chat_profile = cl.user_session.get("chat_profile")
+    await cl.Message(
+        content=f"starting chat using the {chat_profile} chat profile"
+    ).send()
 
 @cl.on_chat_end
 async def end_chat():
