@@ -232,7 +232,6 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
         for sim in similar_nodes:
             old_name = sim['name']
             old_desc = sim['description']
-            logger.info(f"Checking similarity with node {sim['node_id']} (score: {sim['score']:.2f})")
 
             compare_prompt = (
                 "Determine whether the following two nodes represent the same concept. "
@@ -282,9 +281,7 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
 
 
         if found_same_id:
-            logger.info(f"Found semantically equivalent node with id: {found_same_id}")
-            logger.info(f"Updated name: {updated_name}")
-            logger.info(f"Updated description: {updated_description}")
+            logger.info(f"Found semantically equivalent node to: {name}; updating the node with name: {updated_name} and description: {updated_description}")
 
             # Generate new embedding for the updated description
             updated_emb_response = await openai_client.embeddings.create(
@@ -553,7 +550,7 @@ async def on_message(message: cl.Message):
             temperature=0.6,
         )
         response_message = response.choices[0].message
-        logger.info(f"Response message in response.choices[0].message: {response_message}")
+        
         if response_message.tool_calls:
             # messages.append(response_message)
             messages.append({
@@ -586,10 +583,13 @@ async def on_message(message: cl.Message):
                                     "content": json.dumps({"elementId": result}),
                                 })
                             elif tool_name == "create_edge":
+                                logger.error(f"Creating edge: {tool_args}")
                                 result = await create_edge(
                                     tx,
-                                    tool_args["source_id"],
-                                    tool_args["target_id"],
+                                    tool_args.get("source_id", 
+                                                  tool_args.get("source_node_id")),
+                                    tool_args.get("target_id", 
+                                                  tool_args.get("target_node_id")),
                                     tool_args["relationship_type"],
                                     tool_args.get("properties", {}),
                                 )
@@ -644,7 +644,6 @@ async def on_message(message: cl.Message):
         else:
             content = response_message.content or ""
             await cl.Message(content=content).send()
-            logger.info(f"Final response: {content}")
             if hasattr(response, "usage"):
                 logger.info(f"Total tokens: {response.usage.total_tokens}")
             break

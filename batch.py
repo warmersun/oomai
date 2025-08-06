@@ -181,9 +181,7 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
             break
 
     if found_same_id:
-        logging.info(f"Found semantically equivalent node with id: {found_same_id}")
-        logging.info(f"Updated name: {updated_name}")
-        logging.info(f"Updated description: {updated_description}")
+        logging.info(f"Found semantically equivalent node to: {name}. Updating node with name: {updated_name} description: {updated_description}")
 
         updated_emb_response = await openai_client.embeddings.create(model=embedding_model, input=updated_description)
         updated_embedding = updated_emb_response.data[0].embedding
@@ -213,6 +211,7 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
 
 
 async def create_node(tx: AsyncTransaction, node_type: str, name: str, description: str, openai_client: AsyncOpenAI, xai_client: AsyncClient) -> str:
+    logging.info(f"Creating node: {node_type} {name} {description}")
     if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
         return await smart_upsert(tx, node_type, name, description, openai_client, xai_client)
     if node_type == "EmTech":
@@ -236,6 +235,7 @@ create_node_tool = tool(
 
 
 async def create_edge(tx: AsyncTransaction, source_id: str, target_id: str, relationship_type: str, properties: Optional[Dict[str, Any]] = None) -> Any:
+    logging.info(f"Creating edge: {source_id} {target_id} {relationship_type} {properties}")
     if properties is None:
         properties = {}
     prop_keys = ", ".join(f"{key}: ${key}" for key in properties)
