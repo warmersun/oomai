@@ -5,12 +5,10 @@ from neo4j import AsyncGraphDatabase, AsyncTransaction
 from neo4j.exceptions import CypherSyntaxError, Neo4jError
 from chainlit.logger import logger
 import json
-import yaml
 from openai import AsyncOpenAI
 from typing import List, Dict, Any, Optional, Union
 from pydantic import BaseModel
 
-from datetime import datetime, timezone
 from neo4j.time import Date, DateTime
 
 
@@ -32,34 +30,8 @@ with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
 
 embedding_model = "text-embedding-3-large"
-llm_model = "gpt-oss-120B"
+llm_model = "openai/gpt-oss-120b"
 
-# File used to persist the timestamp of the last batch run
-LAST_RUN_FILE = "last_run_timestamp.txt"
-
-
-def _load_last_run() -> Optional[datetime]:
-    """Return the timestamp of the previous batch run if available."""
-    if not os.path.exists(LAST_RUN_FILE):
-        return None
-    try:
-        with open(LAST_RUN_FILE, "r") as f:
-            ts = f.read().strip()
-        if not ts:
-            return None
-        return datetime.fromisoformat(ts)
-    except Exception as exc:  # pragma: no cover - best effort logging
-        logger.error(f"Failed to read {LAST_RUN_FILE}: {exc}")
-        return None
-
-
-def _save_last_run(dt: datetime) -> None:
-    """Persist the provided timestamp for the next batch run."""
-    try:
-        with open(LAST_RUN_FILE, "w") as f:
-            f.write(dt.isoformat())
-    except Exception as exc:  # pragma: no cover - best effort logging
-        logger.error(f"Failed to write {LAST_RUN_FILE}: {exc}")
     
     
 @cl.on_chat_start
@@ -217,9 +189,9 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
     - If no match is found, creates a new node.
     - Returns the node's elementId.
     """
-    xai_client = cl.user_session.get("xai_client")
-    if xai_client is None:
-        raise ValueError("No xAI client found in user session")
+    groq_client = cl.user_session.get("groq_client")
+    if groq_client is None:
+        raise ValueError("No Groq client found in user session")
     openai_client = cl.user_session.get("openai_client")
     if openai_client is None:
         raise ValueError("No OpenAI client found in user session")
@@ -265,27 +237,46 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
                 "Respond in JSON matching this schema: {different: bool, name?: string, description?: string}."
             )
 
-            chat = xai_client.chat.create(
+            completion = await groq_client.chat.completions.create(
                 model=llm_model,
-                temperature=0.0,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": compare_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Node A name: {old_name}\nNode A description: {old_desc}\n\n"
+                                   f"Node B name: {name}\nNode B description: {description}"
+                    },                    
+                ],
+                stream=False,
+                reasoning_effort="low",
+                # reasoning_format="hidden",
+                temperature=0.01,
+                response_format = {
+                    "type": "json_object",
+                    "json_schema": {
+                        "name": "compare_result",
+                        "description": "Result of comparing two nodes.",
+                        "schema": CompareResult.model_json_schema(),
+                    }
+                },
             )
-            chat.append(system(compare_prompt))
-            chat.append(user(
-                f"Node A name: {old_name}\nNode A description: {old_desc}\n\n"
-                f"Node B name: {name}\nNode B description: {description}"
-            ))
 
             try:
-                _, result = await chat.parse(CompareResult)
+                result = CompareResult.model_validate_json(completion.choices[0].message.content)
+
+                if not result.different:
+                    found_same_id = sim['node_id']
+                    updated_name = result.name or old_name
+                    updated_description = result.description or description
+                    break
+            
             except Exception as e:
                 logger.warning(f"Failed to parse LLM response: {e}")
-                continue
+                logger.warning(f"LLM response: {completion.choices[0].message.content}")
 
-            if not result.different:
-                found_same_id = sim['node_id']
-                updated_name = result.name or old_name
-                updated_description = result.description or description
-                break
 
         if found_same_id:
             logger.info(f"Found semantically equivalent node with id: {found_same_id}")
@@ -509,17 +500,10 @@ find_node_tool = {
 }
 
 
-async def run_chat(
-    prompt: str,
-    *,
-    stream: bool = True,
-) -> str:
-    """Execute the LLM chat loop with optional streaming."""
-
+@cl.on_message
+async def on_message(message: cl.Message):
     groq_client = cl.user_session.get("groq_client")
     assert groq_client is not None, "No Groq client found in user session"
-
-    msg: Optional[cl.Message] = cl.Message(content="") if stream else None
 
     messages = [
         {
@@ -546,17 +530,28 @@ async def run_chat(
         }
     ]
 
-    messages.append({"role": "user", "content": prompt})
+    messages.append({"role": "user", "content": message.content})
 
     while True:
         response = await groq_client.chat.completions.create(
             model=llm_model,
             messages=messages,
             tools=[cypher_query_tool, create_node_tool, create_edge_tool, find_node_tool],
+            stream=False,
+            reasoning_effort="high",
+            # reasoning_format="hidden",
+            tool_choice="auto",
+            temperature=0.6,
         )
         response_message = response.choices[0].message
+        logger.info(f"Response message in response.choices[0].message: {response_message}")
         if response_message.tool_calls:
-            messages.append(response_message)
+            # messages.append(response_message)
+            messages.append({
+                "role": "assistant",
+                "content": response_message.content,
+                "tool_calls": response_message.tool_calls,
+            })
             neo4jdriver = cl.user_session.get("neo4jdriver")
             assert neo4jdriver is not None, "No Neo4j driver found in user session"
             async with neo4jdriver.session() as session:
@@ -629,21 +624,11 @@ async def run_chat(
             continue
         else:
             content = response_message.content or ""
-            if msg is not None:
-                msg.content = content
-                await msg.update()
+            await cl.Message(content=content).send()
             logger.info(f"Final response: {content}")
             if hasattr(response, "usage"):
                 logger.info(f"Total tokens: {response.usage.total_tokens}")
-            return content
-
-@cl.on_message
-async def on_message(message: cl.Message):
-    # search_parameters = None
-    # if message.command == "Search":
-    #     search_parameters = SearchParameters(mode="on")
-
-    await run_chat(message.content, stream=True)
+            break
 
 
         
