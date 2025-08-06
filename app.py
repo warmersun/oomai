@@ -258,7 +258,7 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
                 # reasoning_format="hidden",
                 temperature=0.01,
                 response_format = {
-                    "type": "json_object",
+                    "type": "json_schema",
                     "json_schema": {
                         "name": "compare_result",
                         "description": "Result of comparing two nodes.",
