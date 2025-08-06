@@ -22,6 +22,7 @@ externalPort = 80
 exposeLocalhost = true
 
 [workflows]
+runButton = "Batch"
 
 [[workflows.workflow]]
 name = "Batch"

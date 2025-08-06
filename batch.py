@@ -26,7 +26,7 @@ with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
 
 embedding_model = "text-embedding-3-large"
-llm_model = "grok-4"
+llm_model = "grok-3-mini"
 
 LAST_RUN_FILE = "last_run_timestamp.txt"
 
