@@ -16,6 +16,10 @@ from function_tools import (
     web_search_brave_tool,
     web_search_brave,
 )
+import re
+from elevenlabs.types import VoiceSettings
+from elevenlabs.client import ElevenLabs
+
 
 class Neo4jDateEncoder(json.JSONEncoder):
     def default(self, o):
@@ -59,6 +63,8 @@ Ocasionally you may discover that a connection is missing. In that case, you can
 Note: there is no elementId property. Use the elementId function to get the elementId of a node or edge. e.g.
 MATCH (n:EmTech {{name: 'computing'}}) RETURN elementId(n) AS elementId
 """
+
+elevenlabs_client= ElevenLabs(api_key=os.environ['ELEVENLABS_API_KEY'])
 
 
 @cl.set_chat_profiles
@@ -331,7 +337,7 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
 
 
         if found_same_id:
-            logger.info(f"Found semantically equivalent node to: {name}; updating the node with name: {updated_name} and description: {updated_description}")
+            logger.warning(f"Found semantically equivalent node to: {name}; updating the node with name: {updated_name} and description: {updated_description}")
 
             # Generate new embedding for the updated description
             updated_emb_response = await openai_client.embeddings.create(
@@ -359,7 +365,7 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
                 raise RuntimeError(f"Failed to update node with elementId: {found_same_id}")
             return update_record['id']
         else:
-            logger.info("No semantically equivalent node found, creating a new node.")
+            logger.warning(f"No semantically equivalent node found, creating a new node. Type: {node_type} Name: {name} Description: {description}")
             # Create a new node
             create_query = f"""
             CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
@@ -560,6 +566,10 @@ find_node_tool = {
 
 @cl.on_message
 async def on_message(message: cl.Message):
+    last_tts_action = cl.user_session.get("tts_action")
+    if last_tts_action is not None:
+        await last_tts_action.remove()
+
     search_parameters = None
     if message.command == "Search":
         search_parameters = SearchParameters(mode="on")
@@ -574,13 +584,14 @@ async def run_chat_groq(
     search_parameters: Optional[SearchParameters] = None,
     *,
     stream: bool = True,
-) -> str:
+):
     """Execute the LLM chat loop with optional streaming."""
 
     xai_client = cl.user_session.get("xai_client")
     assert xai_client is not None, "No xAI client found in user session"
 
-    msg: Optional[cl.Message] = cl.Message(content="") if stream else None
+    tts_action = cl.Action(name="tts", payload={"value": "tts"}, icon="circle-play", tooltip="Read out loud" )
+    msg: Optional[cl.Message] = cl.Message(content="", actions=[tts_action]) if stream else None
 
     chat_kwargs = dict(
         model=llm_model["Grok-4"],
@@ -678,13 +689,16 @@ async def run_chat_groq(
     logger.info(f"Final response: {response.content}")
     logger.info(f"Finish reason: {response.finish_reason}")
     logger.info(f"Reasoning tokens: {response.usage.reasoning_tokens}")
-    logger.info(f"Total tokens: {response.usage.total_tokens}")
+    logger.warning(f"Total tokens: {response.usage.total_tokens}")
 
-    return response.content
+    cl.user_session.set("last_message", response.content)
+    cl.user_session.set("tts_action", tts_action)
 
 async def run_chat_gpt_oss(message: cl.Message):
     groq_client = cl.user_session.get("groq_client")
     assert groq_client is not None, "No Groq client found in user session"
+
+    tts_action = cl.Action(name="tts", payload={"value": "tts"}, icon="circle-play", tooltip="Read out loud" )
 
     messages = [
         {
@@ -806,10 +820,57 @@ async def run_chat_gpt_oss(message: cl.Message):
             continue
         else:
             content = response_message.content or ""
-            await cl.Message(content=content).send()
+            await cl.Message(content=content, actions=[tts_action]).send()
             if hasattr(response, "usage"):
-                logger.info(f"Total tokens: {response.usage.total_tokens}")
+                logger.warning(f"Total tokens: {response.usage.total_tokens}")
             break
 
+    cl.user_session.set("last_message", content)
+    cl.user_session.set("tts_action", tts_action)
+
+
+def clean_text_for_tts(text: str) -> str:
+    """Remove markdown, links and other artifacts before TTS."""
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+    text = re.sub(r"`[^`]*`", "", text)
+    text = re.sub(r"!\[[^\]]*\]\([^\)]+\)", "", text)
+    text = re.sub(r"\[[^\]]+\]\([^\)]+\)", "", text)
+    text = re.sub(r"[*_~]", "", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+def text_to_speech(text: str):
+    text = clean_text_for_tts(text)
+    audio = elevenlabs_client.text_to_speech.convert(
+        model_id="eleven_flash_v2_5",
+        text=text,
+        voice_id=os.environ['ELEVENLABS_VOICE_ID'],
+        output_format="mp3_44100_128",
+        voice_settings=VoiceSettings(
+            stability=0.5,
+            similarity_boost=0.76,
+            use_speaker_boost=True,
+            speed=1.0
+        )
+    )
+    return audio
+
+@cl.action_callback("tts")
+async def tts(action: cl.Action):
+    last_message = cl.user_session.get("last_message")
+    assert last_message is not None, "Last message must be set."
+    if not isinstance(last_message, str):
+        last_message = getattr(last_message, "response", str(last_message))
+    audio_generator = text_to_speech(last_message)
+
+    output_audio_el = cl.Audio(
+        auto_play=True,
+        content=b"".join(audio_generator),
+        mime="audio/mp3"
+    )
+
+    await cl.Message(content="👂 Listen...", elements=[output_audio_el]).send()
+    await action.remove()
 
         

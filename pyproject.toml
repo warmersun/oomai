@@ -12,4 +12,5 @@ dependencies = [
     "pyyaml>=6.0.2",
     "xai-sdk>=1.0.0",
     "groq>=0.30.0",
+    "elevenlabs>=2.9.1",
 ]

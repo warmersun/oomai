@@ -1,4 +1,4 @@
-run = "chainlit run app.py --debug"
+run = "chainlit run app.py"
 entrypoint = "app.py"
 modules = ["nodejs-20", "python-3.11"]
 
