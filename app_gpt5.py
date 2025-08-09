@@ -1,4 +1,4 @@
-import chainlit
+import chainlit as cl
 import os
 from neo4j import AsyncGraphDatabase, AsyncTransaction
 from neo4j.exceptions import CypherSyntaxError, Neo4jError
@@ -13,9 +13,13 @@ from function_tools import (
     create_node,
     create_edge,
     find_node,
-    GraphOptsCtx,
+    GraphOpsCtx,
 )
 from agents import Agent, Runner
+from openai.types.responses.response_text_delta_event import (
+    ResponseTextDeltaEvent,
+)
+from groq import AsyncGroq
 
 
 with open("knowledge_graph/schema.md", "r") as f:
@@ -72,5 +76,5 @@ async def on_message(message: cl.Message):
         result = Runner.run_streamed(agent, message.content, ctx)
         async for event in result.stream_events():
             if event.type == "raw_response_event" and isinstance(event.data, ResponseTextDeltaEvent):
-                await message.stream_token(event.data.text)
+                await message.stream_token(event.data.delta)
         await message.update()
