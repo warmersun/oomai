@@ -13,4 +13,5 @@ dependencies = [
     "xai-sdk>=1.0.0",
     "groq>=0.30.0",
     "elevenlabs>=2.9.1",
+    "openai-agents>=0.2.3",
 ]

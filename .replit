@@ -31,3 +31,12 @@ author = 26564713
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python batch.py"
+
+[[workflows.workflow]]
+name = "Run GPT5"
+mode = "sequential"
+author = 26564713
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "chainlit run app_gpt5.py"
