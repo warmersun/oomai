@@ -205,7 +205,10 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
 
 
         if found_same_id:
-            logger.warning(f"Found semantically equivalent node to: {name}; updating the node with name: {updated_name} and description: {updated_description}")
+            logger.warning(
+                f"Found semantically equivalent node to: {name}; "
+                f"updating the node with name: {updated_name} and description: {updated_description}"
+            )
 
             # Generate new embedding for the updated description
             updated_emb_response = await openai_client.embeddings.create(
@@ -233,7 +236,10 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
                 raise RuntimeError(f"Failed to update node with elementId: {found_same_id}")
             return update_record['id']
         else:
-            logger.warning(f"No semantically equivalent node found, creating a new node. Type: {node_type} Name: {name} Description: {description}")
+            logger.warning(
+                f"No semantically equivalent node found, creating a new node. "
+                f"Type: {node_type} Name: {name} Description: {description}"
+            )
             # Create a new node
             create_query = f"""
             CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
@@ -282,7 +288,13 @@ async def merge_node(tx: AsyncTransaction, node_type: str, name: str, descriptio
         raise RuntimeError(f"Failed to merge node: {str(e)}")
 
 @function_tool
-async def create_edge(wrapper: RunContextWrapper[GraphOpsCtx], source_id: str, target_id: str, relationship_type: str, properties: Optional[Dict[str, Any]] = None) -> Any:
+async def create_edge(
+    wrapper: RunContextWrapper[GraphOpsCtx],
+    source_id: str,
+    target_id: str,
+    relationship_type: str,
+    properties: Optional[Dict[str, Any]] = None,
+) -> Any:
     """
     Creates a directed edge (relationship) between two existing nodes in Neo4j.
     Takes source node elementId, target node elementId, relationship type, and optional properties for the edge.
@@ -291,7 +303,12 @@ async def create_edge(wrapper: RunContextWrapper[GraphOpsCtx], source_id: str, t
     """
     async with cl.Step(name="Create Edge", type="tool") as step:
         step.show_input = True
-        step.input = {"source_id": source_id, "target_id": target_id, "relationship_type": relationship_type, "properties": properties}
+        step.input = {
+            "source_id": source_id,
+            "target_id": target_id,
+            "relationship_type": relationship_type,
+            "properties": properties,
+        }
 
         if properties is None:
             properties = {}
