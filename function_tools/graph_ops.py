@@ -201,9 +201,9 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
 
         if found_same_id:
             logger.warning(
-                "[CREATE_NODE] Found semantically equivalent node to: {name}; "
-                "updating the node with name: {updated_name}" 
-                "and description: {updated_description}"
+                f"[CREATE_NODE] Found semantically equivalent node to: {name}; "
+                f"updating the node with name: {updated_name}" 
+                f"and description: {updated_description}"
             )
 
             # Generate new embedding for the updated description

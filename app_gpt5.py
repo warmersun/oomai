@@ -61,6 +61,7 @@ async def start_chat():
                 effort="high",
             ),
             # extra_args={"verbosity":"low"}
+            parallel_tool_calls=False,
         ),
         name="oom.ai.gpt",
         instructions=system_prompt,
@@ -91,23 +92,29 @@ async def on_message(message: cl.Message):
     async with neo4jdriver.session() as session:
         tx = await session.begin_transaction()
         ctx = GraphOpsCtx(tx)
+        try:
 
-        last_result = cl.user_session.get("last_result")
-
-        new_input: list[TResponseInputItem] = (  
-            last_result.to_input_list() + [{"role": "user", "content": message.content}]  if last_result else [{"role": "user", "content": message.content}]  
-        )
-
-        result = Runner.run_streamed(starting_agent=agent, input=new_input, context=ctx, max_turns=50)
-        output_message = cl.Message(content="")
-
-        async for event in result.stream_events():
-            if event.type == "raw_response_event" and isinstance(event.data, ResponseTextDeltaEvent):
-                await output_message.stream_token(event.data.delta)
-            elif event.type == "run_item_stream_event":
-                if event.name == "tool_called" and event.item.type == "tool_call_item":
-                    if hasattr(event.item.raw_item, "type") and event.item.raw_item.type == "web_search_call": 
-                        logger.warn("Web search call detected.")
-        await output_message.update()
-
-        cl.user_session.set("last_result", result)
+            last_result = cl.user_session.get("last_result")
+    
+            new_input: list[TResponseInputItem] = (  
+                last_result.to_input_list() + [{"role": "user", "content": message.content}]  if last_result else [{"role": "user", "content": message.content}]  
+            )
+    
+            result = Runner.run_streamed(starting_agent=agent, input=new_input, context=ctx, max_turns=50)
+            output_message = cl.Message(content="")
+    
+            async for event in result.stream_events():
+                if event.type == "raw_response_event" and isinstance(event.data, ResponseTextDeltaEvent):
+                    await output_message.stream_token(event.data.delta)
+                elif event.type == "run_item_stream_event":
+                    if event.name == "tool_called" and event.item.type == "tool_call_item":
+                        if hasattr(event.item.raw_item, "type") and event.item.raw_item.type == "web_search_call": 
+                            logger.warn("Web search call detected.")
+            await output_message.update()
+            await tx.commit()
+            cl.user_session.set("last_result", result)
+        except Exception as e:
+            logger.error(f"Rolling back the Neo4j transaction. Error: {str(e)}")
+            await tx.cancel()
+        finally:
+            await tx.close()
