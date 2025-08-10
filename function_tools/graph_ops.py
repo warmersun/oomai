@@ -81,6 +81,7 @@ async def execute_cypher_query(wrapper: RunContextWrapper[GraphOpsCtx], query: s
         except CypherSyntaxError as syntax_error:
             # Handle Cypher syntax errors specifically
             logger.error(f"Cypher syntax error executing query: {syntax_error}")
+            step.output = [{"Cypher_syntax_error": syntax_error.message}]
             return [{"Cypher_syntax_error": syntax_error.message}]
         
         except Neo4jError as e:
@@ -158,9 +159,11 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
             old_desc = sim['description']
 
             compare_prompt = (
-                "Determine whether the following two nodes represent the same concept. "
-                "If they are the same, provide a short improved name and a merged description. "
-                "Respond in JSON matching this schema: {different: bool, name?: string, description?: string}."
+                "Determine whether the following two nodes represent the same concept by carefully comparing their names and descriptions. "
+                "Reason step by step: First, analyze similarities in meaning. Second, decide if they are semantically identical. "
+                "If they are the same, provide an improved short name (combining the best aspects) and a merged description (concise, comprehensive, avoiding redundancy). "
+                "If different, just indicate they are different. "
+                "Always output only a JSON object with keys: different (boolean), and optionally name (string) and description (string) if not different."
             )
 
             completion = await groq_client.chat.completions.create(
@@ -179,7 +182,7 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
                 stream=False,
                 reasoning_effort="low",
                 # reasoning_format="hidden",
-                temperature=0.01,
+                temperature=0.2,
                 response_format = {
                     "type": "json_schema",
                     "json_schema": {

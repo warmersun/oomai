@@ -33,6 +33,7 @@ Begin with a concise checklist (3-7 bullets) outlining the conceptual steps you 
 - The `create_node` tool merges similar semantic descriptions to handle duplicates.
 - Ensure every product or service (PTC) is connected to relevant Capabilities and Milestones.
 - Where categorization is missing (e.g. in articles or news), create or identify and link abstract entities (LAC, LTC).
+- Never use the `execute_cypher_query` to create nodes and edges. Only use `create_node` and `create_edge` for this purpose.
 
 # Context
 - The schema for the knowledge graph is:
