@@ -1,6 +1,6 @@
 import chainlit as cl
 from neo4j import AsyncTransaction
-from neo4j.exceptions import Neo4jError
+from neo4j.exceptions import Neo4jError, CypherSyntaxError
 from chainlit.logger import logger
 import json
 from typing import List, Dict, Optional, Union
@@ -77,7 +77,12 @@ async def execute_cypher_query(wrapper: RunContextWrapper[GraphOpsCtx], query: s
             filtered_records = [filter_embedding(record) for record in records]
             step.output = filtered_records
             return filtered_records
-            
+
+        except CypherSyntaxError as syntax_error:
+            # Handle Cypher syntax errors specifically
+            logger.error(f"Cypher syntax error executing query: {syntax_error}")
+            return [{"Cypher_syntax_error": syntax_error.message}]
+        
         except Neo4jError as e:
             # Catch errors thrown by the Neo4j driver specifically
             logger.error(f"Neo4j error executing query: {e}")
