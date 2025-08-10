@@ -100,7 +100,7 @@ async def on_message(message: cl.Message):
                 last_result.to_input_list() + [{"role": "user", "content": message.content}]  if last_result else [{"role": "user", "content": message.content}]  
             )
     
-            result = Runner.run_streamed(starting_agent=agent, input=new_input, context=ctx, max_turns=100)
+            result = Runner.run_streamed(starting_agent=agent, input=new_input, context=ctx, max_turns=500)
             output_message = cl.Message(content="")
     
             async for event in result.stream_events():
