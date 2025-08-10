@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from neo4j.time import Date, DateTime
 from agents import RunContextWrapper, function_tool
 from dataclasses import dataclass
-from agents import Tool
+from typing import Literal
 
 
 # with open("knowledge_graph/cypher.bnf", "r") as f:
@@ -332,12 +332,22 @@ async def create_edge(
         record = await result.single()
         return record.data() if record else {}
 
+        from typing import Literal
+
 @function_tool
-async def find_node(wrapper: RunContextWrapper[GraphOpsCtx], query_text: str, node_type: str, top_k: int = 5) -> list:
+async def find_node(
+    wrapper: RunContextWrapper[GraphOpsCtx],
+    query_text: str,
+    node_type: Literal[
+        "Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"
+    ],
+    top_k: int = 5
+) -> list:
     """
     Finds nodes in knowledge graph that are similar to a given query text.
     Uses vector similarity search based on node descriptions.
     Returns a list of nodes with their names, descriptions, and similarity scores.
+    Allowed node_type values: Convergence, Capability, Milestone, Trend, Idea, LTC, LAC
     """
     async with cl.Step(name="Find Node", type="tool") as step:
         step.show_input = True
@@ -366,7 +376,12 @@ async def find_node(wrapper: RunContextWrapper[GraphOpsCtx], query_text: str, no
                 score
             ORDER BY score DESC
             """
-            result = await tx.run(cypher_query, index_name=f"{node_type.lower()}_description_embeddings", top_k=top_k, embedding=query_embedding)
+            result = await tx.run(
+                cypher_query,
+                index_name=f"{node_type.lower()}_description_embeddings",
+                top_k=top_k,
+                embedding=query_embedding
+            )
             records = []
             async for record in result:
                 records.append(record.data())
