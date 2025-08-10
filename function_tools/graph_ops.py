@@ -1,28 +1,24 @@
 import chainlit as cl
-import os
-from xai_sdk import AsyncClient
-from xai_sdk.chat import SearchParameters, system, user, tool, tool_result
-from groq import AsyncGroq
-from neo4j import AsyncGraphDatabase, AsyncTransaction
-from neo4j.exceptions import CypherSyntaxError, Neo4jError
+from neo4j import AsyncTransaction
+from neo4j.exceptions import Neo4jError
 from chainlit.logger import logger
 import json
-from openai import AsyncOpenAI
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Optional, Union
 from pydantic import BaseModel
 
 from neo4j.time import Date, DateTime
-from function_tools import (
-    web_search_brave_tool,
-    web_search_brave,
-)
-import re
-from elevenlabs.types import VoiceSettings
-from elevenlabs.client import ElevenLabs
-from agents import FunctionTool, RunContextWrapper, function_tool
+from agents import RunContextWrapper, function_tool
 from dataclasses import dataclass
+from agents import Tool
 
 
+# with open("knowledge_graph/cypher.bnf", "r") as f:
+#     cypher_grammar = f.read()
+
+class KVPair(BaseModel):
+    key: str
+    value: Union[str, int, float, bool]
+    
 class Neo4jDateEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, Date):
@@ -38,7 +34,7 @@ class GraphOpsCtx:
     tx: AsyncTransaction
 
 @function_tool
-async def execute_cypher_query(wrapper: RunContextWrapper[GraphOpsCtx], query: str) -> list:
+async def execute_cypher_query(wrapper: RunContextWrapper[GraphOpsCtx], query: str) -> List[dict]:
     """
     Executes the provided Cypher query against the Neo4j database and returns the results.
     Robust error handling is implemented to catch exceptions from invalid queries or empty result sets.
@@ -81,7 +77,7 @@ async def execute_cypher_query(wrapper: RunContextWrapper[GraphOpsCtx], query: s
             filtered_records = [filter_embedding(record) for record in records]
             step.output = filtered_records
             return filtered_records
-
+            
         except Neo4jError as e:
             # Catch errors thrown by the Neo4j driver specifically
             logger.error(f"Neo4j error executing query: {e}")
@@ -90,7 +86,6 @@ async def execute_cypher_query(wrapper: RunContextWrapper[GraphOpsCtx], query: s
             # Catch any other unexpected errors
             logger.error(f"Unexpected error executing query: {e}")
             raise RuntimeError(f"Unexpected error executing query: {e}")
-
 
 @function_tool
 async def create_node(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, name: str, description: str) -> str:
@@ -206,8 +201,9 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
 
         if found_same_id:
             logger.warning(
-                f"Found semantically equivalent node to: {name}; "
-                f"updating the node with name: {updated_name} and description: {updated_description}"
+                "[CREATE_NODE] Found semantically equivalent node to: {name}; "
+                "updating the node with name: {updated_name}" 
+                "and description: {updated_description}"
             )
 
             # Generate new embedding for the updated description
@@ -237,7 +233,8 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
             return update_record['id']
         else:
             logger.warning(
-                f"No semantically equivalent node found, creating a new node. "
+                "[CREATE_NODE] "
+                f"No semantically equivalent node found, creating a new node;"
                 f"Type: {node_type} Name: {name} Description: {description}"
             )
             # Create a new node
@@ -293,13 +290,12 @@ async def create_edge(
     source_id: str,
     target_id: str,
     relationship_type: str,
-    properties: Optional[Dict[str, Any]] = None,
-) -> Any:
+    properties: Optional[List[KVPair]] = None,
+) -> dict:
     """
     Creates a directed edge (relationship) between two existing nodes in Neo4j.
-    Takes source node elementId, target node elementId, relationship type, and optional properties for the edge.
-    Assumes nodes exist and elementIds are valid.
-    Returns the created relationship.
+    Takes source node elementId, target node elementId, relationship type, and optional properties.
+    Returns the created relationship as a dict.
     """
     async with cl.Step(name="Create Edge", type="tool") as step:
         step.show_input = True
@@ -307,26 +303,26 @@ async def create_edge(
             "source_id": source_id,
             "target_id": target_id,
             "relationship_type": relationship_type,
-            "properties": properties,
+            "properties": [p.model_dump() for p in properties] if properties else None,
         }
 
-        if properties is None:
-            properties = {}
-        prop_keys = ", ".join(f"{key}: ${key}" for key in properties)
+        # rebuild a strict dict for Cypher params
+        props_dict = {p.key: p.value for p in (properties or [])}
+
+        prop_keys = ", ".join(f"{key}: ${key}" for key in props_dict)
         prop_str = f"{{{prop_keys}}}" if prop_keys else ""
+
         query = (
             "MATCH (source) WHERE elementId(source) = $source_id "
             "MATCH (target) WHERE elementId(target) = $target_id "
             f"MERGE (source)-[r:{relationship_type} {prop_str}]->(target) "
             "RETURN r"
         )
-        params = {"source_id": source_id, "target_id": target_id}
-        params.update(properties)
+        params = {"source_id": source_id, "target_id": target_id, **props_dict}
+
         result = await wrapper.context.tx.run(query, **params)
-        record =  await result.single()
-        if record:
-            return record.data()
-        return None
+        record = await result.single()
+        return record.data() if record else {}
 
 @function_tool
 async def find_node(wrapper: RunContextWrapper[GraphOpsCtx], query_text: str, node_type: str, top_k: int = 5) -> list:
