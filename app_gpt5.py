@@ -61,7 +61,7 @@ async def start_chat():
                 effort="high",
             ),
             # extra_args={"verbosity":"low"}
-            parallel_tool_calls=False,
+            parallel_tool_calls=True,
         ),
         name="oom.ai.gpt",
         instructions=system_prompt,
