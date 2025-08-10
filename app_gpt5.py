@@ -15,9 +15,6 @@ from agents import Agent, ModelSettings, Runner, TResponseInputItem, WebSearchTo
 from openai.types.responses.response_text_delta_event import (
     ResponseTextDeltaEvent,
 )
-from openai.types.responses.response_reasoning_text_delta_event import (
-    ResponseReasoningTextDeltaEvent,
-)
 from groq import AsyncGroq
 from openai.types.shared import Reasoning
 from xai_sdk import AsyncClient
@@ -99,21 +96,16 @@ async def on_message(message: cl.Message):
     
             result = Runner.run_streamed(starting_agent=agent, input=new_input, context=ctx, max_turns=500)
             output_message = cl.Message(content="")
-            reasoning_message = cl.Message(content="", name="Reasoning")
 
             async for event in result.stream_events():
                 if event.type == "raw_response_event":
                     if isinstance(event.data, ResponseTextDeltaEvent):
                         await output_message.stream_token(event.data.delta)
-                    elif isinstance(event.data, ResponseReasoningTextDeltaEvent):
-                        await reasoning_message.stream_token(event.data.delta)
                 elif event.type == "run_item_stream_event":
                     if event.name == "tool_called" and event.item.type == "tool_call_item":
                         if hasattr(event.item.raw_item, "type") and event.item.raw_item.type == "web_search_call":
                             logger.warn("Web search call detected.")
             await output_message.update()
-            if reasoning_message.content:
-                await reasoning_message.update()
             await tx.commit()
             cl.user_session.set("last_result", result)
         except Exception as e:
