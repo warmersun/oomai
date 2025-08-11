@@ -55,6 +55,35 @@ sources:
       - GoodFoodInst
       - davidasinclair
       - colossal
+
+  - name: arvr_news
+    prompt: "List the latest products (PTC) and their vendors (Party), new capabilities and milestones, use cases (LAC) in augmented and virtual rality. Capture these in the knowledge graph. If you don't find anything worthwhile, just say 'Nothing noteworthy today'."
+    source_type: X
+    handles:
+      - RtoVR
+      - UploadVR
+      - philiprosedale
+
+- name: use_cases
+  prompt: "Collect use cases, applications (LAC) of emerging technologies. What product categories (LTC), what capabilities or new milestones have unlocked these use cases? Capture these along with the specifics (PTC, PAC, Party) in the knowledge graph. If you don't find anything noreworthy, just say 'Nothing noteworthy today.'"
+  source_type: X
+  handles:
+    - IntEngineering
+    - Dr_Singularity
+    - dreamingtulpa
+    - PeterDiamandis
+    - gunsnrosesgirl3
+    - kimmonismus
+
+- name: robot_news
+  prompt: "List the latest development, research, new capabilities and milestones related to robots. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'.""
+  source_type: X
+  handles:
+    - SawyerMerritt
+    - TheHumanoidHub
+    - CyberRobooo
+    - adcock_brett
+    - TheRundownAI
       
       
       
