@@ -11,6 +11,10 @@ from function_tools import (
     find_node,
     GraphOpsCtx,
     x_search,
+    plan_tasks,
+    get_tasks,
+    mark_task_as_running,
+    mark_task_as_done,
 )
 from agents import Agent, ModelSettings, ReasoningItem, Runner, TResponseInputItem, WebSearchTool
 from openai.types.responses.response_text_delta_event import (
@@ -73,7 +77,11 @@ async def start_chat():
             create_edge,
             find_node,
             WebSearchTool(search_context_size="high"),
-            x_search,            
+            x_search,
+            plan_tasks,
+            get_tasks,
+            mark_task_as_running,
+            mark_task_as_done,
         ])        
     cl.user_session.set("agent", agent)
     

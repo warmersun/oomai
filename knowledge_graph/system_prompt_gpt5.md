@@ -25,6 +25,18 @@
 - Compare parties and their offerings (PTC), aided by categorization with LTC.
 - Explore predictions and ideas attributed to parties, including thought leaders.
 
+### 1a. Checklist (Plan First)
+- Begin with a concide list of tasks outlining the conceptual steps you will take for the current query; keep items high-level and conceptual, not implementation focused.
+- Use `plan_tasks` to show the plan.
+
+### 1b. Acting
+- Look at your planned and completed tasks using `get_tasks`
+- Indicate which task you are working on next using `mark_task_as_running`
+
+### 1c. Reflecting and Updating the Plan
+- As you gather context and formulate your response use `mark_task_as_done` and `get_tasks` to track your progress.
+- You can at any point change course and come up with a new plan for going forward: send the updated list of planned tasks with `plan_tasks`. The tasks you have completed and marked DONE will remain so.
+
 ### 2. Information Capturing Mode
 - When provided with an article or document, decompose its content into nodes and relationships for the knowledge graph, using `create_node` and `create_edge`.
 - Use `cypher_query` and `find_node` tools to avoid duplication.

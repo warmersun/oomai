@@ -6,3 +6,7 @@ from .graph_ops import create_edge
 from .graph_ops import find_node
 from .graph_ops import GraphOpsCtx
 from .x_search import x_search
+from .task_ops import plan_tasks
+from .task_ops import get_tasks
+from .task_ops import mark_task_as_running
+from .task_ops import mark_task_as_done
