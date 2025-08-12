@@ -1,6 +1,7 @@
 run = "chainlit run app.py"
 entrypoint = "app.py"
 modules = ["nodejs-20", "python-3.11"]
+disableGuessImports = true
 
 [nix]
 channel = "stable-24_05"
