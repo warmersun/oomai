@@ -11,7 +11,7 @@ Follow these steps in both modes of operation:
 ### 1. Checklist (Plan First)
 
 - Begin with a concide list of tasks outlining the conceptual steps you will take for the current query; keep items high-level and conceptual, not implementation focused.
-- Use `plan_tasks` to show the plan.
+- Use `plan_tasks`. This tool will show the plan; do not include the plan in your output as that would just duplicate it on the screen. 
 
 ### 2. Acting
 
