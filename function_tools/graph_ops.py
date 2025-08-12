@@ -10,6 +10,7 @@ from neo4j.time import Date, DateTime
 from agents import RunContextWrapper, function_tool
 from dataclasses import dataclass
 from typing import Literal
+from asyncio import Lock
 
 
 # with open("knowledge_graph/cypher.bnf", "r") as f:
@@ -32,6 +33,7 @@ embedding_model = "text-embedding-3-large"
 @dataclass
 class GraphOpsCtx:
     tx: AsyncTransaction
+    lock: Lock
 
 @function_tool
 async def execute_cypher_query(wrapper: RunContextWrapper[GraphOpsCtx], query: str) -> List[dict]:
@@ -67,17 +69,18 @@ async def execute_cypher_query(wrapper: RunContextWrapper[GraphOpsCtx], query: s
             return obj
 
         try:
-            result = await wrapper.context.tx.run(query)
-            # Convert the results to a list of dictionaries
-            records = await result.data()
-            if not records:
-                return []
-
-            # Apply recursive filtering to each record
-            filtered_records = [filter_embedding(record) for record in records]
-            step.output = filtered_records
-            return filtered_records
-
+            async with wrapper.context.lock:
+                result = await wrapper.context.tx.run(query)
+                # Convert the results to a list of dictionaries
+                records = await result.data()
+                if not records:
+                    return []
+    
+                # Apply recursive filtering to each record
+                filtered_records = [filter_embedding(record) for record in records]
+                step.output = filtered_records
+                return filtered_records
+    
         except CypherSyntaxError as syntax_error:
             # Handle Cypher syntax errors specifically
             logger.error(f"Cypher syntax error executing query: {syntax_error}")
@@ -100,13 +103,13 @@ async def create_node(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, n
         step.input = {"node_type": node_type, "name": name, "description": description}
 
         if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
-            return await smart_upsert(wrapper.context.tx, node_type, name, description)
+            return await smart_upsert(wrapper, node_type, name, description)
         elif node_type == "EmTech":
             return "Do not create new EmTech type nodes. EmTechs are reference data, use existing ones."
         else:
-            return await merge_node(wrapper.context.tx, node_type, name, description)
+            return await merge_node(wrapper, node_type, name, description)
 
-async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, description: str) -> str:
+async def smart_upsert(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, name: str, description: str) -> str:
     """
     Performs a smart UPSERT for a node in Neo4j.
     - Queries for similar nodes based on description embedding similarity >= 0.8 (top 100 candidates, filtered).
@@ -148,8 +151,9 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
         ORDER BY score DESC
         LIMIT 10
         """
-        similar_result = await tx.run(similar_query, index_name=index_name, vector=new_embedding)
-        similar_nodes: List[Dict[str, Union[str, float]]] = await similar_result.data()
+        async with wrapper.context.lock:
+            similar_result = await wrapper.context.tx.run(similar_query, index_name=index_name, vector=new_embedding)
+            similar_nodes: List[Dict[str, Union[str, float]]] = await similar_result.data()
 
         found_same_id = None
         updated_name = name
@@ -221,45 +225,47 @@ async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, descript
             )
             updated_embedding = updated_emb_response.data[0].embedding
 
-            # Update the existing node with new name, description and embedding
-            update_query = """
-            MATCH (n)
-            WHERE elementId(n) = $node_id
-            SET n.name = $name, n.description = $description, n.embedding = $embedding
-            RETURN elementId(n) AS id
-            """
-            update_result = await tx.run(
-                update_query,
-                node_id=found_same_id,
-                name=updated_name,
-                description=updated_description,
-                embedding=updated_embedding,
-            )
-            update_record = await update_result.single()
-            if update_record is None:
-                raise RuntimeError(f"Failed to update node with elementId: {found_same_id}")
-            return update_record['id']
+            async with wrapper.context.lock:
+                # Update the existing node with new name, description and embedding
+                update_query = """
+                MATCH (n)
+                WHERE elementId(n) = $node_id
+                SET n.name = $name, n.description = $description, n.embedding = $embedding
+                RETURN elementId(n) AS id
+                """
+                update_result = await wrapper.context.tx.run(
+                    update_query,
+                    node_id=found_same_id,
+                    name=updated_name,
+                    description=updated_description,
+                    embedding=updated_embedding,
+                )
+                update_record = await update_result.single()
+                if update_record is None:
+                    raise RuntimeError(f"Failed to update node with elementId: {found_same_id}")
+                return update_record['id']
         else:
             logger.warning(
                 "[CREATE_NODE] "
                 f"No semantically equivalent node found, creating a new node;"
                 f"Type: {node_type} Name: {name} Description: {description}"
             )
-            # Create a new node
-            create_query = f"""
-            CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
-            RETURN elementId(n) AS id
-            """
-            create_result = await tx.run(create_query, name=name, description=description, embedding=new_embedding)
-            create_record = await create_result.single()
-            if create_record is None:
-                raise RuntimeError("Failed to create new node")
-            return create_record['id']
+            async with wrapper.context.lock:
+                # Create a new node
+                create_query = f"""
+                CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
+                RETURN elementId(n) AS id
+                """
+                create_result = await wrapper.context.tx.run(create_query, name=name, description=description, embedding=new_embedding)
+                create_record = await create_result.single()
+                if create_record is None:
+                    raise RuntimeError("Failed to create new node")
+                return create_record['id']
     except Exception as e:
         logger.error(f"Error in smart_upsert: {str(e)}")
         raise
 
-async def merge_node(tx: AsyncTransaction, node_type: str, name: str, description: str) -> str:
+async def merge_node(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, name: str, description: str) -> str:
     """
     Performs a simple MERGE operation to create or match a node in Neo4j with the given type, name, and description.
     If a node with the same name and type exists, it updates the description; otherwise, it creates a new node.
@@ -278,16 +284,17 @@ async def merge_node(tx: AsyncTransaction, node_type: str, name: str, descriptio
     """
 
     try:
-        query = f"""
-        MERGE (n:`{node_type}` {{name: $name}})
-        SET n.description = $description
-        RETURN elementId(n) AS node_id
-        """
-        result = await tx.run(query, name=name, description=description)
-        record = await result.single()
-        if record is None:
-            raise RuntimeError("Failed to merge node")
-        return record["node_id"]
+        async with wrapper.context.lock:
+            query = f"""
+            MERGE (n:`{node_type}` {{name: $name}})
+            SET n.description = $description
+            RETURN elementId(n) AS node_id
+            """
+            result = await wrapper.context.tx.run(query, name=name, description=description)
+            record = await result.single()
+            if record is None:
+                raise RuntimeError("Failed to merge node")
+            return record["node_id"]
     except Exception as e:
         logger.error(f"Error in merge_node: {str(e)}")
         raise RuntimeError(f"Failed to merge node: {str(e)}")
@@ -328,11 +335,10 @@ async def create_edge(
         )
         params = {"source_id": source_id, "target_id": target_id, **props_dict}
 
-        result = await wrapper.context.tx.run(query, **params)
-        record = await result.single()
-        return record.data() if record else {}
-
-        from typing import Literal
+        async with wrapper.context.lock:
+            result = await wrapper.context.tx.run(query, **params)
+            record = await result.single()
+            return record.data() if record else {}   
 
 @function_tool
 async def find_node(
@@ -388,6 +394,7 @@ async def find_node(
             return records
 
         # execute the query
-        results = await vector_search(wrapper.context.tx)
-        step.output = results
-        return results
+        async with wrapper.context.lock:
+            results = await vector_search(wrapper.context.tx)
+            step.output = results
+            return results

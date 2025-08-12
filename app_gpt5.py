@@ -1,3 +1,4 @@
+import asyncio
 import chainlit as cl
 import os
 from neo4j import AsyncGraphDatabase
@@ -22,11 +23,12 @@ from typing import Any
 import re
 from elevenlabs.types import VoiceSettings
 from elevenlabs.client import ElevenLabs
+from asyncio import Lock
 
 
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
-with open("knowledge_graph/system_prompt.md", "r") as f:
+with open("knowledge_graph/system_prompt_gpt5.md", "r") as f:
     system_prompt_template = f.read()
 system_prompt = system_prompt_template.format(schema=schema)
 
@@ -61,7 +63,7 @@ async def start_chat():
                 effort="high",
             ),
             # extra_args={"verbosity":"low"}
-            parallel_tool_calls=False, # parallel tool use does not work with Neo4j driver
+            parallel_tool_calls=True, # parallel tool use does not work with Neo4j driver
         ),
         name="oom.ai.gpt",
         instructions=system_prompt,
@@ -96,7 +98,8 @@ async def on_message(message: cl.Message):
     async with neo4jdriver.session() as session:
         tts_action = cl.Action(name="tts", payload={"value": "tts"}, icon="circle-play", tooltip="Read out loud" )
         tx = await session.begin_transaction()
-        ctx = GraphOpsCtx(tx)
+        lock = asyncio.Lock()
+        ctx = GraphOpsCtx(tx, lock)          
         try:
 
             last_result = cl.user_session.get("last_result")
