@@ -49,9 +49,17 @@ available_functions = {
 def create_response(input_data, previous_response_id=None):
     kwargs = {
         "model": "gpt-5",
+        "instructions": """
+        <tool_preambles>
+        - Always begin by rephrasing the user's goal in a friendly, clear, and concise manner, before calling any tools.
+        - Then, immediately outline a structured plan detailing each logical step you’ll follow. - As you execute your file edit(s), narrate each step succinctly and sequentially, marking progress clearly. 
+        - Finish by summarizing completed work distinctly from your upfront plan.
+        </tool_preambles>
+        """,
         "input": input_data,
         "tools": tools,
         "stream": True,
+        "reasoning": {"summary": "auto"},
     }
     if previous_response_id:
         kwargs["previous_response_id"] = previous_response_id
@@ -61,6 +69,7 @@ def create_response(input_data, previous_response_id=None):
 def process_stream(response):
     tool_calls = []
     content = ""
+    reasoning = ""
     response_id = None
     current_tool = None
 
@@ -86,6 +95,10 @@ def process_stream(response):
             content += event.delta
             sys.stdout.write(event.delta)
             sys.stdout.flush()
+        elif event.type == "response.reasoning_summary.delta":
+            reasoning += event.delta
+            sys.stdout.write("\nReasoning: " + event.delta)
+            sys.stdout.flush()
         elif event.type == "response.done":
             pass  # Can check finish_reason here if needed
 
@@ -106,6 +119,8 @@ def process_stream(response):
                 })
         return response_id, True, new_input
     else:
+        if reasoning:
+            print("\nFull Reasoning Summary: " + reasoning)
         return response_id, False, None
 
 # Main execution
@@ -114,7 +129,7 @@ if __name__ == "__main__":
     input_data = [
         {
             "role": "user",
-            "content": "Tell a joke about the weather in Paris."
+            "content": "Tell a joke about the weather in Paris"
         }
     ]
 
