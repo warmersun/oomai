@@ -79,24 +79,11 @@ async def execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
                 filtered_records = [filter_embedding(record) for record in records]
                 step.output = filtered_records
                 return filtered_records
-    
-        except Neo4jError as e:
-            if e.code == 'Neo.ClientError.Statement.SyntaxError':
-                logger.error(f"Cypher syntax error executing query: {e}")
-                step.output = [{"Cypher_syntax_error": e.message}]
-                return [{"Cypher_syntax_error": e.message}]
-            else:
-                logger.error(f"Neo4j error executing query: {e}")
-                raise RuntimeError(f"Error executing query: {e}")
-
-        except GqlError as e:
-            logger.error(f"GQL error executing query: {e}")
-            step.output = [{"GQL_error": e.message}]
-            return [{"GQL_error": e.message}]
+                
         except Exception as e:
             # Catch any other unexpected errors
-            logger.error(f"Unexpected error executing query: {e}")
-            raise RuntimeError(f"Unexpected error executing query: {e}")
+            logger.error(f"Error executing Cypher query: {e}. The transaction will be rolled back.")
+            raise RuntimeError(f"Error executing Cypher query: {e}. The transaction will be rolled back.")
 
 async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str) -> str:
     async with cl.Step(name="Create Node", type="tool") as step:

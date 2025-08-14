@@ -464,12 +464,25 @@ async def on_message(message: cl.Message):
             cl.user_session.set("input_data", input_data)
             cl.user_session.set("previous_id", previous_id)
 
+        except asyncio.CancelledError:
+            logger.error("Rolling back the Neo4j transaction due to cancellation.")
+            if tx is not None:
+                await tx.cancel()
+            else:
+                logger.error("No Neo4j transaction to cancel.")
+            raise
         except Exception as e:
             logger.error(f"Rolling back the Neo4j transaction. Error: {str(e)}")
-            await tx.cancel()
+            if tx is not None:
+                await tx.rollback()
+            else:
+                logger.error("No Neo4j transaction to rollback.")
         finally:
             cl.user_session.set("tts_action", tts_action)
-            await tx.close()
+            if tx is not None:
+                await tx.close()
+            else:
+                logger.error("No Neo4j transaction to close.")
 
 # Text to Speech
 
