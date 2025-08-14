@@ -28,7 +28,7 @@ class Neo4jDateEncoder(json.JSONEncoder):
             return o.to_native().date().isoformat()   # e.g. "2025-07-30"
         return super().default(o)
 
-embedding_model = "text-embedding-3-large"
+EMBEDDING_MODEL = "text-embedding-3-large"
 
 @dataclass
 class GraphOpsCtx:
@@ -135,7 +135,7 @@ async def smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, description:
     try:
         # Generate embedding for the new description
         emb_response = await openai_client.embeddings.create(
-            model=embedding_model,
+            model=EMBEDDING_MODEL,
             input=description
         )
         new_embedding = emb_response.data[0].embedding
@@ -218,7 +218,7 @@ async def smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, description:
 
             # Generate new embedding for the updated description
             updated_emb_response = await openai_client.embeddings.create(
-                model=embedding_model,
+                model=EMBEDDING_MODEL,
                 input=updated_description
             )
             updated_embedding = updated_emb_response.data[0].embedding
@@ -360,7 +360,7 @@ async def find_node(
 
         # calculate embedding for the query text
         emb_response = await openai_client.embeddings.create(
-            model=embedding_model,
+            model=EMBEDDING_MODEL,
             input=query_text
         )
         query_embedding = emb_response.data[0].embedding

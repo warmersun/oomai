@@ -37,26 +37,18 @@ with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
 with open("knowledge_graph/system_prompt_gpt5.md", "r") as f:
     system_prompt_template = f.read()
-system_prompt = system_prompt_template.format(schema=schema)
+SYSTEM_PROMPT = system_prompt_template.format(schema=schema)
 
-embedding_model = "text-embedding-3-large"
 
 # Define the tools (functions) - flattened structure for Responses API
-tools = [
+TOOLS = [
     {
-        "type": "function",
+        "type": "custom",
         "name": "execute_cypher_query",
-        "description": "Executes the provided Cypher query against the Neo4j database and returns the results. Robust error handling is implemented to catch exceptions from invalid queries or empty result sets.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "The Cypher query to execute.",
-                },
-            },
-            "required": ["query"],
-        },
+        "description": """
+        Executes the provided Cypher query against the Neo4j database and returns the results. 
+        Robust error handling is implemented to catch exceptions from invalid queries or empty result sets.
+        """
     },
     {
         "type": "function",
@@ -262,11 +254,11 @@ async def create_response(input_data, previous_response_id=None):
     assert openai_client is not None, "No OpenAI client found in user session"
     kwargs = {
         "model": "gpt-5",
-        "instructions": system_prompt,
+        "instructions": SYSTEM_PROMPT,
         "input": input_data,
-        "tools": tools,
+        "tools": TOOLS,
         "stream": True,
-        "reasoning": {"effort": "high"},
+        "reasoning": {"effort": "minimal"},
     }
     if previous_response_id:
         kwargs["previous_response_id"] = previous_response_id
@@ -280,6 +272,7 @@ async def process_stream(response, ctx: GraphOpsCtx, output_message: cl.Message)
     response_id = None
     current_tool = None
     async for event in response:
+        # logger.warn(f"[EVENT]: {event}")
         if event.type == "response.created":
             response_id = event.response.id
         elif event.type == "response.output_item.added":
@@ -294,9 +287,20 @@ async def process_stream(response, ctx: GraphOpsCtx, output_message: cl.Message)
                     }
                 }
                 tool_calls.append(current_tool)
+            elif item.type == "custom_tool_call":
+                current_tool = {
+                    "id": item.call_id,
+                    "type": "custom_tool",
+                    "name": item.name,
+                    "input": item.input,
+                }
+                tool_calls.append(current_tool)
         elif event.type == "response.function_call_arguments.delta":
             if current_tool:
                 current_tool["function"]["arguments"] += event.delta
+        elif event.type == "response.custom_tool_call_input.delta":
+            if current_tool:
+                current_tool["input"] += event.delta
         elif event.type == "response.output_text.delta":
             content += event.delta
             await output_message.stream_token(event.delta)
@@ -308,20 +312,31 @@ async def process_stream(response, ctx: GraphOpsCtx, output_message: cl.Message)
     if tool_calls:
         new_input = []
         for tool_call in tool_calls:
-            function_name = tool_call["function"]["name"]
-            try:
-                function_args = json.loads(tool_call["function"]["arguments"])
-                if function_name in ["execute_cypher_query", "create_node", "create_edge", "find_node"]:
-                    function_args = {"ctx": ctx, **function_args}
-            except json.JSONDecodeError:
-                function_args = {}
-            if function_name in available_functions:
-                function_response = await available_functions[function_name](**function_args)
-                new_input.append({
-                    "type": "function_call_output",
-                    "call_id": tool_call["id"],
-                    "output":  json.dumps(function_response, cls=Neo4jDateEncoder),
-                })
+            logger.warn(f"[SPECIAL_OCCASION] Custom tool call: {tool_call}")
+            if tool_call["type"] == "custom_tool":
+                # custom tool call
+                if tool_call["name"] == "execute_cypher_query":
+                    function_response = await execute_cypher_query(ctx, tool_call["input"])
+                    new_input.append({
+                        "type": "function_call_output",
+                        "call_id": tool_call["id"],
+                        "output":  json.dumps(function_response, cls=Neo4jDateEncoder),
+                    })
+            else:
+                function_name = tool_call["function"]["name"]
+                try:
+                    function_args = json.loads(tool_call["function"]["arguments"])
+                    if function_name in ["create_node", "create_edge", "find_node"]:
+                        function_args = {"ctx": ctx, **function_args}
+                except json.JSONDecodeError:
+                    function_args = {}
+                if function_name in available_functions:
+                    function_response = await available_functions[function_name](**function_args)
+                    new_input.append({
+                        "type": "function_call_output",
+                        "call_id": tool_call["id"],
+                        "output":  json.dumps(function_response, cls=Neo4jDateEncoder),
+                    })
         return response_id, True, new_input
     else:
         if reasoning:
