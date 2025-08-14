@@ -279,7 +279,6 @@ async def process_stream(response, ctx: GraphOpsCtx, output_message: cl.Message)
     response_id = None
     current_tool = None
     async for event in response:
-        # logger.warn(f"[EVENT]: {event}")
         if event.type == "response.created":
             response_id = event.response.id
         elif event.type == "response.output_item.added":
@@ -319,7 +318,6 @@ async def process_stream(response, ctx: GraphOpsCtx, output_message: cl.Message)
     if tool_calls:
         new_input = []
         for tool_call in tool_calls:
-            logger.warn(f"[SPECIAL_OCCASION] Custom tool call: {tool_call}")
             if tool_call["type"] == "custom_tool":
                 # custom tool call
                 if tool_call["name"] == "execute_cypher_query":
