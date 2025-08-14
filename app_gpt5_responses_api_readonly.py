@@ -24,6 +24,7 @@ from function_tools import (
     get_tasks,
     mark_task_as_running,
     mark_task_as_done,
+    TOOLS_DEFINITIONS,
 )
 
 
@@ -39,215 +40,15 @@ with open("knowledge_graph/system_prompt_gpt5_readonly.md", "r") as f:
     system_prompt_template = f.read()
 SYSTEM_PROMPT = system_prompt_template.format(schema=schema)
 
-with open("knowledge_graph/cypher.cfg", "r") as f:
-    CYPHER_CFG = f.read()
-
 # Define the tools (functions) - flattened structure for Responses API
 TOOLS = [
-    {
-        "type": "custom",
-        "name": "execute_cypher_query",
-        "description": """
-        Executes a read-only Cypher query against a Neo4j database. 
-        Only supports safe, query-only operations: MATCH, OPTIONAL MATCH, UNWIND, WITH, RETURN, UNION. 
-        No data modification (e.g., no CREATE, MERGE, SET, DELETE, CALL procedures). 
-        Use patterns like (e:EmTech {name: 'artificial intelligence'})-[:ENABLES]->(c:Capability). 
-        Aggregations via COUNT, REDUCE; safe built-ins like elementId(), keys(), properties(), labels(), abs(), coalesce(); 
-        allow-listed APOC functions from coll, map, text, number, date, temporal, convert, regex, math, agg (e.g., apoc.coll.sort). 
-        Include WHERE for filters, ORDER BY, SKIP, LIMIT for pagination. 
-        Returns query results as JSON-like structures (nodes, relationships, paths, values). 
-        Generate queries that strictly match this subset to ensure execution; invalid queries will error.
-        """,
-        "format": {
-            "type": "grammar",
-            "syntax": "lark",
-            "definition": CYPHER_CFG,
-        }
-    },
-    # {
-    #     "type": "function",
-    #     "name": "create_node",
-    #     "description": """
-    #     Creates or updates a node in the Neo4j knowledge graph, ensuring no duplicates by checking for similar nodes based on their descriptions.
-    #     If a similar node exists, it updates the node with a merged description. If not, it creates a new node.
-    #     Returns the node's elementId (a unique string identifier).
-    #     Use this tool to add or update nodes like technologies, capabilities, or parties in the graph.
-    #     Provide the node type, a short name, and a detailed description.
-    #     """,
-    #     "parameters": {
-    #         "type": "object",
-    #         "properties": {
-    #             "node_type": {
-    #                 "type": "string",
-    #                 "description": "The type of node (e.g., 'EmTech', 'Capability', 'Party').",
-    #             },
-    #             "name": {
-    #                 "type": "string",
-    #                 "description": "A short, unique name for the node (e.g., 'AI', 'OpenAI').",
-    #             },
-    #             "description": {
-    #                 "type": "string",
-    #                 "description": "A detailed description of the node for similarity checks and updates.",
-    #             },
-    #         },
-    #         "required": ["node_type", "name", "description"],
-    #     }
-    # },
-    # {
-    #     "type": "function",
-    #     "name": "create_edge",
-    #     "description": """
-    #     Creates or merges a directed relationship (edge) between two existing nodes in the Neo4j knowledge graph.
-    #     If the relationship doesn't exist, it creates it; if it does, it matches the existing one.
-    #     Use this tool to connect nodes, such as linking an emerging technology to a capability it enables.
-    #     Provide the source and target node elementIds, the relationship type, and optional properties for the edge.
-    #     Returns the relationship object.
-    #     """,
-    #     "parameters": {
-    #         "type": "object",
-    #         "properties": {
-    #             "source_id": {
-    #                 "type": "string",
-    #                 "description": "The elementId of the source node.",
-    #             },
-    #             "target_id": {
-    #                 "type": "string",
-    #                 "description": "The elementId of the target node.",
-    #             },
-    #             "relationship_type": {
-    #                 "type": "string",
-    #                 "description": "The type of relationship (e.g., 'ENABLES', 'USES', 'RELATES_TO').",
-    #             },
-    #             "properties": {
-    #                 "type": "object",
-    #                 "description": "Optional additional properties for the relationship (e.g., {'explanation': 'details'}).",
-    #                 "additionalProperties": True,
-    #             },
-    #         },
-    #         "required": ["source_id", "target_id", "relationship_type"],
-    #     },
-    # },
-    {
-        "type": "function",
-        "name": "find_node",
-        "description": """
-        Finds nodes in knowledge graph that are similar to a given query text.
-        Uses vector similarity search based on node descriptions.
-        Returns a list of nodes with their names, descriptions, and similarity scores.
-        """,
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query_text": {
-                    "type": "string",
-                    "description": "The text to search for similar nodes.",
-                },
-                "node_type": {
-                    "type": "string",
-                    "description": "The type of node to search for.",
-                    "enum": ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"],
-                },
-                "top_k": {
-                    "type": "integer",
-                    "description": "The number of top results to return (default is 5).",
-                    "default": 5,
-                },
-            },
-            "required": ["query_text", "node_type"],
-        },
-    },
-    {
-        "type": "function",
-        "name": "x_search",
-        "description": """
-        Search on X and return a detailed summary.
-        """,
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "The search prompt.",
-                },
-                "included_handles": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                    },
-                    "description": "Optional list of included X handles.",
-                },
-            },
-            "required": ["prompt"]
-        },
-    },
-    {
-        "type": "function",
-        "name": "plan_tasks",
-        "description": """
-        Completely rewrites the list of planned tasks, preserving done tasks.
-        Done tasks remain unchanged and are not altered.
-        The TaskList will show both DONE and planned tasks.
-        """,
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "planned_tasks": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                    },
-                    "description": "The list of planned tasks.",
-                },
-            },
-            "required": ["planned_tasks"]
-        }
-    },
-    {
-        "type": "function",
-        "name": "get_tasks",
-        "description": """
-         Returns a dictionary with two lists: tasks that are done and planned tasks.
-        Planned tasks include those in READY, RUNNING, FAILED, etc., but not DONE.
-        """,
-        "parameters": {
-            "type": "object",
-            "properties": {},
-        }
-    },
-    {
-        "type": "function",
-        "name": "mark_task_as_running",
-        "description": """
-        Marks a task as done by updating its status to DONE, only if it's not already done.
-        Does not affect done tasks. Refreshes the TaskList, which shows both DONE and planned tasks.
-        """,
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "task_title": {
-                    "type": "string",
-                },
-            },
-            "required": ["task_title"]
-        },
-    },
-    {
-        "type": "function",
-        "name": "mark_task_as_done",
-        "description": """
-        Marks a task as running by updating its status to RUNNING, only if it's not done.
-        Does not affect done tasks. Refreshes the TaskList, which shows both DONE and planned tasks.
-        """,
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "task_title": {
-                    "type": "string",
-                },
-            },
-            "required": ["task_title"]
-        }
-    },
+    TOOLS_DEFINITIONS["execute_cypher_query"],
+    TOOLS_DEFINITIONS["find_node"],
+    TOOLS_DEFINITIONS["x_search"],
+    TOOLS_DEFINITIONS["plan_tasks"],
+    TOOLS_DEFINITIONS["get_tasks"],
+    TOOLS_DEFINITIONS["mark_task_as_running"],
+    TOOLS_DEFINITIONS["mark_task_as_done"],
 ]
 
 available_functions = {
