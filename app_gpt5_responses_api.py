@@ -39,6 +39,8 @@ with open("knowledge_graph/system_prompt_gpt5.md", "r") as f:
     system_prompt_template = f.read()
 SYSTEM_PROMPT = system_prompt_template.format(schema=schema)
 
+with open("knowledge_graph/cypher.cfg", "r") as f:
+    CYPHER_CFG = f.read()
 
 # Define the tools (functions) - flattened structure for Responses API
 TOOLS = [
@@ -48,7 +50,12 @@ TOOLS = [
         "description": """
         Executes the provided Cypher query against the Neo4j database and returns the results. 
         Robust error handling is implemented to catch exceptions from invalid queries or empty result sets.
-        """
+        """,
+        "format": {
+            "type": "grammar",
+            "syntax": "lark",
+            "definition": CYPHER_CFG,
+        }
     },
     {
         "type": "function",
@@ -258,7 +265,7 @@ async def create_response(input_data, previous_response_id=None):
         "input": input_data,
         "tools": TOOLS,
         "stream": True,
-        "reasoning": {"effort": "minimal"},
+        "reasoning": {"effort": "high"},
     }
     if previous_response_id:
         kwargs["previous_response_id"] = previous_response_id
