@@ -1,10 +1,8 @@
 import chainlit as cl
-from agents import function_tool
 from chainlit.logger import logger
 
 
-@function_tool
-async def plan_tasks(planned_tasks: list[str]):
+async def plan_tasks(planned_tasks: list[str]) -> None:
     """
     Completely rewrites the list of planned tasks, preserving done tasks.
     Done tasks remain unchanged and are not altered.
@@ -46,20 +44,19 @@ async def plan_tasks(planned_tasks: list[str]):
 
     await task_list.send()
 
-@function_tool
-def get_tasks() -> tuple[list[str], list[str]]:
+
+async def get_tasks() -> dict[str, list[str]]:
     """
-    Returns two lists: tasks that are done and planned tasks.
+    Returns a dictionary with two lists: tasks that are done and planned tasks.
     Planned tasks include those in READY, RUNNING, FAILED, etc., but not DONE.
     """
     logger.warning("Getting tasks")
     tasks_dict = cl.user_session.get('tasks', {})
     done_tasks = [title for title, task in tasks_dict.items() if task.status == cl.TaskStatus.DONE]
     planned_tasks = [title for title, task in tasks_dict.items() if task.status != cl.TaskStatus.DONE]
-    return done_tasks, planned_tasks
+    return {'done': done_tasks, 'planned': planned_tasks}
 
-@function_tool
-async def mark_task_as_done(task_title: str):
+async def mark_task_as_done(task_title: str) -> None:
     """
     Marks a task as done by updating its status to DONE, only if it's not already done.
     Does not affect done tasks. Refreshes the TaskList, which shows both DONE and planned tasks.
@@ -78,8 +75,7 @@ async def mark_task_as_done(task_title: str):
                 task_list.status = "Running..."  # Or keep as is, but assume running when marking
             await task_list.send()
 
-@function_tool
-async def mark_task_as_running(task_title: str):
+async def mark_task_as_running(task_title: str) -> None:
     """
     Marks a task as running by updating its status to RUNNING, only if it's not done.
     Does not affect done tasks. Refreshes the TaskList, which shows both DONE and planned tasks.

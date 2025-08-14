@@ -7,7 +7,7 @@ from typing import List, Dict, Optional, Union
 from pydantic import BaseModel
 
 from neo4j.time import Date, DateTime
-from agents import RunContextWrapper, function_tool
+from agents import RunContextWrapper
 from dataclasses import dataclass
 from typing import Literal
 from asyncio import Lock
@@ -35,8 +35,7 @@ class GraphOpsCtx:
     tx: AsyncTransaction
     lock: Lock
 
-@function_tool
-async def execute_cypher_query(wrapper: RunContextWrapper[GraphOpsCtx], query: str) -> List[dict]:
+async def execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
     """
     Executes the provided Cypher query against the Neo4j database and returns the results.
     Robust error handling is implemented to catch exceptions from invalid queries or empty result sets.
@@ -69,8 +68,8 @@ async def execute_cypher_query(wrapper: RunContextWrapper[GraphOpsCtx], query: s
             return obj
 
         try:
-            async with wrapper.context.lock:
-                result = await wrapper.context.tx.run(query)
+            async with ctx.lock:
+                result = await ctx.tx.run(query)
                 # Convert the results to a list of dictionaries
                 records = await result.data()
                 if not records:
@@ -96,8 +95,7 @@ async def execute_cypher_query(wrapper: RunContextWrapper[GraphOpsCtx], query: s
             logger.error(f"Unexpected error executing query: {e}")
             raise RuntimeError(f"Unexpected error executing query: {e}")
 
-@function_tool
-async def create_node(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, name: str, description: str) -> str:
+async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str) -> str:
     async with cl.Step(name="Create Node", type="tool") as step:
         step.show_input = True
         step.input = {"node_type": node_type, "name": name, "description": description}
@@ -109,7 +107,7 @@ async def create_node(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, n
         else:
             return await merge_node(wrapper, node_type, name, description)
 
-async def smart_upsert(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, name: str, description: str) -> str:
+async def smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, description: str) -> str:
     """
     Performs a smart UPSERT for a node in Neo4j.
     - Queries for similar nodes based on description embedding similarity >= 0.8 (top 100 candidates, filtered).
@@ -151,8 +149,8 @@ async def smart_upsert(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, 
         ORDER BY score DESC
         LIMIT 10
         """
-        async with wrapper.context.lock:
-            similar_result = await wrapper.context.tx.run(similar_query, index_name=index_name, vector=new_embedding)
+        async with ctx.lock:
+            similar_result = await ctx.tx.run(similar_query, index_name=index_name, vector=new_embedding)
             similar_nodes: List[Dict[str, Union[str, float]]] = await similar_result.data()
 
         found_same_id = None
@@ -225,7 +223,7 @@ async def smart_upsert(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, 
             )
             updated_embedding = updated_emb_response.data[0].embedding
 
-            async with wrapper.context.lock:
+            async with ctx.lock:
                 # Update the existing node with new name, description and embedding
                 update_query = """
                 MATCH (n)
@@ -233,7 +231,7 @@ async def smart_upsert(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, 
                 SET n.name = $name, n.description = $description, n.embedding = $embedding
                 RETURN elementId(n) AS id
                 """
-                update_result = await wrapper.context.tx.run(
+                update_result = await ctx.tx.run(
                     update_query,
                     node_id=found_same_id,
                     name=updated_name,
@@ -250,13 +248,13 @@ async def smart_upsert(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, 
                 f"No semantically equivalent node found, creating a new node;"
                 f"Type: {node_type} Name: {name} Description: {description}"
             )
-            async with wrapper.context.lock:
+            async with ctx.lock:
                 # Create a new node
                 create_query = f"""
                 CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
                 RETURN elementId(n) AS id
                 """
-                create_result = await wrapper.context.tx.run(create_query, name=name, description=description, embedding=new_embedding)
+                create_result = await ctx.tx.run(create_query, name=name, description=description, embedding=new_embedding)
                 create_record = await create_result.single()
                 if create_record is None:
                     raise RuntimeError("Failed to create new node")
@@ -265,7 +263,7 @@ async def smart_upsert(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, 
         logger.error(f"Error in smart_upsert: {str(e)}")
         raise
 
-async def merge_node(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, name: str, description: str) -> str:
+async def merge_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str) -> str:
     """
     Performs a simple MERGE operation to create or match a node in Neo4j with the given type, name, and description.
     If a node with the same name and type exists, it updates the description; otherwise, it creates a new node.
@@ -284,13 +282,13 @@ async def merge_node(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, na
     """
 
     try:
-        async with wrapper.context.lock:
+        async with ctx.lock:
             query = f"""
             MERGE (n:`{node_type}` {{name: $name}})
             SET n.description = $description
             RETURN elementId(n) AS node_id
             """
-            result = await wrapper.context.tx.run(query, name=name, description=description)
+            result = await ctx.tx.run(query, name=name, description=description)
             record = await result.single()
             if record is None:
                 raise RuntimeError("Failed to merge node")
@@ -299,9 +297,8 @@ async def merge_node(wrapper: RunContextWrapper[GraphOpsCtx], node_type: str, na
         logger.error(f"Error in merge_node: {str(e)}")
         raise RuntimeError(f"Failed to merge node: {str(e)}")
 
-@function_tool
 async def create_edge(
-    wrapper: RunContextWrapper[GraphOpsCtx],
+    ctx: GraphOpsCtx,
     source_id: str,
     target_id: str,
     relationship_type: str,
@@ -335,14 +332,13 @@ async def create_edge(
         )
         params = {"source_id": source_id, "target_id": target_id, **props_dict}
 
-        async with wrapper.context.lock:
-            result = await wrapper.context.tx.run(query, **params)
+        async with ctx.lock:
+            result = await ctx.tx.run(query, **params)
             record = await result.single()
             return record.data() if record else {}   
 
-@function_tool
 async def find_node(
-    wrapper: RunContextWrapper[GraphOpsCtx],
+    ctx: GraphOpsCtx,
     query_text: str,
     node_type: Literal[
         "Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"
@@ -369,7 +365,7 @@ async def find_node(
         )
         query_embedding = emb_response.data[0].embedding
 
-        async def vector_search(tx):
+        async def vector_search(ctx: GraphOpsCtx):
             cypher_query = """
             CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
             YIELD node, score
@@ -382,7 +378,7 @@ async def find_node(
                 score
             ORDER BY score DESC
             """
-            result = await tx.run(
+            result = await ctx.tx.run(
                 cypher_query,
                 index_name=f"{node_type.lower()}_description_embeddings",
                 top_k=top_k,
@@ -394,7 +390,7 @@ async def find_node(
             return records
 
         # execute the query
-        async with wrapper.context.lock:
-            results = await vector_search(wrapper.context.tx)
+        async with ctx.lock:
+            results = await vector_search(ctx)
             step.output = results
             return results

@@ -1,6 +1,6 @@
 import os
 import json
-import sys
+import chainlit as cl
 from openai import OpenAI
 
 # Initialize OpenAI client
@@ -31,6 +31,7 @@ tools = [
 ]
 
 # Define the available functions
+@cl.step(name="Get Weather", type="tool", show_input=True)
 def get_weather(location, unit="fahrenheit"):
     # Dummy function for example purposes - in real use, this could call an API
     weather_info = {
@@ -67,7 +68,7 @@ def create_response(input_data, previous_response_id=None):
     return client.responses.create(**kwargs)
 
 # Function to process the streaming response
-def process_stream(response):
+async def process_stream(response, msg: cl.Message):
     tool_calls = []
     content = ""
     reasoning = ""
@@ -93,12 +94,10 @@ def process_stream(response):
                 current_tool["function"]["arguments"] += event.delta
         elif event.type == "response.output_text.delta":
             content += event.delta
-            sys.stdout.write(event.delta)
-            sys.stdout.flush()
+            await msg.stream_token(event.delta)
         elif event.type == "response.reasoning_summary.delta":
             reasoning += event.delta
-            sys.stdout.write("\nReasoning: " + event.delta)
-            sys.stdout.flush()
+            await msg.stream_token("\nReasoning: " + event.delta)
         elif event.type == "response.done":
             pass  # Can check finish_reason here if needed
     if tool_calls:
@@ -119,23 +118,32 @@ def process_stream(response):
         return response_id, True, new_input
     else:
         if reasoning:
-            print("\nFull Reasoning Summary: " + reasoning)
+            await msg.stream_token("\nFull Reasoning Summary: " + reasoning)
         return response_id, False, None
 
-# Main execution
-if __name__ == "__main__":
-    # Example user message that triggers function call and reasoning
-    input_data = [
-        {
-            "role": "user",
-            "content": "What's the weather in Paris? Reason step by step what to pack for a trip there, displaying reasoning as a numbered list."
-        }
-    ]
-    previous_id = None
+@cl.on_chat_start
+async def start():
+    cl.user_session.set("input_data", [])
+    cl.user_session.set("previous_id", None)
+
+@cl.on_message
+async def main(message: cl.Message):
+    input_data = cl.user_session.get("input_data")
+    input_data.append({
+        "role": "user",
+        "content": message.content
+    })
+    previous_id = cl.user_session.get("previous_id")
+
+    msg = cl.Message(content="")
+
     while True:
         response = create_response(input_data, previous_id)
-        previous_id, needs_continue, new_input = process_stream(response)
-        print()  # New line after streaming
+        previous_id, needs_continue, new_input = await process_stream(response, msg)
         if not needs_continue:
             break
         input_data = new_input
+
+    await msg.update()
+    cl.user_session.set("input_data", input_data)
+    cl.user_session.set("previous_id", previous_id)

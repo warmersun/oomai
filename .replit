@@ -41,3 +41,12 @@ author = 26564713
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "chainlit run app_gpt5.py"
+
+[[workflows.workflow]]
+name = "RunGPT5 Responses API"
+mode = "sequential"
+author = 26564713
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "chainlit run app_gpt5_responses_api.py"

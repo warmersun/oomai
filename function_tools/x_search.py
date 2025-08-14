@@ -1,11 +1,9 @@
 import chainlit as cl
 from xai_sdk.chat import SearchParameters, system, user, tool, tool_result
 from xai_sdk.search import x_source
-from agents import function_tool
 from typing import Optional, List  # <-- add List
 
-@function_tool
-async def x_search(prompt: str, included_handles: Optional[List[str]] = None) -> dict:  # <-- typed list
+async def x_search(prompt: str, included_handles: Optional[List[str]] = None) -> str: 
     """Search on X and return a detailed summary."""
     async with cl.Step(name="Search X", type="tool") as step:
         step.show_input = True
@@ -35,8 +33,5 @@ async def x_search(prompt: str, included_handles: Optional[List[str]] = None) ->
         citations = getattr(response, "citations", None)
         num_sources_used = getattr(response, "num_sources_used", None)
 
-        return {
-            "summary": response.content,
-            "citations": citations,
-            "num_sources_used": num_sources_used,
-        }
+        return response.content
+        
