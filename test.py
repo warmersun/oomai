@@ -52,14 +52,15 @@ def create_response(input_data, previous_response_id=None):
         "instructions": """
         <tool_preambles>
         - Always begin by rephrasing the user's goal in a friendly, clear, and concise manner, before calling any tools.
-        - Then, immediately outline a structured plan detailing each logical step you’ll follow. - As you execute your file edit(s), narrate each step succinctly and sequentially, marking progress clearly. 
-        - Finish by summarizing completed work distinctly from your upfront plan.
+        - Then, immediately outline a structured plan detailing each logical step you’ll follow, displayed as a numbered list of reasoning items.
+        - As you execute your plan (including any tool calls), narrate each step succinctly and sequentially, marking progress clearly in a numbered list.
+        - Finish by summarizing completed work distinctly from your upfront plan, including any final insights.
         </tool_preambles>
         """,
         "input": input_data,
         "tools": tools,
         "stream": True,
-        "reasoning": {"summary": "auto"},
+        "reasoning": {"effort": "high"},
     }
     if previous_response_id:
         kwargs["previous_response_id"] = previous_response_id
@@ -72,7 +73,6 @@ def process_stream(response):
     reasoning = ""
     response_id = None
     current_tool = None
-
     for event in response:
         if event.type == "response.created":
             response_id = event.response.id
@@ -101,7 +101,6 @@ def process_stream(response):
             sys.stdout.flush()
         elif event.type == "response.done":
             pass  # Can check finish_reason here if needed
-
     if tool_calls:
         new_input = []
         for tool_call in tool_calls:
@@ -129,10 +128,9 @@ if __name__ == "__main__":
     input_data = [
         {
             "role": "user",
-            "content": "Tell a joke about the weather in Paris"
+            "content": "What's the weather in Paris? Reason step by step what to pack for a trip there, displaying reasoning as a numbered list."
         }
     ]
-
     previous_id = None
     while True:
         response = create_response(input_data, previous_id)
