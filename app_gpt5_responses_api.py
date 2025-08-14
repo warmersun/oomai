@@ -48,8 +48,15 @@ TOOLS = [
         "type": "custom",
         "name": "execute_cypher_query",
         "description": """
-        Executes the provided Cypher query against the Neo4j database and returns the results. 
-        Robust error handling is implemented to catch exceptions from invalid queries or empty result sets.
+        Executes a read-only Cypher query against a Neo4j database. 
+        Only supports safe, query-only operations: MATCH, OPTIONAL MATCH, UNWIND, WITH, RETURN, UNION. 
+        No data modification (e.g., no CREATE, MERGE, SET, DELETE, CALL procedures). 
+        Use patterns like (e:EmTech {name: 'artificial intelligence'})-[:ENABLES]->(c:Capability). 
+        Aggregations via COUNT, REDUCE; safe built-ins like elementId(), keys(), properties(), labels(), abs(), coalesce(); 
+        allow-listed APOC functions from coll, map, text, number, date, temporal, convert, regex, math, agg (e.g., apoc.coll.sort). 
+        Include WHERE for filters, ORDER BY, SKIP, LIMIT for pagination. 
+        Returns query results as JSON-like structures (nodes, relationships, paths, values). 
+        Generate queries that strictly match this subset to ensure execution; invalid queries will error.
         """,
         "format": {
             "type": "grammar",
