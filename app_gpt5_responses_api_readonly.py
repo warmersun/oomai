@@ -245,8 +245,8 @@ TOOLS = [
 
 available_functions = {
     "execute_cypher_query": execute_cypher_query,
-    "create_node": create_node,
-    "create_edge": create_edge,
+    # "create_node": create_node,
+    # "create_edge": create_edge,
     "find_node": find_node,
     "x_search": x_search,
     "plan_tasks": plan_tasks,
