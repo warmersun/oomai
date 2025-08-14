@@ -80,16 +80,15 @@ async def execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
                 step.output = filtered_records
                 return filtered_records
     
-        except CypherSyntaxError as syntax_error:
-            # Handle Cypher syntax errors specifically
-            logger.error(f"Cypher syntax error executing query: {syntax_error}")
-            step.output = [{"Cypher_syntax_error": syntax_error.message}]
-            return [{"Cypher_syntax_error": syntax_error.message}]
-        
         except Neo4jError as e:
-            # Catch errors thrown by the Neo4j driver specifically
-            logger.error(f"Neo4j error executing query: {e}")
-            raise RuntimeError(f"Error executing query: {e}")
+            if e.code == 'Neo.ClientError.Statement.SyntaxError':
+                logger.error(f"Cypher syntax error executing query: {e}")
+                step.output = [{"Cypher_syntax_error": e.message}]
+                return [{"Cypher_syntax_error": e.message}]
+            else:
+                logger.error(f"Neo4j error executing query: {e}")
+                raise RuntimeError(f"Error executing query: {e}")
+                
         except Exception as e:
             # Catch any other unexpected errors
             logger.error(f"Unexpected error executing query: {e}")
