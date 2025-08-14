@@ -1,6 +1,6 @@
 import chainlit as cl
 from neo4j import AsyncTransaction
-from neo4j.exceptions import Neo4jError, CypherSyntaxError
+from neo4j.exceptions import GqlError, Neo4jError, CypherSyntaxError
 from chainlit.logger import logger
 import json
 from typing import List, Dict, Optional, Union
@@ -88,7 +88,11 @@ async def execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
             else:
                 logger.error(f"Neo4j error executing query: {e}")
                 raise RuntimeError(f"Error executing query: {e}")
-                
+
+        except GqlError as e:
+            logger.error(f"GQL error executing query: {e}")
+            step.output = [{"GQL_error": e.message}]
+            return [{"GQL_error": e.message}]
         except Exception as e:
             # Catch any other unexpected errors
             logger.error(f"Unexpected error executing query: {e}")

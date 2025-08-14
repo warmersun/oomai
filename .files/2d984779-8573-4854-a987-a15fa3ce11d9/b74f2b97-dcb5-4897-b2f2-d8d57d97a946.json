@@ -1,0 +1,25 @@
+{
+    "status": "Running...",
+    "tasks": [
+        {
+            "title": "Search for healthcare diagnosis-related use cases (LAC) via semantic search",
+            "status": "running",
+            "forId": null
+        },
+        {
+            "title": "Optionally expand with related capabilities and examples that unlock those use cases",
+            "status": "ready",
+            "forId": null
+        },
+        {
+            "title": "Assemble a concise, categorized list of AI diagnostic use cases with brief notes",
+            "status": "ready",
+            "forId": null
+        },
+        {
+            "title": "Provide answer and invite follow-up for deeper dives",
+            "status": "ready",
+            "forId": null
+        }
+    ]
+}

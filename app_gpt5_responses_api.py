@@ -355,6 +355,17 @@ async def process_stream(response, ctx: GraphOpsCtx, output_message: cl.Message)
             await output_message.stream_token("\nFull Reasoning Summary: " + reasoning)
         return response_id, False, None
 
+async def keep_neo4j_alive(driver):
+    while True:
+        await asyncio.sleep(1800)  # Every 30 minutes; adjust as needed
+        if driver is not None:
+            try:
+                async with driver.session() as session:
+                    await session.run("RETURN 1")  # Dummy query to keep connections active
+            except Exception as e:
+                # Handle errors gracefully (e.g., log and continue)
+                logger.error(f"Error keeping Neo4j connections alive: {str(e)}")
+                
 @cl.on_chat_start
 async def start():
     cl.user_session.set("input_data", [])
@@ -364,6 +375,8 @@ async def start():
         auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD'])
     )
     await neo4jdriver.verify_connectivity()
+    keepalive_task = asyncio.create_task(keep_neo4j_alive(neo4jdriver))
+    cl.user_session.set("keepalive_task", keepalive_task)
     cl.user_session.set("neo4jdriver", neo4jdriver)
     groq_client = AsyncGroq(
         api_key=os.getenv("GROQ_API_KEY"),
@@ -381,10 +394,36 @@ async def start():
 
 @cl.on_chat_end
 async def end_chat():
+    keepalive_task = cl.user_session.get("keepalive_task")
+    if keepalive_task:
+        keepalive_task.cancel()  # Stop the loop
+        try:
+            await keepalive_task  # Wait for cancellation (handles CancelledError)
+        except asyncio.CancelledError:
+            pass  # Expected on cancel
+            
     neo4jdriver = cl.user_session.get("neo4jdriver")
-    assert neo4jdriver is not None, "No Neo4j driver found in user session"
-    await neo4jdriver.close()
+    if neo4jdriver is not None:
+        await neo4jdriver.close()
     cl.user_session.set("neo4jdriver", None)
+
+@cl.on_chat_resume
+async def resume_chat():
+    neo4jdriver = cl.user_session.get("neo4jdriver")
+    if neo4jdriver is None:
+        logger.warning("No Neo4j driver found in user session, creating a new one.")
+        neo4jdriver = AsyncGraphDatabase.driver(
+            os.environ['NEO4J_URI'], 
+            auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD'])
+        )
+        await neo4jdriver.verify_connectivity()
+        cl.user_session.set("neo4jdriver", neo4jdriver)
+
+    # Re-launch keep-alive if not running
+    keepalive_task = cl.user_session.get("keepalive_task")
+    if keepalive_task is None or keepalive_task.done():
+        keepalive_task = asyncio.create_task(keep_neo4j_alive(neo4jdriver))
+        cl.user_session.set("keepalive_task", keepalive_task)
     
 @cl.on_message
 async def on_message(message: cl.Message):
