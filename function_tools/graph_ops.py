@@ -100,11 +100,11 @@ async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: 
         step.input = {"node_type": node_type, "name": name, "description": description}
 
         if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
-            return await smart_upsert(wrapper, node_type, name, description)
+            return await smart_upsert(ctx, node_type, name, description)
         elif node_type == "EmTech":
             return "Do not create new EmTech type nodes. EmTechs are reference data, use existing ones."
         else:
-            return await merge_node(wrapper, node_type, name, description)
+            return await merge_node(ctx, node_type, name, description)
 
 async def smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, description: str) -> str:
     """
