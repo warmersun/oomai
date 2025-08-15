@@ -157,6 +157,10 @@ TOOLS_DEFINITIONS = {
                     },
                     "description": "Optional list of included X handles, limited to 10.",
                 },
+                "last_24hrs": {
+                    "type": "boolean",
+                    "description": "Optional flag to search only in the last 24 hours.",
+                }
             },
             "required": ["prompt"]
         },

@@ -1,9 +1,10 @@
+from datetime import date, datetime, timedelta
 import chainlit as cl
 from xai_sdk.chat import SearchParameters, system, user, tool, tool_result
 from xai_sdk.search import x_source
 from typing import Optional, List  # <-- add List
 
-async def x_search(prompt: str, included_handles: Optional[List[str]] = None) -> str: 
+async def x_search(prompt: str, included_handles: Optional[List[str]] = None, last_24hrs: Optional[bool] = False) -> str: 
     """Search on X and return a detailed summary."""
     async with cl.Step(name="Search X", type="tool") as step:
         step.show_input = True
@@ -18,7 +19,8 @@ async def x_search(prompt: str, included_handles: Optional[List[str]] = None) ->
             model="grok-3-mini",
             search_parameters=SearchParameters(
                 mode="on",
-                sources=[src]
+                sources=[src],
+                from_date=(datetime.today() - timedelta(days=1)) if last_24hrs else None,
             ),
             messages=[
                 system("Search on X and return a detailed summary."),
@@ -28,10 +30,6 @@ async def x_search(prompt: str, included_handles: Optional[List[str]] = None) ->
 
         response = await chat.sample()
         step.output = response.content
-
-        # be defensive if these attrs might be absent:
-        citations = getattr(response, "citations", None)
-        num_sources_used = getattr(response, "num_sources_used", None)
 
         return response.content
         
