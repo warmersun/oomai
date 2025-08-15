@@ -250,6 +250,7 @@ async def on_message(message: cl.Message):
                 input_data = new_input
 
             await output_message.update()
+            cl.user_session.set("last_message", output_message.content)
             cl.user_session.set("input_data", input_data)
             cl.user_session.set("previous_id", previous_id)
 
