@@ -2,6 +2,7 @@ import os
 import json
 import chainlit as cl
 from chainlit.logger import logger
+from chainlit.input_widget import Select
 import asyncio
 import re
 # drivers
@@ -71,13 +72,15 @@ available_functions = {
 async def create_response(input_data, previous_response_id=None):
     openai_client = cl.user_session.get("openai_client")
     assert openai_client is not None, "No OpenAI client found in user session"
+    reasoning_effort = cl.user_session.get("reasoning_effort")
+    assert reasoning_effort is not None, "No reasoning effort found in user session"
     kwargs = {
         "model": "gpt-5",
         "instructions": SYSTEM_PROMPT,
         "input": input_data,
         "tools": TOOLS,
         "stream": True,
-        "reasoning": {"effort": "high"},
+        "reasoning": {"effort": reasoning_effort},
     }
     if previous_response_id:
         kwargs["previous_response_id"] = previous_response_id
@@ -201,6 +204,24 @@ async def start():
     cl.user_session.set("xai_client", xai_client)
     elevenlabs_client= ElevenLabs(api_key=os.environ['ELEVENLABS_API_KEY'])
     cl.user_session.set("elevenlabs_client", elevenlabs_client)
+    # settings
+    settings = await cl.ChatSettings(
+        [
+            Select(
+                id="reasoning_effort",
+                label="Reasoning Effort",
+                values=["low", "medium", "high"],
+                initial_index=2,
+                tooltip=" Controls how many reasoning tokens the model generates before producing a response. Higher takes longer to respond but guves better results.",
+                description="Set the reasoning effort for GPT-5.",
+            )
+        ]
+    ).send()
+    cl.user_session.set("reasoning_effort", settings["reasoning_effort"])
+
+@cl.on_settings_update
+async def on_settings_update(settings):
+    cl.user_session.set("reasoning_effort", settings["reasoning_effort"])
 
 @cl.on_chat_end
 async def end_chat():
