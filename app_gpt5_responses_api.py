@@ -52,6 +52,7 @@ TOOLS = [
     TOOLS_DEFINITIONS["get_tasks"],
     TOOLS_DEFINITIONS["mark_task_as_running"],
     TOOLS_DEFINITIONS["mark_task_as_done"],
+    {"type": "web_search_preview", "search_context_size":"high"},
 ]
 
 available_functions = {

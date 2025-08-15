@@ -153,8 +153,9 @@ TOOLS_DEFINITIONS = {
                     "type": "array",
                     "items": {
                         "type": "string",
+                        "maxItems": 10  # Limit the array to a maximum of 10 handles,
                     },
-                    "description": "Optional list of included X handles.",
+                    "description": "Optional list of included X handles, limited to 10.",
                 },
             },
             "required": ["prompt"]
