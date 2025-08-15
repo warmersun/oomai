@@ -5,6 +5,7 @@ from chainlit.logger import logger
 from chainlit.input_widget import Select
 import asyncio
 import re
+import yaml
 # drivers
 from neo4j import AsyncGraphDatabase
 from neo4j.time import Date, DateTime
@@ -40,6 +41,10 @@ with open("knowledge_graph/schema.md", "r") as f:
 with open("knowledge_graph/system_prompt_gpt5.md", "r") as f:
     system_prompt_template = f.read()
 SYSTEM_PROMPT = system_prompt_template.format(schema=schema)
+
+with open("knowledge_graph/sources.yaml", "r") as f:
+    config = yaml.safe_load(f)
+COMMAND_DATA = config['commands']
 
 
 # Define the tools (functions) - flattened structure for Responses API
@@ -178,7 +183,16 @@ async def keep_neo4j_alive(driver):
             except Exception as e:
                 # Handle errors gracefully (e.g., log and continue)
                 logger.error(f"Error keeping Neo4j connections alive: {str(e)}")
-                
+
+commands = [
+    {
+        "id": command_id,
+        "icon": data['icon'],
+        "description": data['description']
+    }
+    for command_id, data in COMMAND_DATA.items()
+]
+
 @cl.on_chat_start
 async def start():
     cl.user_session.set("input_data", [])
@@ -218,6 +232,7 @@ async def start():
         ]
     ).send()
     cl.user_session.set("reasoning_effort", settings["reasoning_effort"])
+    await cl.context.emitter.set_commands(commands)
 
 @cl.on_settings_update
 async def on_settings_update(settings):
@@ -262,6 +277,9 @@ async def on_message(message: cl.Message):
     last_tts_action = cl.user_session.get("tts_action")
     if last_tts_action is not None:
         await last_tts_action.remove()
+    # process command
+    processed_message = _process_command(message)
+        
     # get drivers from session
     neo4jdriver = cl.user_session.get("neo4jdriver")
     assert neo4jdriver is not None, "No Neo4j driver found in user session"
@@ -278,7 +296,7 @@ async def on_message(message: cl.Message):
             input_data = cl.user_session.get("input_data")
             input_data.append({
                 "role": "user",
-                "content": message.content
+                "content": processed_message
             })
             previous_id = cl.user_session.get("previous_id")
 
@@ -364,3 +382,10 @@ async def tts(action: cl.Action):
         await cl.Message(content="👂 Listen...", elements=[output_audio_el]).send()
 
     await action.remove()
+
+def _process_command(message: cl.Message) -> str:
+    if message.command:
+        if message.command in COMMAND_DATA:
+            template = COMMAND_DATA[message.command]['template']
+            return template + message.content
+    return message.content

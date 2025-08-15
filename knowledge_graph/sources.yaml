@@ -1,77 +1,33 @@
-sources:
-  - name: ai_news
-    prompt: "Summarize the latest AI news from this RSS feed, process it and capture it in the knowledge graph."
-    source_type: RSS
-    url: "https://news.smol.ai/rss.xml"
-  - name: thought_leaders
-    prompt: "Capture ideas from thought leaders in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
-    source_type: X
-    handles:
-      - EMostaque
-      - elonmusk
-      - EpochAIResearch
-      - DavidSacks
-      - BasedBeffJezos
-  - name: openai_announcements
-    prompt: "List the latest product launches, research, ideas, new capabilities and milestones by OpenAI Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
-    source_type: X
-    handles:
-      - OpenAI
-      - OpenAINewsroom
-      - OpenAIDevs
-      - ChatGPTapp
-      - sama
-      - gdb
-  - name: energy_news
-    prompt: "List the latest development, research, new capabilities and milestones in energy production, smart grid, energy storage, battery technology. Capture these in the knowledge graph."
-    source_type: X
-    handles:
-      - BESTmag_news
-      - EnergyStorageN
-      - REWorld
-      - PVTech
-      - BatteryPowerMag
-      - GreentechMedia
-      - AltEnergyMag
-  - name: crypto_news
-    prompt: "List the latest development, research, new capabilities and milestones in crypto, blockchain, web3, decentralized finance. Capture these in the knowledge graph."
-    source_type: X
-    handles:
-      - CoinMarketCap
-      - CoinDesk
-      - CoinTelegraph
-      - worldcoin
-  - name: synbio_news
-    prompt: "List the latest development, research, new capabilities and milestones in synthetic biology, gene sequencing, gene editing, alternative proteins, longevity, digital health. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
-    source_type: X
-    handles:
-      - nextmedhealth
-      - GoodFoodInst
-      - davidasinclair
-      - colossal
-  - name: arvr_news
-    prompt: "List the latest products (PTC) and their vendors (Party), new capabilities and milestones, use cases (LAC) in augmented and virtual reality. Capture these in the knowledge graph. If you don't find anything worthwhile, just say 'Nothing noteworthy today'."
-    source_type: X
-    handles:
-      - RtoVR
-      - UploadVR
-      - philiprosedale
-  - name: use_cases
-    prompt: "Collect use cases, applications (LAC) of emerging technologies. What product categories (LTC), what capabilities or new milestones have unlocked these use cases? Capture these along with the specifics (PTC, PAC, Party) in the knowledge graph. If you don't find anything noteworthy, just say 'Nothing noteworthy today.'"
-    source_type: X
-    handles:
-      - IntEngineering
-      - Dr_Singularity
-      - dreamingtulpa
-      - PeterDiamandis
-      - gunsnrosesgirl3
-      - kimmonismus
-  - name: robot_news
-    prompt: "List the latest development, research, new capabilities and milestones related to robots. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
-    source_type: X
-    handles:
-      - SawyerMerritt
-      - TheHumanoidHub
-      - CyberRobooo
-      - adcock_brett
-      - TheRundownAI
+commands:
+  thought_leaders:
+    icon: person-standing
+    description: Capture ideas from thought leaders.
+    template: "Search on X in the last 24 hours for the following handles: EMostaque, elonmusk, EpochAIResearch, DavidSacks, BasedBeffJezos. Capture ideas from thought leaders in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'. "
+  openai_announcements:
+    icon: megaphone
+    description: Capture OpenAI announcements.
+    template: "Search on X in the last 24 hours for the following handles: OpenAI, OpenAINewsroom, OpenAIDevs, ChatGPTapp, sama, gdb. List the latest product launches, research, ideas, new capabilities and milestones by OpenAI Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'. "
+  energy_news:
+    icon: newspaper
+    description: Capture energy news.
+    template: "Search on X in the last 24 hours for the following handles: BESTmag_news, EnergyStorageN, REWorld, PVTech, BatteryPowerMag, GreentechMedia, AltEnergyMag. List the latest development, research, new capabilities and milestones in energy production, smart grid, energy storage, battery technology. Capture these in the knowledge graph. "
+  crypto_news:
+    icon: newspaper
+    description: Capture crypto news.
+    template: "Search on X in the last 24 hours for the following handles: CoinMarketCap, CoinDesk, CoinTelegraph, worldcoin. List the latest development, research, new capabilities and milestones in crypto, blockchain, web3, decentralized finance. Capture these in the knowledge graph. "
+  synbio_news:
+    icon: newspaper
+    description: Capture synthetic biology news.
+    template: "Search on X in the last 24 hours for the following handles: nextmedhealth, GoodFoodInst, davidasinclair, colossal. List the latest development, research, new capabilities and milestones in synthetic biology, gene sequencing, gene editing, alternative proteins, longevity, digital health. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'. "
+  arvr_news:
+    icon: newspaper
+    description: Capture AR/VR news.
+    template: "Search on X in the last 24 hours for the following handles: RtoVR, UploadVR, philiprosedale. List the latest products (PTC) and their vendors (Party), new capabilities and milestones, use cases (LAC) in augmented and virtual reality. Capture these in the knowledge graph. If you don't find anything worthwhile, just say 'Nothing noteworthy today'. "
+  use_cases:
+    icon: person-standing
+    description: Capture use cases.
+    template: "Search on X in the last 24 hours for the following handles: IntEngineering, Dr_Singularity, dreamingtulpa, PeterDiamandis, gunsnrosesgirl3, kimmonismus. Collect use cases, applications (LAC) of emerging technologies. What product categories (LTC), what capabilities or new milestones have unlocked these use cases? Capture these along with the specifics (PTC, PAC, Party) in the knowledge graph. If you don't find anything noteworthy, just say 'Nothing noteworthy today.' "
+  robot_news:
+    icon: newspaper
+    description: Capture robot news.
+    template: "Search on X in the last 24 hours for the following handles: SawyerMerritt, TheHumanoidHub, CyberRobooo, adcock_brett, TheRundownAI. List the latest development, research, new capabilities and milestones related to robots. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'. "
