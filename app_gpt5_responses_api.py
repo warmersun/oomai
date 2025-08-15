@@ -90,6 +90,7 @@ async def process_stream(response, ctx: GraphOpsCtx, output_message: cl.Message)
     reasoning = ""
     response_id = None
     current_tool = None
+    search_msg = cl.Message(content="Searching the web...")
     async for event in response:
         if event.type == "response.created":
             response_id = event.response.id
@@ -125,6 +126,10 @@ async def process_stream(response, ctx: GraphOpsCtx, output_message: cl.Message)
         elif event.type == "response.reasoning_summary.delta":
             reasoning += event.delta
             await output_message.stream_token("\nReasoning: " + event.delta)
+        elif event.type == "response.web_search_call.searching":
+            await search_msg.send()
+        elif event.type == "response.web_search_call.completed":
+            await search_msg.remove()
         elif event.type == "response.done":
             pass  # Can check finish_reason here if needed
     if tool_calls:
