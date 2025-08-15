@@ -294,3 +294,14 @@ async def tts(action: cl.Action):
         await cl.Message(content="👂 Listen...", elements=[output_audio_el]).send()
 
     await action.remove()
+
+@cl.password_auth_callback
+def auth_callback(username: str, password: str):
+    # Fetch the user matching username from your database
+    # and compare the hashed password with the value stored in the database
+    if (username, password) == ("Sic", "kadima"):
+        return cl.User(
+            identifier="Sic", metadata={"role": "admin", "provider": "credentials"}
+        )
+    else:
+        return None
