@@ -1,4 +1,4 @@
-run = "chainlit run app.py"
+run = "chainlit run app_gpt5.py"
 entrypoint = "app.py"
 modules = ["nodejs-20", "python-3.11"]
 disableGuessImports = true
@@ -23,6 +23,7 @@ externalPort = 80
 exposeLocalhost = true
 
 [workflows]
+runButton = "Batch"
 
 [[workflows.workflow]]
 name = "Batch"
@@ -32,30 +33,3 @@ author = 26564713
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python batch.py"
-
-[[workflows.workflow]]
-name = "Run GPT5"
-mode = "sequential"
-author = 26564713
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "chainlit run app_gpt5.py"
-
-[[workflows.workflow]]
-name = "RunGPT5 Responses API"
-mode = "sequential"
-author = 26564713
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "chainlit run app_gpt5_responses_api.py"
-
-[[workflows.workflow]]
-name = "run ReadOnly GPT5"
-mode = "sequential"
-author = 26564713
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "chainlit run app_gpt5_responses_api_readonly.py"

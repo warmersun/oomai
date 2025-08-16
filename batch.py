@@ -3,17 +3,23 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 import yaml
-from neo4j import AsyncGraphDatabase, AsyncTransaction
-from neo4j.exceptions import CypherSyntaxError, Neo4jError
+from neo4j import AsyncGraphDatabase
 from openai import AsyncOpenAI
-from pydantic import BaseModel
+from groq import AsyncGroq
 from xai_sdk import AsyncClient
 from xai_sdk.chat import SearchParameters, system, user, tool, tool_result
 from xai_sdk.search import rss_source, x_source
 from neo4j.time import Date, DateTime
+from function_tools import (
+    core_execute_cypher_query,
+    core_create_node,
+    core_create_edge,
+    core_find_node,
+    GraphOpsCtx,
+)
 
 
 class Neo4jDateEncoder(json.JSONEncoder):
@@ -75,38 +81,12 @@ def _build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[Se
     return None
 
 
-async def execute_cypher_query(tx: AsyncTransaction, query: str) -> list:
-    from neo4j.time import Date, DateTime
-
-    def filter_embedding(obj):
-        """
-        Recursively removes the 'embedding' key and converts Neo4j Date/DateTime to strings.
-        """
-        if isinstance(obj, dict):
-            return {k: filter_embedding(v) for k, v in obj.items() if k != 'embedding'}
-        elif isinstance(obj, list):
-            return [filter_embedding(item) for item in obj]
-        return obj
-
-    try:
-        result = await tx.run(query)
-        records = await result.data()
-        if not records:
-            logging.warning("Query executed successfully but returned no results.")
-            return []
-        return [filter_embedding(record) for record in records]
-    except Neo4jError as e:
-        logging.error(f"Neo4j error executing query: {e}")
-        raise RuntimeError(f"Error executing query: {e}")
-    except Exception as e:
-        logging.error(f"Unexpected error executing query: {e}")
-        raise RuntimeError(f"Unexpected error executing query: {e}")
-
-
 cypher_query_tool = tool(
     name="cypher_query",
     description=(
-        "Executes the provided Cypher query against the Neo4j database and returns the results."
+        """
+        Executes the provided Cypher query against the Neo4j database and returns the results.
+        """
     ),
     parameters={
         "type": "object",
@@ -115,113 +95,15 @@ cypher_query_tool = tool(
     },
 )
 
-
-async def merge_node(tx: AsyncTransaction, node_type: str, name: str, description: str) -> str:
-    query = f"""
-    MERGE (n:`{node_type}` {{name: $name}})
-    SET n.description = $description
-    RETURN elementId(n) AS node_id
-    """
-    result = await tx.run(query, name=name, description=description)
-    record = await result.single()
-    if record is None:
-        raise RuntimeError("Failed to merge node")
-    return record["node_id"]
-
-
-async def smart_upsert(tx: AsyncTransaction, node_type: str, name: str, description: str, openai_client: AsyncOpenAI, xai_client: AsyncClient) -> str:
-    index_name = f"{node_type.lower()}_description_embeddings"
-
-    class CompareResult(BaseModel):
-        different: bool
-        name: Optional[str] = None
-        description: Optional[str] = None
-
-    emb_response = await openai_client.embeddings.create(model=embedding_model, input=description)
-    new_embedding = emb_response.data[0].embedding
-
-    similar_query = """
-    CALL db.index.vector.queryNodes($index_name, 100, $vector)
-    YIELD node, score
-    WHERE score >= 0.8
-    RETURN elementId(node) AS node_id, node.name AS name, node.description AS description, score
-    ORDER BY score DESC
-    LIMIT 10
-    """
-    similar_result = await tx.run(similar_query, index_name=index_name, vector=new_embedding)
-    similar_nodes: List[Dict[str, Union[str, float]]] = await similar_result.data()
-
-    found_same_id = None
-    updated_name = name
-    updated_description = description
-    for sim in similar_nodes:
-        old_name = sim["name"]
-        old_desc = sim["description"]
-
-        compare_prompt = (
-            "Determine whether the following two nodes represent the same concept. "
-            "If they are the same, provide a short improved name and a merged description. "
-            "Respond in JSON matching this schema: {different: bool, name?: string, description?: string}."
-        )
-
-        chat = xai_client.chat.create(model=llm_model, temperature=0.0)
-        chat.append(system(compare_prompt))
-        chat.append(user(f"Node A name: {old_name}\nNode A description: {old_desc}\n\nNode B name: {name}\nNode B description: {description}"))
-
-        try:
-            _, result = await chat.parse(CompareResult)
-        except Exception as e:
-            logging.warning(f"Failed to parse LLM response: {e}")
-            continue
-
-        if not result.different:
-            found_same_id = sim["node_id"]
-            updated_name = result.name or old_name
-            updated_description = result.description or description
-            break
-
-    if found_same_id:
-        logging.info(f"Found semantically equivalent node to: {name}. Updating node with name: {updated_name} description: {updated_description}")
-
-        updated_emb_response = await openai_client.embeddings.create(model=embedding_model, input=updated_description)
-        updated_embedding = updated_emb_response.data[0].embedding
-
-        update_query = """
-        MATCH (n)
-        WHERE elementId(n) = $node_id
-        SET n.name = $name, n.description = $description, n.embedding = $embedding
-        RETURN elementId(n) AS id
-        """
-        update_result = await tx.run(update_query, node_id=found_same_id, name=updated_name, description=updated_description, embedding=updated_embedding)
-        update_record = await update_result.single()
-        if update_record is None:
-            raise RuntimeError(f"Failed to update node with elementId: {found_same_id}")
-        return update_record["id"]
-
-    logging.info("No semantically equivalent node found, creating a new node.")
-    create_query = f"""
-    CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
-    RETURN elementId(n) AS id
-    """
-    create_result = await tx.run(create_query, name=name, description=description, embedding=new_embedding)
-    create_record = await create_result.single()
-    if create_record is None:
-        raise RuntimeError("Failed to create new node")
-    return create_record["id"]
-
-
-async def create_node(tx: AsyncTransaction, node_type: str, name: str, description: str, openai_client: AsyncOpenAI, xai_client: AsyncClient) -> str:
-    logging.info(f"Creating node: {node_type} {name} {description}")
-    if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
-        return await smart_upsert(tx, node_type, name, description, openai_client, xai_client)
-    if node_type == "EmTech":
-        return "Do not create new EmTech type nodes. EmTechs are reference data, use existing ones."
-    return await merge_node(tx, node_type, name, description)
-
-
 create_node_tool = tool(
     name="create_node",
-    description="Creates or updates a node in the knowledge graph, avoiding duplicates.",
+    description="""
+    Creates or updates a node in the Neo4j knowledge graph, ensuring no duplicates by checking for similar nodes based on their descriptions.
+    If a similar node exists, it updates the node with a merged description. If not, it creates a new node.
+    Returns the node's elementId (a unique string identifier).
+    Use this tool to add or update nodes like technologies, capabilities, or parties in the graph.
+    Provide the node type, a short name, and a detailed description.
+    """,
     parameters={
         "type": "object",
         "properties": {
@@ -233,69 +115,39 @@ create_node_tool = tool(
     },
 )
 
-
-async def create_edge(tx: AsyncTransaction, source_id: str, target_id: str, relationship_type: str, properties: Optional[Dict[str, Any]] = None) -> Any:
-    logging.info(f"Creating edge: {source_id} {target_id} {relationship_type} {properties}")
-    if properties is None:
-        properties = {}
-    prop_keys = ", ".join(f"{key}: ${key}" for key in properties)
-    prop_str = f"{{{prop_keys}}}" if prop_keys else ""
-    query = (
-        "MATCH (source) WHERE elementId(source) = $source_id "
-        "MATCH (target) WHERE elementId(target) = $target_id "
-        f"MERGE (source)-[r:{relationship_type} {prop_str}]->(target) "
-        "RETURN r"
-    )
-    params = {"source_id": source_id, "target_id": target_id}
-    params.update(properties)
-    result = await tx.run(query, **params)
-    record = await result.single()
-    if record:
-        return record.data()
-    return None
-
-
 create_edge_tool = tool(
     name="create_edge",
-    description="Creates or merges a relationship between two nodes in Neo4j.",
+    description="""
+    Creates or merges a directed relationship (edge) between two existing nodes in the Neo4j knowledge graph.
+    If the relationship doesn't exist, it creates it; if it does, it matches the existing one.
+    Use this tool to connect nodes, such as linking an emerging technology to a capability it enables.
+    Provide the source and target node elementIds, the relationship type, and optional properties for the edge.
+    Returns the relationship object.
+    """,
     parameters={
         "type": "object",
         "properties": {
             "source_id": {"type": "string", "description": "The elementId of the source node."},
             "target_id": {"type": "string", "description": "The elementId of the target node."},
-            "relationship_type": {"type": "string", "description": "The type of relationship."},
-            "properties": {"type": "object", "description": "Optional additional properties.", "additionalProperties": True},
+            "relationship_type": {"type": "string", "description": "The type of relationship (e.g., 'ENABLES', 'USES', 'RELATES_TO')."},
+            "properties": {"type": "object", "description": "Optional additional properties for the relationship (e.g., {'explanation': 'details'})."},
         },
         "required": ["source_id", "target_id", "relationship_type"],
     },
 )
 
-
-async def find_node(tx: AsyncTransaction, query_text: str, node_type: str, openai_client: AsyncOpenAI, top_k: int = 5) -> list:
-    emb_response = await openai_client.embeddings.create(model=embedding_model, input=query_text)
-    query_embedding = emb_response.data[0].embedding
-
-    cypher_query = """
-    CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
-    YIELD node, score
-    RETURN {name: node.name, description: node.description} AS node, score
-    ORDER BY score DESC
-    """
-    result = await tx.run(cypher_query, index_name=f"{node_type.lower()}_description_embeddings", top_k=top_k, embedding=query_embedding)
-    records = []
-    async for record in result:
-        records.append(record.data())
-    return records
-
-
 find_node_tool = tool(
     name="find_node",
-    description="Finds nodes similar to a given text using vector search.",
+    description="""
+    Finds nodes in knowledge graph that are similar to a given query text.
+    Uses vector similarity search based on node descriptions.
+    Returns a list of nodes with their names, descriptions, and similarity scores.
+    """,
     parameters={
         "type": "object",
         "properties": {
             "query_text": {"type": "string", "description": "The text to search for similar nodes."},
-            "node_type": {"type": "string", "description": "The type of node to search for.", "enum": ["Convergence", "Capability", "Milestone", "Trend", "Idea"]},
+            "node_type": {"type": "string", "description": "The type of node to search for.", "enum": ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]},
             "top_k": {"type": "integer", "description": "The number of top results to return (default is 5).", "default": 5},
         },
         "required": ["query_text", "node_type"],
@@ -303,7 +155,7 @@ find_node_tool = tool(
 )
 
 
-async def run_chat(prompt: str, *, search_parameters: Optional[SearchParameters], xai_client: AsyncClient, neo4jdriver, openai_client: AsyncOpenAI) -> str:
+async def run_chat(prompt: str, *, search_parameters: Optional[SearchParameters], xai_client: AsyncClient, neo4jdriver, openai_client: AsyncOpenAI, groq_client: AsyncGroq) -> str:
     chat_kwargs = dict(
         model=llm_model,
         messages=[
@@ -331,68 +183,70 @@ async def run_chat(prompt: str, *, search_parameters: Optional[SearchParameters]
     chat = xai_client.chat.create(**chat_kwargs)
     chat.append(user(prompt))
 
-    stream_gen = chat.stream()
-    response = None
-    async for streamed_response, _ in stream_gen:
-        response = streamed_response
-    if response is None:
-        raise RuntimeError("No response from xAI client")
+    response = await chat.sample()
     chat.append(response)
 
-    while not response.content:
-        if response.tool_calls:
-            async with neo4jdriver.session() as session:
-                tx = await session.begin_transaction()
-                tool_name = "unknown"
-                try:
-                    for tool_call in response.tool_calls:
-                        tool_name = tool_call.function.name
-                        tool_args = json.loads(tool_call.function.arguments)
-                        try:
-                            if tool_name == "cypher_query":
-                                results = await execute_cypher_query(tx, tool_args["query"])
-                                chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
-                            elif tool_name == "create_node":
-                                result = await create_node(tx, tool_args["node_type"], tool_args["name"], tool_args["description"], openai_client, xai_client)
-                                chat.append(tool_result(json.dumps({"elementId": result})))
-                            elif tool_name == "create_edge":
-                                result = await create_edge(
-                                    tx,
-                                    tool_args["source_id"],
-                                    tool_args["target_id"],
-                                    tool_args["relationship_type"],
-                                    tool_args.get("properties", {}),
-                                )
-                                chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
-                            elif tool_name == "find_node":
-                                results = await find_node(
-                                    tx,
-                                    tool_args["query_text"],
-                                    tool_args["node_type"],
-                                    openai_client,
-                                    tool_args.get("top_k", 5),
-                                )
-                                chat.append(tool_result(json.dumps(results)))
-                        except CypherSyntaxError as cypher_syntax_error:
-                            logging.error(f"Error executing tool {tool_name}. Cypher syntax error: {cypher_syntax_error}")
-                            chat.append(tool_result(json.dumps({"Cypher syntax error": str(cypher_syntax_error)})))
-                    await tx.commit()
-                except Exception as e:
-                    logging.error(f"Error executing tool {tool_name}: {e}")
-                    chat.append(tool_result(json.dumps({"error": str(e)})))
-                    if tx is not None:
-                        await tx.cancel()
-                finally:
-                    if tx is not None:
-                        await tx.close()
+    # while not response.content:
+    if response.tool_calls:
+        async with neo4jdriver.session() as session:
+            tx = await session.begin_transaction()
+            lock = asyncio.Lock()
+            ctx = GraphOpsCtx(tx, lock)
+            tool_name = "unknown"
+            try:
+                for tool_call in response.tool_calls:
+                    tool_name = tool_call.function.name
+                    tool_args = json.loads(tool_call.function.arguments)
+                    if tool_name == "cypher_query":
+                        results = await core_execute_cypher_query(
+                            ctx, 
+                            tool_args["query"]
+                        )
+                        logging.warn(f"Cypher query results: {results}")
+                        chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
+                    elif tool_name == "create_node":
+                        result = await core_create_node(
+                            ctx, 
+                            tool_args["node_type"], 
+                            tool_args["name"], 
+                            tool_args["description"], 
+                            groq_client,
+                            openai_client,
+                        )
+                        logging.warn(f"Create node result: {result}")
+                        chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
+                    elif tool_name == "create_edge":
+                        result = await core_create_edge(
+                            ctx,
+                            tool_args["source_id"],
+                            tool_args["target_id"],
+                            tool_args["relationship_type"],
+                            tool_args.get("properties", {}),
+                        )
+                        logging.warn(f"Create edge result: {result}")
+                        chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
+                    elif tool_name == "find_node":
+                        results = await core_find_node(
+                            ctx,
+                            tool_args["query_text"],
+                            tool_args["node_type"],
+                            tool_args.get("top_k", 5),
+                            openai_client,
+                        )
+                        logging.warn(f"Find node results: {results}")
+                        chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
+                await tx.commit()
+            except Exception as e:
+                logging.error(f"Error executing tool {tool_name}: {e}")
+                chat.append(tool_result(json.dumps({"error": str(e)})))
+                if tx is not None:
+                    await tx.cancel()
+            finally:
+                if tx is not None:
+                    await tx.close()
 
-            stream_gen = chat.stream()
-            response = None
-            async for streamed_response, _ in stream_gen:
-                response = streamed_response
-            if response is None:
-                raise RuntimeError("No response from xAI client")
-            chat.append(response)
+        response = await chat.sample()
+        chat.append(response)
 
     logging.info(f"Final response: {response.content}")
     logging.info(f"Finish reason: {response.finish_reason}")
@@ -410,15 +264,16 @@ async def main() -> None:
 
     xai_client = AsyncClient(api_key=os.getenv("XAI_API_KEY"), timeout=3600)
     openai_client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
-    with open("knowledge_graph/sources.yaml", "r") as f:
+    with open("knowledge_graph/batch_sources.yaml", "r") as f:
         config = yaml.safe_load(f)
 
     for source in config.get("sources", []):
         params = _build_search_params(source)
         prompt = source.get("prompt", "")
         logging.info(f"Processing {source.get('name')} with params {params}")
-        result = await run_chat(prompt, search_parameters=params, xai_client=xai_client, neo4jdriver=neo4jdriver, openai_client=openai_client)
+        result = await run_chat(prompt, search_parameters=params, xai_client=xai_client, neo4jdriver=neo4jdriver, openai_client=openai_client, groq_client=groq_client)
         logging.info(f"Processed {source.get('name')}: {result}")
 
     _save_last_run(datetime.now(timezone.utc))

@@ -53,7 +53,7 @@ COMMAND_DATA = config['commands']
 
 # Define the tools (functions) - flattened structure for Responses API
 TOOLS_EDIT = [
-    TOOLS_DEFINITIONS["execute_cypher_query"],
+    TOOLS_DEFINITIONS["execute_cypher"],
     TOOLS_DEFINITIONS["create_node"],
     TOOLS_DEFINITIONS["create_edge"],
     TOOLS_DEFINITIONS["find_node"],
