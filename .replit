@@ -14,7 +14,7 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["sh", "-c", "chainlit run app_gpt5_responses_api_readonly.py"]
+run = ["sh", "-c", "chainlit run app_gpt5.py"]
 deploymentTarget = "cloudrun"
 
 [[ports]]

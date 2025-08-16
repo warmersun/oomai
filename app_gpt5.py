@@ -212,15 +212,27 @@ async def process_stream(response, ctx: GraphOpsCtx, output_message: cl.Message)
 
 async def keep_neo4j_alive(driver):
     while True:
-        await asyncio.sleep(1800)  # Every 30 minutes; adjust as needed
+        await asyncio.sleep(600)
         if driver is not None:
             try:
                 async with driver.session() as session:
-                    await session.run("RETURN 1")  # Dummy query to keep connections active
+                    await session.run("RETURN 1")
+                logger.info("Neo4j keep-alive query executed successfully")
             except Exception as e:
-                # Handle errors gracefully (e.g., log and continue)
                 logger.error(f"Error keeping Neo4j connections alive: {str(e)}")
-
+                # Reinitialize driver
+                try:
+                    driver = AsyncGraphDatabase.driver(
+                        os.environ['NEO4J_URI'],
+                        auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD']),
+                        liveness_check_timeout=0,
+                        max_connection_lifetime=3000
+                    )
+                    await driver.verify_connectivity()
+                    cl.user_session.set("neo4jdriver", driver)
+                    logger.info("Neo4j driver reinitialized in keepalive task")
+                except Exception as e2:
+                    logger.error(f"Failed to reinitialize Neo4j driver in keepalive: {str(e2)}")
 commands = [
     {
         "id": command_id,
@@ -253,7 +265,9 @@ async def start():
     cl.user_session.set("previous_id", None)
     neo4jdriver = AsyncGraphDatabase.driver(
         os.environ['NEO4J_URI'],
-        auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD'])
+        auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD']),
+        liveness_check_timeout=0,
+        max_connection_lifetime=2700,
     )
     await neo4jdriver.verify_connectivity()
     keepalive_task = asyncio.create_task(keep_neo4j_alive(neo4jdriver))
@@ -325,7 +339,9 @@ async def resume_chat():
         logger.warning("No Neo4j driver found in user session, creating a new one.")
         neo4jdriver = AsyncGraphDatabase.driver(
             os.environ['NEO4J_URI'],
-            auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD'])
+            auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD']),
+            liveness_check_timeout=0,
+            max_connection_lifetime=2700,
         )
         await neo4jdriver.verify_connectivity()
         cl.user_session.set("neo4jdriver", neo4jdriver)
@@ -374,6 +390,10 @@ async def on_message(message: cl.Message):
                     break
                 input_data = new_input
 
+            # Commit the Neo4j transaction
+            logger.warn("Committing the Neo4j transaction.")
+            await tx.commit()
+            
             await output_message.update()
             cl.user_session.set("last_message", output_message.content)
             cl.user_session.set("input_data", input_data)
