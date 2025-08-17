@@ -1,4 +1,5 @@
 from neo4j import AsyncTransaction
+from neo4j.exceptions import ClientError, CypherSyntaxError
 import json
 from typing import List, Dict, Optional, Union
 from pydantic import BaseModel
@@ -72,6 +73,19 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
             # Apply recursive filtering to each record
             filtered_records = [filter_embedding(record) for record in records]
             return filtered_records
+
+    except CypherSyntaxError as e:
+        # Handle Cypher syntax errors
+        logging.error(f"Cypher syntax error: {e}. The transaction will be rolled back.")
+        return [{"error": f"Try again! Cypher syntax error: {e.message}"}]
+
+    except ClientError as e:
+        # Handle client errors (e.g., invalid parameters)
+        logging.error(f"Client error: {e}.")
+        if e.is_retriable:
+            return [{"error": f"Try again! Client error: {e.message}"}]
+        else:
+            raise RuntimeError(f"Client error: {e.message}")
 
     except Exception as e:
         # Catch any other unexpected errors
