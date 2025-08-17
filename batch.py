@@ -214,11 +214,10 @@ async def run_chat(
     chat.append(user(prompt))
 
     max_retries = 3
+    cypher_retries = 0
+    edge_retries = 0
 
     while True:
-        cypher_retries = 0
-        edge_retries = 0
-
         response = await chat.sample()
         chat.append(response)
 
@@ -226,6 +225,7 @@ async def run_chat(
             break
 
         tool_executed = False
+        had_max_retry = False
         async with neo4jdriver.session() as session:
             tx = await session.begin_transaction()
             lock = asyncio.Lock()
@@ -239,6 +239,7 @@ async def run_chat(
                     tool_args = json.loads(tool_call.function.arguments)
                     if tool_name == "cypher_query":
                         if cypher_retries >= max_retries:
+                            had_max_retry = True
                             logging.error("Max retries for Cypher query reached")
                             chat.append(tool_result(json.dumps({"error": "Max retries for Cypher query reached"})))
                             continue
@@ -271,6 +272,7 @@ async def run_chat(
                         tool_executed = True
                     elif tool_name == "create_edge":
                         if edge_retries >= max_retries:
+                            had_max_retry = True
                             logging.error("Max retries for create_edge reached")
                             chat.append(tool_result(json.dumps({"error": "Max retries for create_edge reached"})))
                             continue
@@ -304,17 +306,17 @@ async def run_chat(
                         logging.info(f"[FIND_NODE] results length: {len(results)}")
                         chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
                         tool_executed = True
-                if tool_executed:
-                    logging.info("✅ Tool executed, committing the Neo4j transaction.")
+                if tool_executed and not had_max_retry:
+                    logging.info("✅ Tool executed without max retries reached, committing the Neo4j transaction.")
                     await tx.commit()
                 else:
-                    logging.error("❌ No tool executed, rolling back the Neo4j transaction.")
+                    logging.error("❌ No tool executed or max retries reached, rolling back the Neo4j transaction.")
                     await tx.rollback()
             except Exception as e:
                 logging.error(f"Error executing tool {tool_name}: {e}")
                 chat.append(tool_result(json.dumps({"error": str(e)})))
                 if tx is not None:
-                    logging.error("❌ Rolling back the Neo4j transaction.")
+                    logging.error("❌ Rolling back the Neo4j transaction due to exception.")
                     await tx.rollback()
             finally:
                 if tx is not None:
@@ -326,7 +328,7 @@ async def run_chat(
     logging.info(f"Total tokens: {response.usage.total_tokens}")
 
     return response.content
-
+    
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
