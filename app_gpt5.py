@@ -46,7 +46,7 @@ with open("knowledge_graph/system_prompt_gpt5_readonly.md", "r") as f:
 SYSTEM_PROMPT_EDIT = system_prompt_edit_template.format(schema=schema)
 SYSTEM_PROMPT_READONLY = system_prompt_readonly_template.format(schema=schema)
 
-with open("knowledge_graph/sources.yaml", "r") as f:
+with open("knowledge_graph/command_sources.yaml", "r") as f:
     config = yaml.safe_load(f)
 COMMAND_DATA = config['commands']
 
