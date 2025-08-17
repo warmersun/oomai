@@ -214,10 +214,11 @@ async def run_chat(
     chat.append(user(prompt))
 
     max_retries = 3
-    cypher_retries = 0
-    edge_retries = 0
 
     while True:
+        cypher_retries = 0
+        edge_retries = 0
+
         response = await chat.sample()
         chat.append(response)
 
@@ -310,7 +311,7 @@ async def run_chat(
                     logging.error("❌ No tool executed, rolling back the Neo4j transaction.")
                     await tx.rollback()
             except Exception as e:
-                logging.error(f"Error executing tool {tool_name}: {e}.")
+                logging.error(f"Error executing tool {tool_name}: {e}")
                 chat.append(tool_result(json.dumps({"error": str(e)})))
                 if tx is not None:
                     logging.error("❌ Rolling back the Neo4j transaction.")
@@ -325,7 +326,7 @@ async def run_chat(
     logging.info(f"Total tokens: {response.usage.total_tokens}")
 
     return response.content
-    
+
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
