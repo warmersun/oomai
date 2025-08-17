@@ -364,6 +364,7 @@ async def on_message(message: cl.Message):
 
         except asyncio.CancelledError:
             logger.error("Rolling back the Neo4j transaction due to cancellation.")
+            await cl.Message(content="Rolling back the Neo4j transaction due to cancellation.", type="system_message").send()
             if tx is not None:
                 await tx.cancel()
             else:
@@ -371,6 +372,7 @@ async def on_message(message: cl.Message):
             raise
         except Exception as e:
             logger.error(f"Rolling back the Neo4j transaction. Error: {str(e)}")
+            await cl.Message(content=f"Rolling back the Neo4j transaction. Error: {str(e)}", type="system_message").send()
             if tx is not None:
                 await tx.rollback()
             else:
