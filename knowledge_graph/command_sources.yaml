@@ -7,27 +7,3 @@ commands:
     icon: megaphone
     description: Capture OpenAI announcements.
     template: "Search on X in the last 24 hours for the following handles: OpenAI, OpenAINewsroom, OpenAIDevs, ChatGPTapp, sama, gdb. List the latest product launches, research, ideas, new capabilities and milestones by OpenAI Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'. "
-  energy_news:
-    icon: newspaper
-    description: Capture energy news.
-    template: "Search on X in the last 24 hours for the following handles: BESTmag_news, EnergyStorageN, REWorld, PVTech, BatteryPowerMag, GreentechMedia, AltEnergyMag. List the latest development, research, new capabilities and milestones in energy production, smart grid, energy storage, battery technology. Capture these in the knowledge graph. "
-  crypto_news:
-    icon: newspaper
-    description: Capture crypto news.
-    template: "Search on X in the last 24 hours for the following handles: CoinMarketCap, CoinDesk, CoinTelegraph, worldcoin. List the latest development, research, new capabilities and milestones in crypto, blockchain, web3, decentralized finance. Capture these in the knowledge graph. "
-  synbio_news:
-    icon: newspaper
-    description: Capture synthetic biology news.
-    template: "Search on X in the last 24 hours for the following handles: nextmedhealth, GoodFoodInst, davidasinclair, colossal. List the latest development, research, new capabilities and milestones in synthetic biology, gene sequencing, gene editing, alternative proteins, longevity, digital health. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'. "
-  arvr_news:
-    icon: newspaper
-    description: Capture AR/VR news.
-    template: "Search on X in the last 24 hours for the following handles: RtoVR, UploadVR, philiprosedale. List the latest products (PTC) and their vendors (Party), new capabilities and milestones, use cases (LAC) in augmented and virtual reality. Capture these in the knowledge graph. If you don't find anything worthwhile, just say 'Nothing noteworthy today'. "
-  use_cases:
-    icon: person-standing
-    description: Capture use cases.
-    template: "Search on X in the last 24 hours for the following handles: IntEngineering, Dr_Singularity, dreamingtulpa, PeterDiamandis, gunsnrosesgirl3, kimmonismus. Collect use cases, applications (LAC) of emerging technologies. What product categories (LTC), what capabilities or new milestones have unlocked these use cases? Capture these along with the specifics (PTC, PAC, Party) in the knowledge graph. If you don't find anything noteworthy, just say 'Nothing noteworthy today.' "
-  robot_news:
-    icon: newspaper
-    description: Capture robot news.
-    template: "Search on X in the last 24 hours for the following handles: SawyerMerritt, TheHumanoidHub, CyberRobooo, adcock_brett, TheRundownAI. List the latest development, research, new capabilities and milestones related to robots. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'. "
