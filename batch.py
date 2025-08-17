@@ -65,28 +65,7 @@ class Neo4jDateEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, (Date, DateTime)):
             return o.iso_format()  # Convert Neo4j Date/DateTime to ISO 8601 string
-        return super().default(o)
-        
-def _load_last_run() -> Optional[datetime]:
-    if not os.path.exists(LAST_RUN_FILE):
-        return None
-    try:
-        with open(LAST_RUN_FILE, "r") as f:
-            ts = f.read().strip()
-        if not ts:
-            return None
-        return datetime.fromisoformat(ts)
-    except Exception as exc:
-        logger.error(f"Failed to read {LAST_RUN_FILE}: {exc}")
-        return None
-
-
-def _save_last_run(dt: datetime) -> None:
-    try:
-        with open(LAST_RUN_FILE, "w") as f:
-            f.write(dt.isoformat())
-    except Exception as exc:
-        logger.error(f"Failed to write {LAST_RUN_FILE}: {exc}")
+        return super().default(o)       
 
 # Function to create the response, streaming
 async def create_response(openai_client, input_data, previous_response_id=None):
@@ -198,27 +177,6 @@ async def process_stream(response, ctx: GraphOpsCtx, groq_client, openai_client)
         logger.info(f"[OUTPUT MESSAGE] {output_message}")
         return response_id, False, None
 
-def build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[SearchParameters]:
-    if not source:
-        return None
-
-    last_run = _load_last_run()
-    params: Dict[str, Any] = {"mode": "on"}
-    if last_run is not None:
-        params["from_date"] = last_run
-
-    if source.get("source_type") == "RSS" and "url" in source:
-        return SearchParameters(
-            **params,
-            sources=[rss_source([source["url"]])],
-        )
-    if source.get("source_type") == "X" and "handles" in source:
-        return SearchParameters(
-            **params,
-            sources=[x_source(included_x_handles=source["handles"])],
-        )
-    return None
-
 async def main() -> None:
     neo4jdriver = AsyncGraphDatabase.driver(
         os.environ['NEO4J_URI'],
@@ -249,8 +207,7 @@ async def main() -> None:
     for source in config.get("sources", []):
         prompt = source.get("prompt", "Do nothing, just say 'No insttuctions given!'")
         
-        params = build_search_params(source)
-        logger.info(f"Processing {source.get('name')} with params {params}")
+        logger.info(f"Processing {source.get('name')}")
 
         extract_for_kg = None
         if source.get("source_type") == "RSS" and "url" in source:
@@ -298,8 +255,6 @@ async def main() -> None:
             logger.warning("Committing the Neo4j transaction.")
             await tx.commit()
 
-
-    _save_last_run(datetime.now(timezone.utc))
     await neo4jdriver.close()
 
 
