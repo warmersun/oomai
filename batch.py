@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 import yaml
+from collections import namedtuple
 from lark import Lark, ParseError
 # drivers
 from neo4j import AsyncGraphDatabase
@@ -12,7 +13,7 @@ from openai import AsyncOpenAI
 from groq import AsyncGroq
 from xai_sdk import AsyncClient
 from xai_sdk.chat import SearchParameters, system, user, tool, tool_result
-from xai_sdk.search import rss_source, x_source
+from xai_sdk.search import rss_source, web_source, x_source
 from neo4j.time import Date, DateTime
 # tools
 from function_tools import (
@@ -33,7 +34,7 @@ with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
 
 embedding_model = "text-embedding-3-large"
-llm_model = "grok-3-mini"
+llm_model = "grok-4"
 
 LAST_RUN_FILE = "last_run_timestamp.txt"
 
@@ -173,30 +174,30 @@ async def run_chat(
                 f"""
                 You are a thorough analyst that builds a knowledge graph.
                 You search on X and RSS feeds for the latest news and articles about emerging technologies, products, services, capabilities, milestones, trends, ideas, use cases, and applications.
-                
+
                 - When provided with a story, an article or document, decompose its content into nodes and relationships for the knowledge graph, using `create_node` and `create_edge`.
                 - Use `execute_cypher_query` and `find_node` tools to check what is already in the knowledge graph so you can connect the newly added nodes to existing ones.
                 - The `create_node` tool merges similar semantic descriptions to handle duplicates.
                 - Ensure every product or service (PTC) is connected to relevant Capabilities and Milestones.
                 - Where categorization is missing (e.g. in articles or news), create or identify and link abstract entities (LAC, LTC).
                 - Never use the `execute_cypher_query` to batch create nodes and edges. Only use `create_node` and `create_edge` for this purpose.
-                
+
                 # Context
-                
+
                 - The schema for the knowledge graph is:
                   {schema}
                 - All graph operations occur within a single Neo4j transaction; this ensures you may utilize the `elementId()` function for node identification. This is not an `elementId` property, but a function call, such as: `MATCH (n:EmTech {{name: 'computing'}}) RETURN elementId(n) AS elementId`.
                 - Write Cypher queries with explicit node labels and relationship types for clarity.
                 - Limit the number of results for each query.
-                
+
                 # Output Format
 
                 - You carry out the instructions and provide a summary of the actions taken and the results obtained. 
                 - There is no user interaction. You do not ask for confirmation or additional information.
                 - You are used within a script, so you have one shot to get it right.
-                
+
                 # Stop Conditions
-                
+
                 - Consider the task complete when you have captured all relevant information into the knowledge graph.
             """
             )
@@ -218,13 +219,14 @@ async def run_chat(
 
         if not response.tool_calls:
             break
-    
+
         tool_executed = False
         async with neo4jdriver.session() as session:
             tx = await session.begin_transaction()
             lock = asyncio.Lock()
             ctx = GraphOpsCtx(tx, lock)
             tool_name = "unknown"
+            Property = namedtuple('Property', ['key', 'value'])
             try:
                 for tool_call in response.tool_calls:
                     tool_name = tool_call.function.name
@@ -260,12 +262,14 @@ async def run_chat(
                         chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
                         tool_executed = True
                     elif tool_name == "create_edge":
+                        properties = tool_args.get("properties", {})
+                        properties_list = [Property(k, v) for k, v in properties.items()]
                         result = await core_create_edge(
                             ctx,
                             tool_args["source_id"],
                             tool_args["target_id"],
                             tool_args["relationship_type"],
-                            tool_args.get("properties", {}),
+                            properties_list,
                         )
                         logging.info(f"[CREATE_EDGE] result: {result}")
                         chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
@@ -293,11 +297,10 @@ async def run_chat(
                 if tx is not None:
                     logging.error("Rolling back the Neo4j transaction.")
                     await tx.rollback()
-                    await tx.cancel()
             finally:
                 if tx is not None:
                     await tx.close()
-    
+
     logging.info(f"Final response: {response.content}")
     logging.info(f"Finish reason: {response.finish_reason}")
     logging.info(f"Reasoning tokens: {response.usage.reasoning_tokens}")
