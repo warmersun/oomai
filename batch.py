@@ -23,6 +23,7 @@ from function_tools import (
     core_find_node,
     GraphOpsCtx,
     core_x_search,
+    TOOLS_DEFINITIONS,
 )
 
 
@@ -45,7 +46,27 @@ llm_model = "grok-4"
 
 LAST_RUN_FILE = "last_run_timestamp.txt"
 
+TOOLS = [
+    TOOLS_DEFINITIONS["execute_cypher_query"],
+    TOOLS_DEFINITIONS["create_node"],
+    TOOLS_DEFINITIONS["create_edge"],
+    TOOLS_DEFINITIONS["find_node"],
+    {"type": "web_search_preview", "search_context_size":"high"},
+]
 
+AVAILABLE_FUNCTIONS = {
+    "execute_cypher_query": core_execute_cypher_query,
+    "create_node": core_create_node,
+    "create_edge": core_create_edge,
+    "find_node": core_find_node,
+}
+
+class Neo4jDateEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, (Date, DateTime)):
+            return o.iso_format()  # Convert Neo4j Date/DateTime to ISO 8601 string
+        return super().default(o)
+        
 def _load_last_run() -> Optional[datetime]:
     if not os.path.exists(LAST_RUN_FILE):
         return None
@@ -67,8 +88,114 @@ def _save_last_run(dt: datetime) -> None:
     except Exception as exc:
         logger.error(f"Failed to write {LAST_RUN_FILE}: {exc}")
 
+# Function to create the response, streaming
+async def create_response(openai_client, input_data, previous_response_id=None):
+    with open("knowledge_graph/system_prompt_batch_gpt5.md", "r") as f:
+        system_prompt = f.read()
 
-def _build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[SearchParameters]:
+    kwargs = {
+        "model": "gpt-5",
+        "instructions": system_prompt,
+        "input": input_data,
+        "tools": TOOLS,
+        "stream": True,
+        "reasoning": {"effort": "high"},
+        "safety_identifier": "kg_batch",
+    }
+    if previous_response_id:
+        kwargs["previous_response_id"] = previous_response_id
+    return await openai_client.responses.create(**kwargs)
+
+# Function to process the streaming response
+async def process_stream(response, ctx: GraphOpsCtx, groq_client, openai_client):
+    tool_calls = []
+    content = ""
+    reasoning = ""
+    response_id = None
+    current_tool = None
+    output_message = ""
+    
+    async for event in response:
+        if event.type == "response.created":
+            response_id = event.response.id
+        elif event.type == "response.output_item.added":
+            item = event.item
+            if item.type == "function_call":
+                current_tool = {
+                    "id": item.call_id,
+                    "type": "function",
+                    "function": {
+                        "name": item.name,
+                        "arguments": "",
+                    }
+                }
+                tool_calls.append(current_tool)
+            elif item.type == "custom_tool_call":
+                current_tool = {
+                    "id": item.call_id,
+                    "type": "custom_tool",
+                    "name": item.name,
+                    "input": item.input,
+                }
+                tool_calls.append(current_tool)
+        elif event.type == "response.function_call_arguments.delta":
+            if current_tool:
+                current_tool["function"]["arguments"] += event.delta
+        elif event.type == "response.custom_tool_call_input.delta":
+            if current_tool:
+                current_tool["input"] += event.delta
+        elif event.type == "response.output_text.delta":
+            content += event.delta
+            output_message += event.delta
+        elif event.type == "response.reasoning_summary.delta":
+            reasoning += event.delta
+            output_message += "\nReasoning: " + event.delta
+        elif event.type == "response.web_search_call.searching":
+            logger.info("Searching the web...")
+        elif event.type == "response.web_search_call.completed":
+            pass
+        elif event.type == "response.done":
+            pass  # Can check finish_reason here if needed
+    if tool_calls:
+        new_input = []
+        for tool_call in tool_calls:
+            if tool_call["type"] == "custom_tool":
+                # custom tool call
+                if tool_call["name"] == "execute_cypher_query":
+                    function_response = await core_execute_cypher_query(ctx, tool_call["input"])
+                    new_input.append({
+                        "type": "function_call_output",
+                        "call_id": tool_call["id"],
+                        "output":  json.dumps(function_response, cls=Neo4jDateEncoder),
+                    })
+            else:
+                function_name = tool_call["function"]["name"]
+                try:
+                    function_args = json.loads(tool_call["function"]["arguments"])
+                    if function_name in ["create_node", "create_edge", "find_node"]:
+                        function_args = {"ctx": ctx, **function_args}
+                    # create nodes needs extra args, to have the groq and openai clients
+                    if function_name == "create_node":
+                        function_args["groq_client"] = groq_client
+                        function_args["openai_client"] = openai_client
+                except json.JSONDecodeError:
+                    function_args = {}
+                if function_name in AVAILABLE_FUNCTIONS:
+                    function_response = await AVAILABLE_FUNCTIONS[function_name](**function_args)
+                    new_input.append({
+                        "type": "function_call_output",
+                        "call_id": tool_call["id"],
+                        "output":  json.dumps(function_response, cls=Neo4jDateEncoder),
+                    })
+        logger.info(f"[OUTPUT MESSAGE] {output_message}")
+        return response_id, True, new_input
+    else:
+        if reasoning:
+            output_message += "\nFull Reasoning Summary: " + reasoning
+        logger.info(f"[OUTPUT MESSAGE] {output_message}")
+        return response_id, False, None
+
+def build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[SearchParameters]:
     if not source:
         return None
 
@@ -89,240 +216,23 @@ def _build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[Se
         )
     return None
 
-
-cypher_query_tool = tool(
-    name="cypher_query",
-    description=(
-        """
-        Executes the provided Cypher query against the Neo4j database and returns the results.
-        """
-    ),
-    parameters={
-        "type": "object",
-        "properties": {"query": {"type": "string", "description": "The Cypher query to execute."}},
-        "required": ["query"],
-    },
-)
-
-create_node_tool = tool(
-    name="create_node",
-    description="""
-    Creates or updates a node in the Neo4j knowledge graph, ensuring no duplicates by checking for similar nodes based on their descriptions.
-    If a similar node exists, it updates the node with a merged description. If not, it creates a new node.
-    Returns the node's elementId (a unique string identifier).
-    Use this tool to add or update nodes like technologies, capabilities, or parties in the graph.
-    Provide the node type, a short name, and a detailed description.
-    """,
-    parameters={
-        "type": "object",
-        "properties": {
-            "node_type": {"type": "string", "description": "The type of node (e.g., 'EmTech', 'Capability', 'Party')."},
-            "name": {"type": "string", "description": "A short, unique name for the node."},
-            "description": {"type": "string", "description": "A detailed description of the node."},
-        },
-        "required": ["node_type", "name", "description"],
-    },
-)
-
-create_edge_tool = tool(
-    name="create_edge",
-    description="""
-    Creates or merges a directed relationship (edge) between two existing nodes in the Neo4j knowledge graph.
-    If the relationship doesn't exist, it creates it; if it does, it matches the existing one.
-    Use this tool to connect nodes, such as linking an emerging technology to a capability it enables.
-    Provide the source and target node elementIds, the relationship type, and optional properties for the edge.
-    Returns the relationship object.
-    """,
-    parameters={
-        "type": "object",
-        "properties": {
-            "source_id": {"type": "string", "description": "The elementId of the source node."},
-            "target_id": {"type": "string", "description": "The elementId of the target node."},
-            "relationship_type": {"type": "string", "description": "The type of relationship (e.g., 'ENABLES', 'USES', 'RELATES_TO')."},
-            "properties": {"type": "object", "description": "Optional additional properties for the relationship (e.g., {'explanation': 'details'})."},
-        },
-        "required": ["source_id", "target_id", "relationship_type"],
-    },
-)
-
-find_node_tool = tool(
-    name="find_node",
-    description="""
-    Finds nodes in knowledge graph that are similar to a given query text.
-    Uses vector similarity search based on node descriptions.
-    Returns a list of nodes with their names, descriptions, and similarity scores.
-    """,
-    parameters={
-        "type": "object",
-        "properties": {
-            "query_text": {"type": "string", "description": "The text to search for similar nodes."},
-            "node_type": {"type": "string", "description": "The type of node to search for.", "enum": ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]},
-            "top_k": {"type": "integer", "description": "The number of top results to return (default is 5).", "default": 5},
-        },
-        "required": ["query_text", "node_type"],
-    },
-)
-
-
-async def run_chat(
-    prompt: str,
-    *, 
-    search_parameters: Optional[SearchParameters], 
-    xai_client: AsyncClient, 
-    neo4jdriver, 
-    openai_client: AsyncOpenAI, 
-    groq_client: AsyncGroq, 
-    parser: Lark
-) -> str:
-    chat_kwargs = dict(
-        model=llm_model,
-        messages=[
-            system(
-                f"""
-                You are a thorough analyst that builds a knowledge graph.
-                You search on X and RSS feeds for the latest news and articles about emerging technologies, products, services, capabilities, milestones, trends, ideas, use cases, and applications.
-
-                - When provided with a story, an article or document, decompose its content into nodes and relationships for the knowledge graph, using `create_node` and `create_edge`.
-                - Use `execute_cypher_query` and `find_node` tools to check what is already in the knowledge graph so you can connect the newly added nodes to existing ones.
-                - The `create_node` tool merges similar semantic descriptions to handle duplicates.
-                - Ensure every product or service (PTC) is connected to relevant Capabilities and Milestones.
-                - Where categorization is missing (e.g. in articles or news), create or identify and link abstract entities (LAC, LTC).
-                - Never use the `execute_cypher_query` to batch create nodes and edges. Only use `create_node` and `create_edge` for this purpose.
-
-                # Context
-
-                - The schema for the knowledge graph is:
-                  {schema}
-                - All graph operations occur within a single Neo4j transaction; this ensures you may utilize the `elementId()` function for node identification. This is not an `elementId` property, but a function call, such as: `MATCH (n:EmTech {{name: 'computing'}}) RETURN elementId(n) AS elementId`.
-                - Write Cypher queries with explicit node labels and relationship types for clarity.
-                - Limit the number of results for each query.
-
-                # Output Format
-
-                - You carry out the instructions and provide a summary of the actions taken and the results obtained. 
-                - There is no user interaction. You do not ask for confirmation or additional information.
-                - You are used within a script, so you have one shot to get it right.
-
-                # Stop Conditions
-
-                - Consider the task complete when you have captured all relevant information into the knowledge graph.
-            """
-            )
-        ],
-        tools=[cypher_query_tool, create_node_tool, create_edge_tool, find_node_tool],
-    )
-    if search_parameters is not None:
-        chat_kwargs["search_parameters"] = search_parameters
-
-    chat = xai_client.chat.create(**chat_kwargs)
-    chat.append(user(prompt))
-
-    max_retries = 3
-    cypher_retries = 0
-
-    while True:
-        response = await chat.sample()
-        chat.append(response)
-
-        if not response.tool_calls:
-            break
-
-        tool_executed = False
-        async with neo4jdriver.session() as session:
-            tx = await session.begin_transaction()
-            lock = asyncio.Lock()
-            ctx = GraphOpsCtx(tx, lock)
-            tool_name = "unknown"
-            Property = namedtuple('Property', ['key', 'value'])
-            try:
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call.function.name
-                    tool_args = json.loads(tool_call.function.arguments)
-                    if tool_name == "cypher_query":
-                        if cypher_retries >= max_retries:
-                            chat.append(tool_result(json.dumps({"error": "Max retries for Cypher query reached"})))
-                            continue
-                        query = tool_args["query"]
-                        try:
-                            parser.parse(query)
-                        except ParseError as e:
-                            cypher_retries += 1
-                            chat.append(tool_result(json.dumps({"error": f"Cypher query validation failed: {str(e)}. Please correct and try again."})))
-                            continue
-                        results = await core_execute_cypher_query(
-                            ctx, 
-                            query
-                        )
-                        logger.info(f"[CYPHER_QUERY] results: {results}")
-                        chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
-                        tool_executed = True
-                    elif tool_name == "create_node":
-                        result = await core_create_node(
-                            ctx, 
-                            tool_args["node_type"], 
-                            tool_args["name"], 
-                            tool_args["description"], 
-                            groq_client,
-                            openai_client,
-                        )
-                        logger.info(f"[CREATE_NODE] result: {result}")
-                        chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
-                        tool_executed = True
-                    elif tool_name == "create_edge":
-                        properties = tool_args.get("properties", {})
-                        properties_list = [Property(k, v) for k, v in properties.items()]
-                        result = await core_create_edge(
-                            ctx,
-                            tool_args["source_id"],
-                            tool_args["target_id"],
-                            tool_args["relationship_type"],
-                            properties_list,
-                        )
-                        logger.info(f"[CREATE_EDGE] result: {result}")
-                        chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
-                        tool_executed = True
-                    elif tool_name == "find_node":
-                        results = await core_find_node(
-                            ctx,
-                            tool_args["query_text"],
-                            tool_args["node_type"],
-                            tool_args.get("top_k", 5),
-                            openai_client,
-                        )
-                        logger.info(f"[FIND_NODE] results length: {len(results)}")
-                        chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
-                        tool_executed = True
-                if tool_executed:
-                    logger.info("Tool executed, committing the Neo4j transaction.")
-                    await tx.commit()
-                else:
-                    logger.error("No tool executed, rolling back the Neo4j transaction.")
-                    await tx.rollback()
-            except Exception as e:
-                logger.error(f"Error executing tool {tool_name}: {e}")
-                chat.append(tool_result(json.dumps({"error": str(e)})))
-                if tx is not None:
-                    logger.error("Rolling back the Neo4j transaction.")
-                    await tx.rollback()
-            finally:
-                if tx is not None:
-                    await tx.close()
-
-    logger.info(f"Final response: {response.content}")
-    logger.info(f"Finish reason: {response.finish_reason}")
-    logger.info(f"Reasoning tokens: {response.usage.reasoning_tokens}")
-    logger.info(f"Total tokens: {response.usage.total_tokens}")
-
-    return response.content
-
-
 async def main() -> None:
-    neo4jdriver = AsyncGraphDatabase.driver(os.environ["NEO4J_URI"], auth=(os.environ["NEO4J_USERNAME"], os.environ["NEO4J_PASSWORD"]))
+    neo4jdriver = AsyncGraphDatabase.driver(
+        os.environ['NEO4J_URI'],
+        auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD']),
+        liveness_check_timeout=0,
+        max_connection_lifetime=2700,
+        # keep_alive=False,
+    )
     await neo4jdriver.verify_connectivity()
-
-    xai_client = AsyncClient(api_key=os.getenv("XAI_API_KEY"), timeout=3600)
-    # openai_client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    # groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+    groq_client = AsyncGroq(
+        api_key=os.getenv("GROQ_API_KEY"),
+    )
+    openai_client = AsyncOpenAI(api_key=os.environ['OPENAI_API_KEY'])
+    xai_client = AsyncClient(
+        api_key=os.getenv("XAI_API_KEY"),
+        timeout=3600
+    )
 
     with open("knowledge_graph/batch_sources.yaml", "r") as f:
         config = yaml.safe_load(f)
@@ -334,16 +244,57 @@ async def main() -> None:
         system_prompt_batch_extract_grok3 = f.read().format(schema=schema)
 
     for source in config.get("sources", []):
-        params = _build_search_params(source)
         prompt = source.get("prompt", "Do nothing, just say 'No insttuctions given!'")
+        
+        params = build_search_params(source)
         logger.info(f"Processing {source.get('name')} with params {params}")
-        extract_for_kg = await core_x_search(
-            xai_client=xai_client, 
-            prompt=prompt, 
-            included_handles=source.get("handles", []),
-            last_24hrs=True,
-            system_prompt=system_prompt_batch_extract_grok3)
+
+        extract_for_kg = None
+        if source.get("source_type") == "RSS" and "url" in source:
+            extract_for_kg = await core_x_search(
+                xai_client=xai_client, 
+                prompt=prompt, 
+                rss_url=source.get("url"),
+                last_24hrs=True,
+                system_prompt=system_prompt_batch_extract_grok3)
+        elif source.get("source_type") == "X" and "handles" in source:
+            extract_for_kg = await core_x_search(
+                xai_client=xai_client, 
+                prompt=prompt, 
+                included_handles=source.get("handles", []),
+                last_24hrs=True,
+                system_prompt=system_prompt_batch_extract_grok3)
+        else:
+            logger.error(f"Unknown source type: {source.get('source_type')} or missing required parameters")
+        assert extract_for_kg is not None, "Failed to extract for KG"
         logger.info(f"Processed {source.get('name')}:\n{extract_for_kg}")
+
+        logger.info("Now processing the extracted content into the knowledge graph.")
+
+        # create Neo4j session
+        async with neo4jdriver.session() as session:
+            # setup context: begin Neo5j transation and create lock
+            tx = await session.begin_transaction()
+            lock = asyncio.Lock()
+            ctx = GraphOpsCtx(tx, lock)
+            previous_id = None
+            input_data = [
+                {
+                    "role": "user",
+                    "content": extract_for_kg
+                }
+            ]
+            while True:
+                response = await create_response(openai_client, input_data, previous_id)
+                previous_id, needs_continue, new_input = await process_stream(response, ctx, groq_client, openai_client)
+                if not needs_continue:
+                    break
+                input_data = new_input
+
+            # Commit the Neo4j transaction
+            logger.warning("Committing the Neo4j transaction.")
+            await tx.commit()
+
 
     _save_last_run(datetime.now(timezone.utc))
     await neo4jdriver.close()

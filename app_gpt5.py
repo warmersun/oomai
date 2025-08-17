@@ -354,7 +354,7 @@ async def on_message(message: cl.Message):
                 input_data = new_input
 
             # Commit the Neo4j transaction
-            logger.warn("Committing the Neo4j transaction.")
+            logger.warning("Committing the Neo4j transaction.")
             await tx.commit()
             
             await output_message.update()
