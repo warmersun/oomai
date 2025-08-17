@@ -7,7 +7,8 @@ from typing import Any, Dict, Optional
 import yaml
 from collections import namedtuple
 import re
-from lark import Lark, ParseError
+from lark import Lark
+from lark.exceptions import ParseError, UnexpectedCharacters
 # drivers
 from neo4j import AsyncGraphDatabase
 from openai import AsyncOpenAI
@@ -190,6 +191,7 @@ async def run_chat(
                 - All graph operations occur within a single Neo4j transaction; this ensures you may utilize the `elementId()` function for node identification. This is not an `elementId` property, but a function call, such as: `MATCH (n:EmTech {{name: 'computing'}}) RETURN elementId(n) AS elementId`.
                 - Write Cypher queries with explicit node labels and relationship types for clarity.
                 - Limit the number of results for each query.
+                - Do not end Cypher queries with a semicolon (;).
 
                 # Output Format
 
@@ -242,7 +244,7 @@ async def run_chat(
                         query = tool_args["query"]
                         try:
                             parser.parse(query)
-                        except ParseError as e:
+                        except (ParseError, UnexpectedCharacters) as e:
                             cypher_retries += 1
                             logging.warning(f"Cypher query validation failed:\n---\n{query}\n---\nRetrying...")
                             chat.append(tool_result(json.dumps({"error": f"Cypher query validation failed: {str(e)}. Please correct and try again."})))
@@ -302,16 +304,16 @@ async def run_chat(
                         chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
                         tool_executed = True
                 if tool_executed:
-                    logging.info("Tool executed, committing the Neo4j transaction.")
+                    logging.info("✅ Tool executed, committing the Neo4j transaction.")
                     await tx.commit()
                 else:
-                    logging.error("No tool executed, rolling back the Neo4j transaction.")
+                    logging.error("❌ No tool executed, rolling back the Neo4j transaction.")
                     await tx.rollback()
             except Exception as e:
-                logging.error(f"Error executing tool {tool_name}: {e}")
+                logging.error(f"Error executing tool {tool_name}: {e}.")
                 chat.append(tool_result(json.dumps({"error": str(e)})))
                 if tx is not None:
-                    logging.error("Rolling back the Neo4j transaction.")
+                    logging.error("❌ Rolling back the Neo4j transaction.")
                     await tx.rollback()
             finally:
                 if tx is not None:
@@ -323,6 +325,7 @@ async def run_chat(
     logging.info(f"Total tokens: {response.usage.total_tokens}")
 
     return response.content
+    
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
