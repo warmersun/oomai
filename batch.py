@@ -6,16 +6,14 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 import yaml
 from collections import namedtuple
-import re
-from lark import Lark
-from lark.exceptions import ParseError, UnexpectedCharacters
+from lark import Lark, ParseError
 # drivers
 from neo4j import AsyncGraphDatabase
 from openai import AsyncOpenAI
 from groq import AsyncGroq
 from xai_sdk import AsyncClient
 from xai_sdk.chat import SearchParameters, system, user, tool, tool_result
-from xai_sdk.search import rss_source, x_source
+from xai_sdk.search import rss_source, web_source, x_source
 from neo4j.time import Date, DateTime
 # tools
 from function_tools import (
@@ -25,6 +23,11 @@ from function_tools import (
     core_find_node,
     GraphOpsCtx,
 )
+
+logging.basicConfig(level=logging.WARNING)
+
+logger = logging.getLogger('kg_batch')
+logger.setLevel(logging.INFO)
 
 class Neo4jDateEncoder(json.JSONEncoder):
     def default(self, o):
@@ -36,7 +39,7 @@ with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
 
 embedding_model = "text-embedding-3-large"
-llm_model = "grok-3-mini"
+llm_model = "grok-4"
 
 LAST_RUN_FILE = "last_run_timestamp.txt"
 
@@ -51,7 +54,7 @@ def _load_last_run() -> Optional[datetime]:
             return None
         return datetime.fromisoformat(ts)
     except Exception as exc:
-        logging.error(f"Failed to read {LAST_RUN_FILE}: {exc}")
+        logger.error(f"Failed to read {LAST_RUN_FILE}: {exc}")
         return None
 
 
@@ -60,7 +63,7 @@ def _save_last_run(dt: datetime) -> None:
         with open(LAST_RUN_FILE, "w") as f:
             f.write(dt.isoformat())
     except Exception as exc:
-        logging.error(f"Failed to write {LAST_RUN_FILE}: {exc}")
+        logger.error(f"Failed to write {LAST_RUN_FILE}: {exc}")
 
 
 def _build_search_params(source: Optional[Dict[str, Any]] = None) -> Optional[SearchParameters]:
@@ -191,7 +194,6 @@ async def run_chat(
                 - All graph operations occur within a single Neo4j transaction; this ensures you may utilize the `elementId()` function for node identification. This is not an `elementId` property, but a function call, such as: `MATCH (n:EmTech {{name: 'computing'}}) RETURN elementId(n) AS elementId`.
                 - Write Cypher queries with explicit node labels and relationship types for clarity.
                 - Limit the number of results for each query.
-                - Do not end Cypher queries with a semicolon (;).
 
                 # Output Format
 
@@ -215,7 +217,6 @@ async def run_chat(
 
     max_retries = 3
     cypher_retries = 0
-    edge_retries = 0
 
     while True:
         response = await chat.sample()
@@ -225,37 +226,32 @@ async def run_chat(
             break
 
         tool_executed = False
-        had_max_retry = False
         async with neo4jdriver.session() as session:
             tx = await session.begin_transaction()
             lock = asyncio.Lock()
             ctx = GraphOpsCtx(tx, lock)
             tool_name = "unknown"
             Property = namedtuple('Property', ['key', 'value'])
-            id_pattern = re.compile(r'^\d+:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:\d+$', re.IGNORECASE)
             try:
                 for tool_call in response.tool_calls:
                     tool_name = tool_call.function.name
                     tool_args = json.loads(tool_call.function.arguments)
                     if tool_name == "cypher_query":
                         if cypher_retries >= max_retries:
-                            had_max_retry = True
-                            logging.error("Max retries for Cypher query reached")
                             chat.append(tool_result(json.dumps({"error": "Max retries for Cypher query reached"})))
                             continue
                         query = tool_args["query"]
                         try:
                             parser.parse(query)
-                        except (ParseError, UnexpectedCharacters) as e:
+                        except ParseError as e:
                             cypher_retries += 1
-                            logging.warning(f"Cypher query validation failed:\n---\n{query}\n---\nRetrying...")
                             chat.append(tool_result(json.dumps({"error": f"Cypher query validation failed: {str(e)}. Please correct and try again."})))
                             continue
                         results = await core_execute_cypher_query(
                             ctx, 
                             query
                         )
-                        logging.info(f"[CYPHER_QUERY] results: {results}")
+                        logger.info(f"[CYPHER_QUERY] results: {results}")
                         chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
                         tool_executed = True
                     elif tool_name == "create_node":
@@ -267,32 +263,20 @@ async def run_chat(
                             groq_client,
                             openai_client,
                         )
-                        logging.info(f"[CREATE_NODE] result: {result}")
+                        logger.info(f"[CREATE_NODE] result: {result}")
                         chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
                         tool_executed = True
                     elif tool_name == "create_edge":
-                        if edge_retries >= max_retries:
-                            had_max_retry = True
-                            logging.error("Max retries for create_edge reached")
-                            chat.append(tool_result(json.dumps({"error": "Max retries for create_edge reached"})))
-                            continue
-                        source_id = tool_args["source_id"]
-                        target_id = tool_args["target_id"]
-                        if not id_pattern.match(source_id) or not id_pattern.match(target_id):
-                            edge_retries += 1
-                            logging.warning(f"Invalid element ID format for source_id '{source_id}' or target_id '{target_id}'. Retrying...")
-                            chat.append(tool_result(json.dumps({"error": f"Invalid element ID format for source_id '{source_id}' or target_id '{target_id}'. Please provide valid element IDs from previous queries or creations."})))
-                            continue
                         properties = tool_args.get("properties", {})
                         properties_list = [Property(k, v) for k, v in properties.items()]
                         result = await core_create_edge(
                             ctx,
-                            source_id,
-                            target_id,
+                            tool_args["source_id"],
+                            tool_args["target_id"],
                             tool_args["relationship_type"],
                             properties_list,
                         )
-                        logging.info(f"[CREATE_EDGE] result: {result}")
+                        logger.info(f"[CREATE_EDGE] result: {result}")
                         chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
                         tool_executed = True
                     elif tool_name == "find_node":
@@ -303,35 +287,34 @@ async def run_chat(
                             tool_args.get("top_k", 5),
                             openai_client,
                         )
-                        logging.info(f"[FIND_NODE] results length: {len(results)}")
+                        logger.info(f"[FIND_NODE] results length: {len(results)}")
                         chat.append(tool_result(json.dumps(results, cls=Neo4jDateEncoder)))
                         tool_executed = True
-                if tool_executed and not had_max_retry:
-                    logging.info("✅ Tool executed without max retries reached, committing the Neo4j transaction.")
+                if tool_executed:
+                    logger.info("Tool executed, committing the Neo4j transaction.")
                     await tx.commit()
                 else:
-                    logging.error("❌ No tool executed or max retries reached, rolling back the Neo4j transaction.")
+                    logger.error("No tool executed, rolling back the Neo4j transaction.")
                     await tx.rollback()
             except Exception as e:
-                logging.error(f"Error executing tool {tool_name}: {e}")
+                logger.error(f"Error executing tool {tool_name}: {e}")
                 chat.append(tool_result(json.dumps({"error": str(e)})))
                 if tx is not None:
-                    logging.error("❌ Rolling back the Neo4j transaction due to exception.")
+                    logger.error("Rolling back the Neo4j transaction.")
                     await tx.rollback()
             finally:
                 if tx is not None:
                     await tx.close()
 
-    logging.info(f"Final response: {response.content}")
-    logging.info(f"Finish reason: {response.finish_reason}")
-    logging.info(f"Reasoning tokens: {response.usage.reasoning_tokens}")
-    logging.info(f"Total tokens: {response.usage.total_tokens}")
+    logger.info(f"Final response: {response.content}")
+    logger.info(f"Finish reason: {response.finish_reason}")
+    logger.info(f"Reasoning tokens: {response.usage.reasoning_tokens}")
+    logger.info(f"Total tokens: {response.usage.total_tokens}")
 
     return response.content
-    
-async def main() -> None:
-    logging.basicConfig(level=logging.INFO)
 
+
+async def main() -> None:
     neo4jdriver = AsyncGraphDatabase.driver(os.environ["NEO4J_URI"], auth=(os.environ["NEO4J_USERNAME"], os.environ["NEO4J_PASSWORD"]))
     await neo4jdriver.verify_connectivity()
 
@@ -349,9 +332,9 @@ async def main() -> None:
     for source in config.get("sources", []):
         params = _build_search_params(source)
         prompt = source.get("prompt", "")
-        logging.info(f"Processing {source.get('name')} with params {params}")
+        logger.info(f"Processing {source.get('name')} with params {params}")
         result = await run_chat(prompt, search_parameters=params, xai_client=xai_client, neo4jdriver=neo4jdriver, openai_client=openai_client, groq_client=groq_client, parser=parser)
-        logging.info(f"Processed {source.get('name')}: {result}")
+        logger.info(f"Processed {source.get('name')}: {result}")
 
     _save_last_run(datetime.now(timezone.utc))
     await neo4jdriver.close()
