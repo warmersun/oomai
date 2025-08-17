@@ -1,9 +1,13 @@
 commands:
-  thought_leaders:
-    icon: person-standing
-    description: Capture ideas from thought leaders.
-    template: "Search on X in the last 24 hours for the following handles: EMostaque, elonmusk, EpochAIResearch, DavidSacks, BasedBeffJezos. Capture ideas from thought leaders in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'. "
-  openai_announcements:
-    icon: megaphone
-    description: Capture OpenAI announcements.
-    template: "Search on X in the last 24 hours for the following handles: OpenAI, OpenAINewsroom, OpenAIDevs, ChatGPTapp, sama, gdb. List the latest product launches, research, ideas, new capabilities and milestones by OpenAI Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'. "
+  books:
+    icon: book
+    description: Capture ideas from a boook.
+    template: "Capture ideas from this preprocessed book in the knowledge graph. Make sure to relate them to existing ideas and concepts."
+  articles:
+    icon: newspaper
+    description: Capture ideas from an article.
+    template: "Capture ideas from this article in the knowledge graph. Make sure to relate them to existing ideas and concepts."
+  link:
+    icon: link-2
+    description: Capture ideas from a URL.
+    template: "Visit the URL and process the contents. Extract informaiton and capture it the knowledge graph. Make sure to relate new nodes to existing ones."
