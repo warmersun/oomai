@@ -22,7 +22,9 @@ from function_tools import (
     core_create_edge,
     core_find_node,
     GraphOpsCtx,
+    core_x_search,
 )
+
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -319,22 +321,29 @@ async def main() -> None:
     await neo4jdriver.verify_connectivity()
 
     xai_client = AsyncClient(api_key=os.getenv("XAI_API_KEY"), timeout=3600)
-    openai_client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
-
-    with open('knowledge_graph/cypher.cfg', 'r') as f:
-        grammar = f.read()
-    parser = Lark(grammar, start='start', parser='earley')
+    # openai_client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    # groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
     with open("knowledge_graph/batch_sources.yaml", "r") as f:
         config = yaml.safe_load(f)
 
+    with open("knowledge_graph/schema.md", "r") as f:
+        schema = f.read()
+    
+    with open("knowledge_graph/system_prompt_batch_extract_grok3.md", "r") as f:
+        system_prompt_batch_extract_grok3 = f.read().format(schema=schema)
+
     for source in config.get("sources", []):
         params = _build_search_params(source)
-        prompt = source.get("prompt", "")
+        prompt = source.get("prompt", "Do nothing, just say 'No insttuctions given!'")
         logger.info(f"Processing {source.get('name')} with params {params}")
-        result = await run_chat(prompt, search_parameters=params, xai_client=xai_client, neo4jdriver=neo4jdriver, openai_client=openai_client, groq_client=groq_client, parser=parser)
-        logger.info(f"Processed {source.get('name')}: {result}")
+        extract_for_kg = await core_x_search(
+            xai_client=xai_client, 
+            prompt=prompt, 
+            included_handles=source.get("handles", []),
+            last_24hrs=True,
+            system_prompt=system_prompt_batch_extract_grok3)
+        logger.info(f"Processed {source.get('name')}:\n{extract_for_kg}")
 
     _save_last_run(datetime.now(timezone.utc))
     await neo4jdriver.close()
