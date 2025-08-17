@@ -43,6 +43,8 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
         RuntimeError: If there is an error executing the Cypher query.
     """
 
+    logging.info(f"[CYPHER_QUERY]: {query}")
+
     from neo4j.time import Date, DateTime
 
     def filter_embedding(obj):
@@ -77,6 +79,8 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
         raise RuntimeError(f"Error executing Cypher query: {e}. The transaction will be rolled back.")
 
 async def core_create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str, groq_client=None, openai_client=None) -> str:
+    logging.info(f"[CREATE_NODE] type: {node_type}\nname: {name}\n description: {description}")
+    
     if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
         if groq_client is None or openai_client is None:
             raise ValueError("groq_client and openai_client are required for smart_upsert node types")
@@ -177,12 +181,12 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                     break
 
             except Exception as e:
-                logging.warning(f"Failed to parse LLM response: {e}")
-                logging.warning(f"LLM response: {completion.choices[0].message.content}")
+                logging.error(f"Failed to parse LLM response: {e}")
+                logging.error(f"LLM response: {completion.choices[0].message.content}")
 
 
         if found_same_id:
-            logging.warning(
+            logging.info(
                 f"[CREATE_NODE] Found semantically equivalent node to: {name}; "
                 f"updating the node with name: {updated_name}" 
                 f"and description: {updated_description}"
@@ -215,7 +219,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                     raise RuntimeError(f"Failed to update node with elementId: {found_same_id}")
                 return update_record['id']
         else:
-            logging.warning(
+            logging.info(
                 "[CREATE_NODE] "
                 f"No semantically equivalent node found, creating a new node;"
                 f"Type: {node_type} Name: {name} Description: {description}"
@@ -264,6 +268,7 @@ async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str, descripti
             record = await result.single()
             if record is None:
                 raise RuntimeError("Failed to merge node")
+            logging.info(f"[CREATE_NODE] merged: type: {node_type}\nname: {name}\n description: {description}")
             return record["node_id"]
     except Exception as e:
         logging.error(f"Error in merge_node: {str(e)}")
@@ -282,6 +287,8 @@ async def core_create_edge(
     Returns the created relationship as a dict.
     """
 
+    logging.info(f"[CREATE_EDGE] {source_id} -> {target_id} with type: {relationship_type} and properties: {properties}")
+    
     # rebuild a strict dict for Cypher params
     props_dict = {p.key: p.value for p in (properties or [])}
 
@@ -299,7 +306,10 @@ async def core_create_edge(
     async with ctx.lock:
         result = await ctx.tx.run(query, **params)
         record = await result.single()
-        return record.data() if record else {}   
+        if record is None:
+            raise RuntimeError("Failed to create edge")
+        logging.info(f"Created edge: {source_id} -> {target_id} with type: {relationship_type} and properties: {properties}")
+        return record.data()
 
 async def core_find_node(
     ctx: GraphOpsCtx,
@@ -316,6 +326,9 @@ async def core_find_node(
     Returns a list of nodes with their names, descriptions, and similarity scores.
     Allowed node_type values: Convergence, Capability, Milestone, Trend, Idea, LTC, LAC
     """
+
+    logging.info(f"[FIND_NODE] similar to: {query_text} of type: {node_type}")
+    
     if openai_client is None:
         raise ValueError("openai_client is required for find_node")
 
@@ -353,5 +366,6 @@ async def core_find_node(
     # execute the query
     async with ctx.lock:
         results = await vector_search(ctx)
+        logging.info(f"Found {len(results)} nodes similar to {query_text}")
         return results
 

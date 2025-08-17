@@ -1,0 +1,30 @@
+{
+    "status": "Running...",
+    "tasks": [
+        {
+            "title": "Search X (last 24 hours) for the specified energy/battery/media handles to collect recent posts on energy production, smart grid, storage, and batteries.",
+            "status": "done",
+            "forId": null
+        },
+        {
+            "title": "Extract concrete developments: product launches, research results, deployments, policies; note dates, metrics, and sources.",
+            "status": "done",
+            "forId": null
+        },
+        {
+            "title": "Summarize findings grouped by topic (energy production, smart grid, energy storage, battery technology) with clear attributions.",
+            "status": "done",
+            "forId": null
+        },
+        {
+            "title": "Draft proposed entries to add to the knowledge graph (Capabilities, Milestones, Trends, Parties/PTCs/LTCs) without creating them yet.",
+            "status": "done",
+            "forId": null
+        },
+        {
+            "title": "Present the summary and proposed graph additions and ask for your confirmation before adding anything.",
+            "status": "ready",
+            "forId": null
+        }
+    ]
+}

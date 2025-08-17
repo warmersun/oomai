@@ -1,0 +1,45 @@
+{
+    "status": "Running...",
+    "tasks": [
+        {
+            "title": "Search X (last 24 hours) for the specified energy/battery/media handles to collect recent posts on energy production, smart grid, storage, and batteries.",
+            "status": "done",
+            "forId": null
+        },
+        {
+            "title": "Extract concrete developments: product launches, research results, deployments, policies; note dates, metrics, and sources.",
+            "status": "done",
+            "forId": null
+        },
+        {
+            "title": "Summarize findings grouped by topic (energy production, smart grid, energy storage, battery technology) with clear attributions.",
+            "status": "done",
+            "forId": null
+        },
+        {
+            "title": "Draft proposed entries to add to the knowledge graph (Capabilities, Milestones, Trends, Parties/PTCs/LTCs) without creating them yet.",
+            "status": "done",
+            "forId": null
+        },
+        {
+            "title": "Fact-check each candidate item with primary sources on the open web and extract dates/metrics.",
+            "status": "done",
+            "forId": null
+        },
+        {
+            "title": "Prepare concise, cited bullet points to confirm what’s verified today (Aug 16, 2025).",
+            "status": "done",
+            "forId": null
+        },
+        {
+            "title": "Create or update graph entries: Capabilities, Milestones (with dates), and Parties; then link them to existing EmTechs via ENABLES / HAS_MILESTONE and to Parties via MAKES/PROVIDES where appropriate.",
+            "status": "done",
+            "forId": null
+        },
+        {
+            "title": "Report what was added with references.",
+            "status": "ready",
+            "forId": null
+        }
+    ]
+}
