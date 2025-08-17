@@ -178,6 +178,9 @@ async def process_stream(response, ctx: GraphOpsCtx, groq_client, openai_client)
                     if function_name == "create_node":
                         function_args["groq_client"] = groq_client
                         function_args["openai_client"] = openai_client
+                    # find nodes needs extra args, to have the openai client
+                    if function_name == "find_node":
+                        function_args["openai_client"] = openai_client
                 except json.JSONDecodeError:
                     function_args = {}
                 if function_name in AVAILABLE_FUNCTIONS:
