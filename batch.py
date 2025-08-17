@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 import yaml
 from collections import namedtuple
+import re
 from lark import Lark, ParseError
 # drivers
 from neo4j import AsyncGraphDatabase
@@ -13,7 +14,7 @@ from openai import AsyncOpenAI
 from groq import AsyncGroq
 from xai_sdk import AsyncClient
 from xai_sdk.chat import SearchParameters, system, user, tool, tool_result
-from xai_sdk.search import rss_source, web_source, x_source
+from xai_sdk.search import rss_source, x_source
 from neo4j.time import Date, DateTime
 # tools
 from function_tools import (
@@ -34,7 +35,7 @@ with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
 
 embedding_model = "text-embedding-3-large"
-llm_model = "grok-4"
+llm_model = "grok-3-mini"
 
 LAST_RUN_FILE = "last_run_timestamp.txt"
 
@@ -212,6 +213,7 @@ async def run_chat(
 
     max_retries = 3
     cypher_retries = 0
+    edge_retries = 0
 
     while True:
         response = await chat.sample()
@@ -227,12 +229,14 @@ async def run_chat(
             ctx = GraphOpsCtx(tx, lock)
             tool_name = "unknown"
             Property = namedtuple('Property', ['key', 'value'])
+            id_pattern = re.compile(r'^\d+:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:\d+$', re.IGNORECASE)
             try:
                 for tool_call in response.tool_calls:
                     tool_name = tool_call.function.name
                     tool_args = json.loads(tool_call.function.arguments)
                     if tool_name == "cypher_query":
                         if cypher_retries >= max_retries:
+                            logging.error("Max retries for Cypher query reached")
                             chat.append(tool_result(json.dumps({"error": "Max retries for Cypher query reached"})))
                             continue
                         query = tool_args["query"]
@@ -240,6 +244,7 @@ async def run_chat(
                             parser.parse(query)
                         except ParseError as e:
                             cypher_retries += 1
+                            logging.warning(f"Cypher query validation failed:\n---\n{query}\n---\nRetrying...")
                             chat.append(tool_result(json.dumps({"error": f"Cypher query validation failed: {str(e)}. Please correct and try again."})))
                             continue
                         results = await core_execute_cypher_query(
@@ -262,12 +267,23 @@ async def run_chat(
                         chat.append(tool_result(json.dumps(result, cls=Neo4jDateEncoder)))
                         tool_executed = True
                     elif tool_name == "create_edge":
+                        if edge_retries >= max_retries:
+                            logging.error("Max retries for create_edge reached")
+                            chat.append(tool_result(json.dumps({"error": "Max retries for create_edge reached"})))
+                            continue
+                        source_id = tool_args["source_id"]
+                        target_id = tool_args["target_id"]
+                        if not id_pattern.match(source_id) or not id_pattern.match(target_id):
+                            edge_retries += 1
+                            logging.warning(f"Invalid element ID format for source_id '{source_id}' or target_id '{target_id}'. Retrying...")
+                            chat.append(tool_result(json.dumps({"error": f"Invalid element ID format for source_id '{source_id}' or target_id '{target_id}'. Please provide valid element IDs from previous queries or creations."})))
+                            continue
                         properties = tool_args.get("properties", {})
                         properties_list = [Property(k, v) for k, v in properties.items()]
                         result = await core_create_edge(
                             ctx,
-                            tool_args["source_id"],
-                            tool_args["target_id"],
+                            source_id,
+                            target_id,
                             tool_args["relationship_type"],
                             properties_list,
                         )
@@ -307,8 +323,6 @@ async def run_chat(
     logging.info(f"Total tokens: {response.usage.total_tokens}")
 
     return response.content
-
-
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
