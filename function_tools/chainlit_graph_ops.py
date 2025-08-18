@@ -9,7 +9,7 @@ from typing import List, Optional, Literal
 
 
 async def execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
-    async with cl.Step(name="Execute Cypher Query", type="tool") as step:
+    async with cl.Step(name="Execute_Cypher_Query", type="retrieval") as step:
         step.show_input = True
         step.input = {"query": query}
 
@@ -18,7 +18,7 @@ async def execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
         return output
 
 async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str) -> str:
-    async with cl.Step(name="Create Node", type="tool") as step:
+    async with cl.Step(name="Create_Node", type="tool") as step:
         step.show_input = True
         step.input = {"node_type": node_type, "name": name, "description": description}
 
@@ -36,7 +36,7 @@ async def create_edge(
     relationship_type: str,
     properties: Optional[List[KVPair]] = None,
 ) -> dict:
-    async with cl.Step(name="Create Edge", type="tool") as step:
+    async with cl.Step(name="Create_Edge", type="tool") as step:
         step.show_input = True
         step.input = {
             "source_name": source_name,
@@ -57,7 +57,7 @@ async def find_node(
     ],
     top_k: int = 5
 ) -> list:
-    async with cl.Step(name="Find Node", type="tool") as step:
+    async with cl.Step(name="Find_Node", type="retrieval") as step:
         step.show_input = True
         step.input = {"query_text": query_text, "node_type": node_type, "top_k": top_k}
 
