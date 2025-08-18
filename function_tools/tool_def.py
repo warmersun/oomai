@@ -50,7 +50,7 @@ TOOLS_DEFINITIONS = {
         "description": """
         Creates or updates a node in the Neo4j knowledge graph, ensuring no duplicates by checking for similar nodes based on their descriptions.
         If a similar node exists, it updates the node with a merged description. If not, it creates a new node.
-        Returns the node's elementId (a unique string identifier).
+        Returns the node's name ( which is guaranteed to be a unique string identifier).
         Use this tool to add or update nodes like technologies, capabilities, or parties in the graph.
         Provide the node type, a short name, and a detailed description.
         """,
@@ -80,19 +80,19 @@ TOOLS_DEFINITIONS = {
         Creates or merges a directed relationship (edge) between two existing nodes in the Neo4j knowledge graph.
         If the relationship doesn't exist, it creates it; if it does, it matches the existing one.
         Use this tool to connect nodes, such as linking an emerging technology to a capability it enables.
-        Provide the source and target node elementIds, the relationship type, and optional properties for the edge.
+        Provide the source and target node names, the relationship type, and optional properties for the edge.
         Returns the relationship object.
         """,
         "parameters": {
             "type": "object",
             "properties": {
-                "source_id": {
+                "source_name": {
                     "type": "string",
-                    "description": "The elementId of the source node.",
+                    "description": "The name of the source node.",
                 },
-                "target_id": {
+                "target_name": {
                     "type": "string",
-                    "description": "The elementId of the target node.",
+                    "description": "The name of the target node.",
                 },
                 "relationship_type": {
                     "type": "string",

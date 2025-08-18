@@ -60,7 +60,6 @@ Follow these steps in both modes of operation:
 
 - The schema for the knowledge graph is:
   {schema}
-- All graph operations occur within a single Neo4j transaction; this ensures you may utilize the `elementId()` function for node identification. This is not an `elementId` property, but a function call, such as: `MATCH (n:EmTech {{name: 'computing'}}) RETURN elementId(n) AS elementId`.
 - Write Cypher queries with explicit node labels and relationship types for clarity.
 - Limit the number of results for each query.
 

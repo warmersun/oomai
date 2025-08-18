@@ -44,7 +44,7 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
         RuntimeError: If there is an error executing the Cypher query.
     """
 
-    logging.info(f"[CYPHER_QUERY]: {query}")
+    logging.info(f"[CYPHER_QUERY]:\n{query}")
 
     from neo4j.time import Date, DateTime
 
@@ -93,8 +93,8 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
         raise RuntimeError(f"Error executing Cypher query: {e}. The transaction will be rolled back.")
 
 async def core_create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str, groq_client=None, openai_client=None) -> str:
-    logging.info(f"[CREATE_NODE] type: {node_type}\nname: {name}\n description: {description}")
-    
+    logging.info(f"[CREATE_NODE] TYPE: {node_type}\nNAME: {name}\n DESCRIPTION: {description}")
+
     if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
         if groq_client is None or openai_client is None:
             raise ValueError("groq_client and openai_client are required for smart_upsert node types")
@@ -118,7 +118,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
     - If the same, the LLM also returns an improved name and a merged
       description which are then used to update the node.
     - If no match is found, creates a new node.
-    - Returns the node's elementId.
+    - Returns the node's name.
     """
     index_name = f"{node_type.lower()}_description_embeddings"
 
@@ -135,7 +135,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
         CALL db.index.vector.queryNodes($index_name, 100, $vector)
         YIELD node, score
         WHERE score >= 0.8
-        RETURN elementId(node) AS node_id, node.name AS name, node.description AS description, score
+        RETURN node.name AS name, node.description AS description, score
         ORDER BY score DESC
         LIMIT 10
         """
@@ -143,7 +143,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
             similar_result = await ctx.tx.run(similar_query, index_name=index_name, vector=new_embedding)
             similar_nodes: List[Dict[str, Union[str, float]]] = await similar_result.data()
 
-        found_same_id = None
+        found_same_name = None
         updated_name = name
         updated_description = description
         for sim in similar_nodes:
@@ -189,7 +189,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                 result = CompareResult.model_validate_json(completion.choices[0].message.content)
 
                 if not result.different:
-                    found_same_id = sim['node_id']
+                    found_same_name = sim['name']
                     updated_name = result.name or old_name
                     updated_description = result.description or description
                     break
@@ -199,7 +199,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                 logging.error(f"LLM response: {completion.choices[0].message.content}")
 
 
-        if found_same_id:
+        if found_same_name:
             logging.info(
                 f"[CREATE_NODE] Found semantically equivalent node to: {name}; "
                 f"updating the node with name: {updated_name}" 
@@ -217,21 +217,21 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                 # Update the existing node with new name, description and embedding
                 update_query = """
                 MATCH (n)
-                WHERE elementId(n) = $node_id
+                WHERE n.name = $node_name
                 SET n.name = $name, n.description = $description, n.embedding = $embedding
-                RETURN elementId(n) AS id
+                RETURN n.name AS name
                 """
                 update_result = await ctx.tx.run(
                     update_query,
-                    node_id=found_same_id,
+                    node_name=found_same_name,
                     name=updated_name,
                     description=updated_description,
                     embedding=updated_embedding,
                 )
                 update_record = await update_result.single()
                 if update_record is None:
-                    raise RuntimeError(f"Failed to update node with elementId: {found_same_id}")
-                return update_record['id']
+                    raise RuntimeError(f"Failed to update node with name: {found_same_name}")
+                return update_record['name']
         else:
             logging.info(
                 "[CREATE_NODE] "
@@ -242,13 +242,13 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                 # Create a new node
                 create_query = f"""
                 CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
-                RETURN elementId(n) AS id
+                RETURN n.name AS name
                 """
                 create_result = await ctx.tx.run(create_query, name=name, description=description, embedding=new_embedding)
                 create_record = await create_result.single()
                 if create_record is None:
                     raise RuntimeError("Failed to create new node")
-                return create_record['id']
+                return create_record['name']
     except Exception as e:
         logging.error(f"Error in smart_upsert: {str(e)}")
         raise
@@ -257,7 +257,7 @@ async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str, descripti
     """
     Performs a simple MERGE operation to create or match a node in Neo4j with the given type, name, and description.
     If a node with the same name and type exists, it updates the description; otherwise, it creates a new node.
-    Returns the Neo4j elementId of the matched or created node as a string.
+    Returns the name of the matched or created node as a string.
 
     Args:
         node_type (str): The type/label of the node (e.g., 'EmTech', 'Capability', 'Party').
@@ -265,7 +265,7 @@ async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str, descripti
         description (str): A detailed description of the node.
 
     Returns:
-        str: The elementId of the matched or created node.
+        str: The name of the matched or created node.
 
     Raises:
         RuntimeError: If the Neo4j driver is not found or the query fails.
@@ -276,33 +276,33 @@ async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str, descripti
             query = f"""
             MERGE (n:`{node_type}` {{name: $name}})
             SET n.description = $description
-            RETURN elementId(n) AS node_id
+            RETURN n.name AS node_name
             """
             result = await ctx.tx.run(query, name=name, description=description)
             record = await result.single()
             if record is None:
                 raise RuntimeError("Failed to merge node")
             logging.info(f"[CREATE_NODE] merged: type: {node_type}\nname: {name}\n description: {description}")
-            return record["node_id"]
+            return record["node_name"]
     except Exception as e:
         logging.error(f"Error in merge_node: {str(e)}")
         raise RuntimeError(f"Failed to merge node: {str(e)}")
 
 async def core_create_edge(
     ctx: GraphOpsCtx,
-    source_id: str,
-    target_id: str,
+    source_name: str,
+    target_name: str,
     relationship_type: str,
     properties: Optional[List[KVPair]] = None,
 ) -> dict:
     """
     Creates a directed edge (relationship) between two existing nodes in Neo4j.
-    Takes source node elementId, target node elementId, relationship type, and optional properties.
+    Takes source node name, target node name, relationship type, and optional properties.
     Returns the created relationship as a dict.
     """
 
-    logging.info(f"[CREATE_EDGE] {source_id} -> {target_id} with type: {relationship_type} and properties: {properties}")
-    
+    logging.info(f"[CREATE_EDGE]\nSOURCE: {source_name}\n->\nTARGET:{target_name}\nWITH TYPE:{relationship_type} AND PROPERTIES: {properties}")
+
     # rebuild a strict dict for Cypher params
     props_dict = {p.key: p.value for p in (properties or [])}
 
@@ -310,19 +310,19 @@ async def core_create_edge(
     prop_str = f"{{{prop_keys}}}" if prop_keys else ""
 
     query = (
-        "MATCH (source) WHERE elementId(source) = $source_id "
-        "MATCH (target) WHERE elementId(target) = $target_id "
+        "MATCH (source) WHERE source.name = $source_name "
+        "MATCH (target) WHERE target.name = $target_name "
         f"MERGE (source)-[r:{relationship_type} {prop_str}]->(target) "
         "RETURN r"
     )
-    params = {"source_id": source_id, "target_id": target_id, **props_dict}
+    params = {"source_name": source_name, "target_name": target_name, **props_dict}
 
     async with ctx.lock:
         result = await ctx.tx.run(query, **params)
         record = await result.single()
         if record is None:
             raise RuntimeError("Failed to create edge")
-        logging.info(f"Created edge: {source_id} -> {target_id} with type: {relationship_type} and properties: {properties}")
+        logging.info(f"Created edge: {source_name} -> {target_name} with type: {relationship_type} and properties: {properties}")
         return record.data()
 
 async def core_find_node(
@@ -341,8 +341,8 @@ async def core_find_node(
     Allowed node_type values: Convergence, Capability, Milestone, Trend, Idea, LTC, LAC
     """
 
-    logging.info(f"[FIND_NODE] similar to: {query_text} of type: {node_type}")
-    
+    logging.info(f"[FIND_NODE] SIMILAR TO:\n{query_text}\nOF TYPE:\n{node_type}")
+
     if openai_client is None:
         raise ValueError("openai_client is required for find_node")
 
@@ -382,4 +382,3 @@ async def core_find_node(
         results = await vector_search(ctx)
         logging.info(f"Found {len(results)} nodes similar to {query_text}")
         return results
-

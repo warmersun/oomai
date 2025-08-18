@@ -163,13 +163,23 @@ async def process_stream(response, ctx: GraphOpsCtx, groq_client, openai_client)
                 except json.JSONDecodeError:
                     function_args = {}
                 if function_name in AVAILABLE_FUNCTIONS:
-                    function_response = await AVAILABLE_FUNCTIONS[function_name](**function_args)
-                    new_input.append({
-                        "type": "function_call_output",
-                        "call_id": tool_call["id"],
-                        "output":  json.dumps(function_response, cls=Neo4jDateEncoder),
-                    })
-        logger.info(f"[OUTPUT MESSAGE] {output_message}")
+                    try:
+                        function_response = await AVAILABLE_FUNCTIONS[function_name](**function_args)
+                        new_input.append({
+                            "type": "function_call_output",
+                            "call_id": tool_call["id"],
+                            "output":  json.dumps(function_response, cls=Neo4jDateEncoder),
+                        })
+                    except Exception as e:
+                        logger.error(f"Error calling function {function_name}: {str(e)}")
+                        new_input.append({
+                            "type": "function_call_output",
+                            "call_id": tool_call["id"],
+                            "output":  json.dumps({"error": str(e)}),
+                        })
+                        raise e
+                        
+            logger.info(f"[OUTPUT MESSAGE] {output_message}")
         return response_id, True, new_input
     else:
         if reasoning:
@@ -234,9 +244,7 @@ async def main() -> None:
         # create Neo4j session
         async with neo4jdriver.session() as session:
             # setup context: begin Neo5j transation and create lock
-            tx = await session.begin_transaction()
             lock = asyncio.Lock()
-            ctx = GraphOpsCtx(tx, lock)
             previous_id = None
             input_data = [
                 {
@@ -245,16 +253,37 @@ async def main() -> None:
                 }
             ]
             while True:
-                response = await create_response(openai_client, input_data, previous_id)
-                previous_id, needs_continue, new_input = await process_stream(response, ctx, groq_client, openai_client)
-                if not needs_continue:
-                    break
-                input_data = new_input
+                tx = await session.begin_transaction()
+                ctx = GraphOpsCtx(tx, lock)
+                try:
+                    response = await create_response(openai_client, input_data, previous_id)
+                    previous_id, needs_continue, new_input = await process_stream(response, ctx, groq_client, openai_client)
+                    if not needs_continue:
+                        break
+                    input_data = new_input
+    
+                    # Commit the Neo4j transaction
+                    logger.warning("✅ Committing the Neo4j transaction.")
+                    await tx.commit()
+                except asyncio.CancelledError:
+                    logger.error("❌ Rolling back the Neo4j transaction due to cancellation.")
+                    if tx is not None:
+                        await tx.cancel()
+                    else:
+                        logger.error("No Neo4j transaction to cancel.")
 
-            # Commit the Neo4j transaction
-            logger.warning("Committing the Neo4j transaction.")
-            await tx.commit()
-
+                except Exception as e:
+                    logger.error(f"❌ Rolling back the Neo4j transaction. Error: {str(e)}")
+                    if tx is not None:
+                        await tx.rollback()
+                    else:
+                        logger.error("No Neo4j transaction to rollback.")
+                finally:
+                    if tx is not None:
+                        await tx.close()
+                    else:
+                        logger.error("No Neo4j transaction to close.")
+    
     await neo4jdriver.close()
 
 

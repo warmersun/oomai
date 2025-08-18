@@ -1,6 +1,6 @@
 ## node types:
 
-All nodes have `name` and `description` properties.
+All nodes have `name` and `description` properties. All `name` values are guaranteed unique identifiers.
 
 ### EmTech
 Emerging technologies, e.g., AI, robots, 3D printing.

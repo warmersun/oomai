@@ -333,56 +333,61 @@ async def on_message(message: cl.Message):
     async with neo4jdriver.session() as session:
         tts_action = cl.Action(name="tts", payload={"value": "tts"}, icon="circle-play", tooltip="Read out loud" )
         # setup context: begin Neo5j transation and create lock
-        tx = await session.begin_transaction()
+        
         lock = asyncio.Lock()
-        ctx = GraphOpsCtx(tx, lock)
-        try:
-            input_data = cl.user_session.get("input_data")
-            input_data.append({
-                "role": "user",
-                "content": processed_message
-            })
-            previous_id = cl.user_session.get("previous_id")
+        
+        input_data = cl.user_session.get("input_data")
+        input_data.append({
+            "role": "user",
+            "content": processed_message
+        })
+        previous_id = cl.user_session.get("previous_id")
 
-            output_message = cl.Message(content="", actions=[tts_action])
+        output_message = cl.Message(content="", actions=[tts_action])
 
-            while True:
+        while True:
+            tx = await session.begin_transaction()
+            ctx = GraphOpsCtx(tx, lock)
+            try:
                 response = await create_response(input_data, previous_id)
                 previous_id, needs_continue, new_input = await process_stream(response, ctx, output_message)
-                if not needs_continue:
-                    break
-                input_data = new_input
+                # Commit the Neo4j transaction
+                logger.warning(" ✅ Committing the Neo4j transaction.")
+                await tx.commit()
 
-            # Commit the Neo4j transaction
-            logger.warning("Committing the Neo4j transaction.")
-            await tx.commit()
+            except asyncio.CancelledError:
+                logger.error("❌ Rolling back the Neo4j transaction due to cancellation.")
+                await cl.Message(content="❌ Rolling back the Neo4j transaction due to cancellation.", type="system_message").send()
+                if tx is not None:
+                    await tx.cancel()
+                else:
+                    logger.error("No Neo4j transaction to cancel.")
+                needs_continue = False
+            except Exception as e:
+                logger.error(f"❌ Rolling back the Neo4j transaction. Error: {str(e)}")
+                await cl.Message(content=f"❌ Rolling back the Neo4j transaction. Error: {str(e)}", type="system_message").send()
+                if tx is not None:
+                    await tx.rollback()
+                else:
+                    logger.error("No Neo4j transaction to rollback.")
+                needs_continue = False
+            finally:
+                cl.user_session.set("tts_action", tts_action)
+                if tx is not None:
+                    await tx.close()
+                else:
+                    logger.error("No Neo4j transaction to close.")
+                    
+            if not needs_continue:
+                break
+            input_data = new_input
             
             await output_message.update()
             cl.user_session.set("last_message", output_message.content)
             cl.user_session.set("input_data", input_data)
             cl.user_session.set("previous_id", previous_id)
 
-        except asyncio.CancelledError:
-            logger.error("Rolling back the Neo4j transaction due to cancellation.")
-            await cl.Message(content="Rolling back the Neo4j transaction due to cancellation.", type="system_message").send()
-            if tx is not None:
-                await tx.cancel()
-            else:
-                logger.error("No Neo4j transaction to cancel.")
-            raise
-        except Exception as e:
-            logger.error(f"Rolling back the Neo4j transaction. Error: {str(e)}")
-            await cl.Message(content=f"Rolling back the Neo4j transaction. Error: {str(e)}", type="system_message").send()
-            if tx is not None:
-                await tx.rollback()
-            else:
-                logger.error("No Neo4j transaction to rollback.")
-        finally:
-            cl.user_session.set("tts_action", tts_action)
-            if tx is not None:
-                await tx.close()
-            else:
-                logger.error("No Neo4j transaction to close.")
+        
 
 @cl.password_auth_callback
 def auth_callback(username: str, password: str) -> Optional[cl.User]:

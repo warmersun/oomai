@@ -31,21 +31,21 @@ async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: 
 
 async def create_edge(
     ctx: GraphOpsCtx,
-    source_id: str,
-    target_id: str,
+    source_name: str,
+    target_name: str,
     relationship_type: str,
     properties: Optional[List[KVPair]] = None,
 ) -> dict:
     async with cl.Step(name="Create Edge", type="tool") as step:
         step.show_input = True
         step.input = {
-            "source_id": source_id,
-            "target_id": target_id,
+            "source_name": source_name,
+            "target_name": target_name,
             "relationship_type": relationship_type,
             "properties": [p.model_dump() for p in properties] if properties else None,
         }
 
-        output = await core_create_edge(ctx, source_id, target_id, relationship_type, properties)
+        output = await core_create_edge(ctx, source_name, target_name, relationship_type, properties)
         step.output = output
         return output
 

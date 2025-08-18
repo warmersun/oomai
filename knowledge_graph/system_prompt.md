@@ -43,5 +43,4 @@ You work in two possible modes:
 
 # Note about constructing Cypher queries
 
-- All tools are executed in a single Neo4j transaciton; this makes it safe to rely on `elementId()`. Note: there is no elementId property. Use the elementId function to get the elementId of a node or edge. e.g. MATCH (n:EmTech {{name: 'computing'}}) RETURN elementId(n) AS elementId
 - Prefer Cypher queries that specify node labels and relationship (edge) types.
