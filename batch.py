@@ -2,18 +2,12 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
 import yaml
-from collections import namedtuple
-from lark import Lark, ParseError
 # drivers
 from neo4j import AsyncGraphDatabase
 from openai import AsyncOpenAI
 from groq import AsyncGroq
 from xai_sdk import AsyncClient
-from xai_sdk.chat import SearchParameters, system, user, tool, tool_result
-from xai_sdk.search import rss_source, web_source, x_source
 from neo4j.time import Date, DateTime
 # tools
 from function_tools import (
@@ -60,12 +54,6 @@ AVAILABLE_FUNCTIONS = {
     "create_edge": core_create_edge,
     "find_node": core_find_node,
 }
-
-class Neo4jDateEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, (Date, DateTime)):
-            return o.iso_format()  # Convert Neo4j Date/DateTime to ISO 8601 string
-        return super().default(o)       
 
 # Function to create the response, streaming
 async def create_response(openai_client, input_data, previous_response_id=None):
@@ -252,15 +240,15 @@ async def main() -> None:
                     "content": extract_for_kg
                 }
             ]
+            new_input = None
+            
             while True:
                 tx = await session.begin_transaction()
                 ctx = GraphOpsCtx(tx, lock)
                 try:
                     response = await create_response(openai_client, input_data, previous_id)
                     previous_id, needs_continue, new_input = await process_stream(response, ctx, groq_client, openai_client)
-                    if not needs_continue:
-                        break
-                    input_data = new_input
+                    
     
                     # Commit the Neo4j transaction
                     logger.warning("✅ Committing the Neo4j transaction.")
@@ -271,18 +259,23 @@ async def main() -> None:
                         await tx.cancel()
                     else:
                         logger.error("No Neo4j transaction to cancel.")
-
+                    needs_continue = True
                 except Exception as e:
                     logger.error(f"❌ Rolling back the Neo4j transaction. Error: {str(e)}")
                     if tx is not None:
                         await tx.rollback()
                     else:
                         logger.error("No Neo4j transaction to rollback.")
+                    needs_continue = True
                 finally:
                     if tx is not None:
                         await tx.close()
                     else:
                         logger.error("No Neo4j transaction to close.")
+
+                if not needs_continue:
+                    break
+                input_data = new_input
     
     await neo4jdriver.close()
 
