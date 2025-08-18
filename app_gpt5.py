@@ -344,7 +344,9 @@ async def on_message(message: cl.Message):
         previous_id = cl.user_session.get("previous_id")
 
         output_message = cl.Message(content="", actions=[tts_action])
-
+        needs_continue = False
+        new_input = None
+        
         while True:
             tx = await session.begin_transaction()
             ctx = GraphOpsCtx(tx, lock)
@@ -380,12 +382,13 @@ async def on_message(message: cl.Message):
                     
             if not needs_continue:
                 break
-            input_data = new_input
+            if new_input is not None:
+                input_data = new_input
             
-            await output_message.update()
-            cl.user_session.set("last_message", output_message.content)
-            cl.user_session.set("input_data", input_data)
-            cl.user_session.set("previous_id", previous_id)
+        await output_message.update()
+        cl.user_session.set("last_message", output_message.content)
+        cl.user_session.set("input_data", input_data)
+        cl.user_session.set("previous_id", previous_id)
 
         
 
