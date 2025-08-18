@@ -14,8 +14,8 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["sh", "-c", "python batch.py"]
-deploymentTarget = "scheduled"
+run = ["sh", "-c", "chainlit run app_gpt5.py"]
+deploymentTarget = "cloudrun"
 
 [[ports]]
 localPort = 8000

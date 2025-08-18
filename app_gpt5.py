@@ -236,19 +236,31 @@ async def set_chat_profile(current_user: cl.User):
         )
     return profiles
 
-@cl.on_chat_start
-async def start():
-    cl.user_session.set("input_data", [])
-    cl.user_session.set("previous_id", None)
+async def _neo4j_connect():
+    # disconnect if already connected
+    await _neo4j_disconnect()
+    # driver
     neo4jdriver = AsyncGraphDatabase.driver(
         os.environ['NEO4J_URI'],
         auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD']),
         liveness_check_timeout=0,
         max_connection_lifetime=2700,
-        # keep_alive=False,
+        # keep_alive=False,00
     )
     await neo4jdriver.verify_connectivity()
     cl.user_session.set("neo4jdriver", neo4jdriver)
+
+async def _neo4j_disconnect():
+    neo4jdriver = cl.user_session.get("neo4jdriver")
+    if neo4jdriver is not None:
+        await neo4jdriver.close()
+        cl.user_session.set("neo4jdriver", None)
+        
+@cl.on_chat_start
+async def start():
+    cl.user_session.set("input_data", [])
+    cl.user_session.set("previous_id", None)
+    await _neo4j_connect()
     groq_client = AsyncGroq(
         api_key=os.getenv("GROQ_API_KEY"),
     )
@@ -295,25 +307,14 @@ async def on_settings_update(settings):
 
 @cl.on_chat_end
 async def end_chat():
-    neo4jdriver = cl.user_session.get("neo4jdriver")
-    if neo4jdriver is not None:
-        await neo4jdriver.close()
-    cl.user_session.set("neo4jdriver", None)
+    await _neo4j_disconnect()
 
 @cl.on_chat_resume
 async def resume_chat():
     neo4jdriver = cl.user_session.get("neo4jdriver")
     if neo4jdriver is None:
         logger.warning("No Neo4j driver found in user session, creating a new one.")
-        neo4jdriver = AsyncGraphDatabase.driver(
-            os.environ['NEO4J_URI'],
-            auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD']),
-            liveness_check_timeout=0,
-            max_connection_lifetime=2700,
-            # keep_alive=False,
-        )
-        await neo4jdriver.verify_connectivity()
-        cl.user_session.set("neo4jdriver", neo4jdriver)
+        await _neo4j_connect()
 
 @cl.on_message
 async def on_message(message: cl.Message):
@@ -326,11 +327,19 @@ async def on_message(message: cl.Message):
 
     # get drivers from session
     neo4jdriver = cl.user_session.get("neo4jdriver")
-    assert neo4jdriver is not None, "No Neo4j driver found in user session"
+    if neo4jdriver is None:
+        logger.warning("No Neo4j driver found in user session, creating a new one.")
+        await _neo4j_connect()
+        neo4jdriver = cl.user_session.get("neo4jdriver")
+    
     openai_client = cl.user_session.get("openai_client")
     assert openai_client is not None, "No OpenAI client found in user session"
-    # create Neo4j session
-    async with neo4jdriver.session() as session:
+
+    # neo4js session begins...
+    assert neo4jdriver is not None, "Neo4j driver found is None, this should never happen."
+    session = neo4jdriver.session()
+    try:
+
         tts_action = cl.Action(name="tts", payload={"value": "tts"}, icon="circle-play", tooltip="Read out loud" )
         # setup context: begin Neo5j transation and create lock
         
@@ -342,12 +351,19 @@ async def on_message(message: cl.Message):
             "content": processed_message
         })
         previous_id = cl.user_session.get("previous_id")
-
+    
         output_message = cl.Message(content="", actions=[tts_action])
         needs_continue = False
         new_input = None
         
         while True:
+            if session is None:
+                logger.warning("‼ No Neo4j session is None, Reconnecting.")
+                await _neo4j_disconnect()
+                await _neo4j_connect()
+                session = await neo4jdriver.session()
+    
+            assert session is not None, "No Neo4j session. This should never happen."
             tx = await session.begin_transaction()
             ctx = GraphOpsCtx(tx, lock)
             try:
@@ -356,7 +372,7 @@ async def on_message(message: cl.Message):
                 # Commit the Neo4j transaction
                 logger.warning(" ✅ Committing the Neo4j transaction.")
                 await tx.commit()
-
+    
             except asyncio.CancelledError:
                 logger.error("❌ Rolling back the Neo4j transaction due to cancellation.")
                 await cl.Message(content="❌ Rolling back the Neo4j transaction due to cancellation.", type="system_message").send()
@@ -364,7 +380,7 @@ async def on_message(message: cl.Message):
                     await tx.cancel()
                 else:
                     logger.error("No Neo4j transaction to cancel.")
-                needs_continue = False
+                needs_continue = True
             except Exception as e:
                 logger.error(f"❌ Rolling back the Neo4j transaction. Error: {str(e)}")
                 await cl.Message(content=f"❌ Rolling back the Neo4j transaction. Error: {str(e)}", type="system_message").send()
@@ -372,7 +388,7 @@ async def on_message(message: cl.Message):
                     await tx.rollback()
                 else:
                     logger.error("No Neo4j transaction to rollback.")
-                needs_continue = False
+                needs_continue = True
             finally:
                 cl.user_session.set("tts_action", tts_action)
                 if tx is not None:
@@ -390,7 +406,13 @@ async def on_message(message: cl.Message):
         cl.user_session.set("input_data", input_data)
         cl.user_session.set("previous_id", previous_id)
 
-        
+    finally:
+        # close Neo4j session
+        if session is not None:
+            await session.close()
+        else:
+            logger.error("No Neo4j session to close.")
+
 
 @cl.password_auth_callback
 def auth_callback(username: str, password: str) -> Optional[cl.User]:
