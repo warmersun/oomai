@@ -105,6 +105,8 @@ READ_EDIT_PROFILE = "Read/Edit"
 async def create_response(input_data, previous_response_id=None):
     openai_client = cl.user_session.get("openai_client")
     assert openai_client is not None, "No OpenAI client found in user session"
+    model = cl.user_session.get("model")
+    assert model is not None, "No model found in user session"
     reasoning_effort = cl.user_session.get("reasoning_effort")
     assert reasoning_effort is not None, "No reasoning effort found in user session"
     current_user = cl.user_session.get("user")
@@ -114,7 +116,7 @@ async def create_response(input_data, previous_response_id=None):
     tools=cl.user_session.get("tools")
     assert tools is not None, "No tools found in user session"
     kwargs = {
-        "model": "gpt-5",
+        "model": model,
         "instructions": system_prompt,
         "input": input_data,
         "tools": tools,
@@ -278,6 +280,14 @@ async def start():
     settings = await cl.ChatSettings(
         [
             Select(
+                id="model",
+                label="Model",
+                values=["gpt-5", "gpt-5-mini"],
+                initial_index=0,
+                tooltip="Pick GPT-5 for creating nodes and edges, GPT-5-mini fors peed.",
+                description="Select the LLM version."
+            ),
+            Select(
                 id="reasoning_effort",
                 label="Reasoning Effort",
                 values=["low", "medium", "high"],
@@ -288,6 +298,7 @@ async def start():
         ]
     ).send()
     cl.user_session.set("reasoning_effort", settings["reasoning_effort"])
+    cl.user_session.set("model", settings["model"])
 
     chat_profile = cl.user_session.get("chat_profile")
     if chat_profile == READ_EDIT_PROFILE:
@@ -303,6 +314,7 @@ async def start():
 
 @cl.on_settings_update
 async def on_settings_update(settings):
+    cl.user_session.set("model", settings["model"])
     cl.user_session.set("reasoning_effort", settings["reasoning_effort"])
 
 @cl.on_chat_end
