@@ -21,15 +21,3 @@ deploymentTarget = "scheduled"
 localPort = 8000
 externalPort = 80
 exposeLocalhost = true
-
-[workflows]
-runButton = "Batch"
-
-[[workflows.workflow]]
-name = "Batch"
-mode = "sequential"
-author = 26564713
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python batch.py"
