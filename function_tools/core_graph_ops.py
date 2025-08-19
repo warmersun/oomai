@@ -42,6 +42,7 @@ async def run_transaction(tx: AsyncTransaction, query, params=None, max_retries=
             result = await tx.run(query, params)
             return await result.data()
         except ServiceUnavailable as e:
+            logging.warning(f"💥 ServiceUnavailable error: {e}. Retrying ({attempt + 1}/{max_retries})...")
             if attempt == max_retries - 1:
                 raise
             await asyncio.sleep(2 ** attempt)  # Exponential backoff
