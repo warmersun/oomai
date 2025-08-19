@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from typing import Literal
 from asyncio import Lock
 import logging
+import asyncio
+from neo4j.exceptions import ServiceUnavailable
 
 
 class KVPair(BaseModel):
@@ -29,6 +31,20 @@ EMBEDDING_MODEL = "text-embedding-3-large"
 class GraphOpsCtx:
     tx: AsyncTransaction
     lock: Lock
+
+async def run_transaction(tx: AsyncTransaction, query, params=None, max_retries=3):
+    # If params is None, default to empty dict for safety
+    if params is None:
+        params = {}
+
+    for attempt in range(max_retries):
+        try:
+            result = await tx.run(query, params)
+            return await result.data()
+        except ServiceUnavailable as e:
+            if attempt == max_retries - 1:
+                raise
+            await asyncio.sleep(2 ** attempt)  # Exponential backoff
 
 # Core logic functions, independent of Chainlit
 
@@ -64,9 +80,8 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
 
     try:
         async with ctx.lock:
-            result = await ctx.tx.run(query)
+            records = await run_transaction(ctx.tx, query)
             # Convert the results to a list of dictionaries
-            records = await result.data()
             if not records:
                 return []
 
@@ -140,8 +155,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
         LIMIT 10
         """
         async with ctx.lock:
-            similar_result = await ctx.tx.run(similar_query, index_name=index_name, vector=new_embedding)
-            similar_nodes: List[Dict[str, Union[str, float]]] = await similar_result.data()
+            similar_nodes = await run_transaction(ctx.tx, similar_query, {"index_name": index_name, "vector": new_embedding})
 
         found_same_name = None
         updated_name = name
@@ -221,14 +235,8 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                 SET n.name = $name, n.description = $description, n.embedding = $embedding
                 RETURN n.name AS name
                 """
-                update_result = await ctx.tx.run(
-                    update_query,
-                    node_name=found_same_name,
-                    name=updated_name,
-                    description=updated_description,
-                    embedding=updated_embedding,
-                )
-                update_record = await update_result.single()
+                update_record_list = await run_transaction(ctx.tx, update_query, {"node_name": found_same_name, "name": updated_name, "description": updated_description, "embedding": updated_embedding})
+                update_record = update_record_list[0] if update_record_list else None
                 if update_record is None:
                     raise RuntimeError(f"Failed to update node with name: {found_same_name}")
                 return update_record['name']
@@ -244,8 +252,8 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                 CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
                 RETURN n.name AS name
                 """
-                create_result = await ctx.tx.run(create_query, name=name, description=description, embedding=new_embedding)
-                create_record = await create_result.single()
+                create_record_list = await run_transaction(ctx.tx, create_query, {"name": name, "description": description, "embedding": new_embedding})
+                create_record = await create_record_list[0] if create_recorf_list else None
                 if create_record is None:
                     raise RuntimeError("Failed to create new node")
                 return create_record['name']
@@ -278,8 +286,8 @@ async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str, descripti
             SET n.description = $description
             RETURN n.name AS node_name
             """
-            result = await ctx.tx.run(query, name=name, description=description)
-            record = await result.single()
+            record_list = await run_transaction(ctx.tx, query, {"name": name, "description": description})
+            record = record_list[0] if record_list else None
             if record is None:
                 raise RuntimeError("Failed to merge node")
             logging.info(f"[CREATE_NODE] merged: type: {node_type}\nname: {name}\n description: {description}")
@@ -318,12 +326,12 @@ async def core_create_edge(
     params = {"source_name": source_name, "target_name": target_name, **props_dict}
 
     async with ctx.lock:
-        result = await ctx.tx.run(query, **params)
-        record = await result.single()
+        record_list = await run_transaction(ctx.tx, query, params)
+        record = record_list[0] if record_list else None
         if record is None:
             raise RuntimeError("Failed to create edge")
         logging.info(f"Created edge: {source_name} -> {target_name} with type: {relationship_type} and properties: {properties}")
-        return record.data()
+        return record
 
 async def core_find_node(
     ctx: GraphOpsCtx,
@@ -366,15 +374,7 @@ async def core_find_node(
             score
         ORDER BY score DESC
         """
-        result = await ctx.tx.run(
-            cypher_query,
-            index_name=f"{node_type.lower()}_description_embeddings",
-            top_k=top_k,
-            embedding=query_embedding
-        )
-        records = []
-        async for record in result:
-            records.append(record.data())
+        records = await run_transaction(ctx.tx, cypher_query, {"index_name": f"{node_type.lower()}_description_embeddings", "top_k": top_k, "embedding": query_embedding})
         return records
 
     # execute the query
