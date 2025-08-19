@@ -1,4 +1,4 @@
-from neo4j import AsyncTransaction
+from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncTransaction
 from neo4j.exceptions import ClientError, CypherSyntaxError
 import json
 from typing import List, Dict, Optional, Union
@@ -29,23 +29,17 @@ EMBEDDING_MODEL = "text-embedding-3-large"
 
 @dataclass
 class GraphOpsCtx:
-    tx: AsyncTransaction
+    neo4jdriver: AsyncDriver
     lock: Lock
 
-async def run_transaction(tx: AsyncTransaction, query, params=None, max_retries=3):
+async def run_transaction(tx: AsyncTransaction, query, params=None):
     # If params is None, default to empty dict for safety
     if params is None:
         params = {}
 
-    for attempt in range(max_retries):
-        try:
-            result = await tx.run(query, params)
-            return await result.data()
-        except ServiceUnavailable as e:
-            logging.warning(f"💥 ServiceUnavailable error: {e}. Retrying ({attempt + 1}/{max_retries})...")
-            if attempt == max_retries - 1:
-                raise
-            await asyncio.sleep(2 ** attempt)  # Exponential backoff
+    result = await tx.run(query, params)
+    return await result.data()
+
 
 # Core logic functions, independent of Chainlit
 
@@ -63,8 +57,6 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
 
     logging.info(f"[CYPHER_QUERY]:\n{query}")
 
-    from neo4j.time import Date, DateTime
-
     def filter_embedding(obj):
         """
         Recursively removes the 'embedding' key and converts Neo4j Date/DateTime to strings.
@@ -79,35 +71,22 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
             return obj.iso_format()  # Convert Neo4j DateTime to ISO 8601 string (e.g., "2025-07-28T10:55:00+00:00")
         return obj
 
-    try:
-        async with ctx.lock:
-            records = await run_transaction(ctx.tx, query)
-            # Convert the results to a list of dictionaries
+    async with ctx.neo4jdriver.session() as session:
+        
+        async def read_work(tx: AsyncTransaction):
+            result = await tx.run(query)
+            records = await result.data()
             if not records:
                 return []
-
-            # Apply recursive filtering to each record
             filtered_records = [filter_embedding(record) for record in records]
             return filtered_records
 
-    except CypherSyntaxError as e:
-        # Handle Cypher syntax errors
-        logging.error(f"Cypher syntax error: {e}. The transaction will be rolled back.")
-        return [{"error": f"Try again! Cypher syntax error: {e.message}"}]
-
-    except ClientError as e:
-        # Handle client errors (e.g., invalid parameters)
-        logging.error(f"Client error: {e}.")
-        if e.is_retriable:
-            return [{"error": f"Try again! Client error: {e.message}"}]
-        else:
-            raise RuntimeError(f"Client error: {e.message}")
-
-    except Exception as e:
-        # Catch any other unexpected errors
-        logging.error(f"Error executing Cypher query: {e}. The transaction will be rolled back.")
-        raise RuntimeError(f"Error executing Cypher query: {e}. The transaction will be rolled back.")
-
+        async with ctx.lock:
+            try:
+                return await session.execute_read(read_work)
+            except (ClientError, CypherSyntaxError, ServiceUnavailable) as e:
+                raise RuntimeError(f"Error executing Cypher query: {str(e)}")
+                
 async def core_create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str, groq_client=None, openai_client=None) -> str:
     logging.info(f"[CREATE_NODE] TYPE: {node_type}\nNAME: {name}\n DESCRIPTION: {description}")
 
@@ -155,109 +134,126 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
         ORDER BY score DESC
         LIMIT 10
         """
-        async with ctx.lock:
-            similar_nodes = await run_transaction(ctx.tx, similar_query, {"index_name": index_name, "vector": new_embedding})
+        params = {"index_name": index_name, "vector": new_embedding}
 
-        found_same_name = None
-        updated_name = name
-        updated_description = description
-        for sim in similar_nodes:
-            old_name = sim['name']
-            old_desc = sim['description']
-
-            compare_prompt = (
-                "Determine whether the following two nodes represent the same concept by carefully comparing their names and descriptions. "
-                "Reason step by step: First, analyze similarities in meaning. Second, decide if they are semantically identical. "
-                "If they are the same, provide an improved short name (combining the best aspects) and a merged description (concise, comprehensive, avoiding redundancy). "
-                "If different, just indicate they are different. "
-                "Always output only a JSON object with keys: different (boolean), and optionally name (string) and description (string) if not different."
-            )
-
-            completion = await groq_client.chat.completions.create(
-                model="openai/gpt-oss-120b",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": compare_prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Node A name: {old_name}\nNode A description: {old_desc}\n\n"
-                                   f"Node B name: {name}\nNode B description: {description}"
-                    },                    
-                ],
-                stream=False,
-                reasoning_effort="low",
-                # reasoning_format="hidden",
-                temperature=0.2,
-                response_format = {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "compare_result",
-                        "description": "Result of comparing two nodes.",
-                        "schema": CompareResult.model_json_schema(),
-                    }
-                },
-            )
-
-            try:
-                result = CompareResult.model_validate_json(completion.choices[0].message.content)
-
-                if not result.different:
-                    found_same_name = sim['name']
-                    updated_name = result.name or old_name
-                    updated_description = result.description or description
-                    break
-
-            except Exception as e:
-                logging.error(f"Failed to parse LLM response: {e}")
-                logging.error(f"LLM response: {completion.choices[0].message.content}")
-
-
-        if found_same_name:
-            logging.info(
-                f"[CREATE_NODE] Found semantically equivalent node to: {name}; "
-                f"updating the node with name: {updated_name}" 
-                f"and description: {updated_description}"
-            )
-
-            # Generate new embedding for the updated description
-            updated_emb_response = await openai_client.embeddings.create(
-                model=EMBEDDING_MODEL,
-                input=updated_description
-            )
-            updated_embedding = updated_emb_response.data[0].embedding
+        async with ctx.neo4jdriver.session() as session:
+            
+            async def read_similar(tx: AsyncTransaction):
+                result = await tx.run(similar_query, params)
+                return await result.data()
 
             async with ctx.lock:
+                similar_nodes = await session.execute_read(read_similar)
+
+            found_same_name = None
+            updated_name = name
+            updated_description = description
+            for sim in similar_nodes:
+                old_name = sim['name']
+                old_desc = sim['description']
+
+                compare_prompt = (
+                    "Determine whether the following two nodes represent the same concept by carefully comparing their names and descriptions. "
+                    "Reason step by step: First, analyze similarities in meaning. Second, decide if they are semantically identical. "
+                    "If they are the same, provide an improved short name (combining the best aspects) and a merged description (concise, comprehensive, avoiding redundancy). "
+                    "If different, just indicate they are different. "
+                    "Always output only a JSON object with keys: different (boolean), and optionally name (string) and description (string) if not different."
+                )
+
+                completion = await groq_client.chat.completions.create(
+                    model="openai/gpt-oss-120b",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": compare_prompt,
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Node A name: {old_name}\nNode A description: {old_desc}\n\n"
+                                       f"Node B name: {name}\nNode B description: {description}"
+                        },                    
+                    ],
+                    stream=False,
+                    reasoning_effort="low",
+                    # reasoning_format="hidden",
+                    temperature=0.2,
+                    response_format = {
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "compare_result",
+                            "description": "Result of comparing two nodes.",
+                            "schema": CompareResult.model_json_schema(),
+                        }
+                    },
+                )
+
+                try:
+                    result = CompareResult.model_validate_json(completion.choices[0].message.content)
+
+                    if not result.different:
+                        found_same_name = old_name
+                        updated_name = result.name or old_name
+                        updated_description = result.description or description
+                        break
+
+                except Exception as e:
+                    logging.error(f"Failed to parse LLM response: {e}")
+                    logging.error(f"LLM response: {completion.choices[0].message.content}")
+
+            if found_same_name:
+                logging.info(
+                    f"[CREATE_NODE] Found semantically equivalent node to: {name}; "
+                    f"updating the node with name: {updated_name}" 
+                    f"and description: {updated_description}"
+                )
+
+                # Generate new embedding for the updated description
+                updated_emb_response = await openai_client.embeddings.create(
+                    model=EMBEDDING_MODEL,
+                    input=updated_description
+                )
+                updated_embedding = updated_emb_response.data[0].embedding
+
                 # Update the existing node with new name, description and embedding
-                update_query = """
-                MATCH (n)
-                WHERE n.name = $node_name
+                update_query = f"""
+                MATCH (n:`{node_type}` {{name: $node_name}})
                 SET n.name = $name, n.description = $description, n.embedding = $embedding
                 RETURN n.name AS name
                 """
-                update_record_list = await run_transaction(ctx.tx, update_query, {"node_name": found_same_name, "name": updated_name, "description": updated_description, "embedding": updated_embedding})
-                update_record = update_record_list[0] if update_record_list else None
-                if update_record is None:
-                    raise RuntimeError(f"Failed to update node with name: {found_same_name}")
-                return update_record['name']
-        else:
-            logging.info(
-                "[CREATE_NODE] "
-                f"No semantically equivalent node found, creating a new node;"
-                f"Type: {node_type} Name: {name} Description: {description}"
-            )
-            async with ctx.lock:
+                update_params = {"node_name": found_same_name, "name": updated_name, "description": updated_description, "embedding": updated_embedding}
+
+                async def write_update(tx: AsyncTransaction):
+                    result = await tx.run(update_query, update_params)
+                    records = await result.data()
+                    if not records:
+                        raise RuntimeError(f"Failed to update node with name: {found_same_name}")
+                    return records[0]['name']
+
+                async with ctx.lock:
+                    return await session.execute_write(write_update)
+
+            else:
+                logging.info(
+                    "[CREATE_NODE] "
+                    f"No semantically equivalent node found, creating a new node;"
+                    f"Type: {node_type} Name: {name} Description: {description}"
+                )
                 # Create a new node
                 create_query = f"""
                 CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
                 RETURN n.name AS name
                 """
-                create_record_list = await run_transaction(ctx.tx, create_query, {"name": name, "description": description, "embedding": new_embedding})
-                create_record = create_record_list[0] if create_record_list else None
-                if create_record is None:
-                    raise RuntimeError("Failed to create new node")
-                return create_record['name']
+                create_params = {"name": name, "description": description, "embedding": new_embedding}
+
+                async def write_create(tx: AsyncTransaction):
+                    result = await tx.run(create_query, create_params)
+                    records = await result.data()
+                    if not records:
+                        raise RuntimeError("Failed to create new node")
+                    return records[0]['name']
+
+                async with ctx.lock:
+                    return await session.execute_write(write_create)
     except Exception as e:
         logging.error(f"Error in smart_upsert: {str(e)}")
         raise
@@ -280,22 +276,29 @@ async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str, descripti
         RuntimeError: If the Neo4j driver is not found or the query fails.
     """
 
-    try:
-        async with ctx.lock:
-            query = f"""
-            MERGE (n:`{node_type}` {{name: $name}})
-            SET n.description = $description
-            RETURN n.name AS node_name
-            """
-            record_list = await run_transaction(ctx.tx, query, {"name": name, "description": description})
-            record = record_list[0] if record_list else None
-            if record is None:
+    query = f"""
+    MERGE (n:`{node_type}` {{name: $name}})
+    SET n.description = $description
+    RETURN n.name AS node_name
+    """
+
+    async with ctx.neo4jdriver.session() as session:
+        
+        async def write_work(tx: AsyncTransaction):
+            result = await tx.run(query, {"name": name, "description": description})
+            records = await result.data()
+            if not records:
                 raise RuntimeError("Failed to merge node")
-            logging.info(f"[CREATE_NODE] merged: type: {node_type}\nname: {name}\n description: {description}")
-            return record["node_name"]
-    except Exception as e:
-        logging.error(f"Error in merge_node: {str(e)}")
-        raise RuntimeError(f"Failed to merge node: {str(e)}")
+            return records[0]["node_name"]
+
+        async with ctx.lock:
+            try:
+                node_name = await session.execute_write(write_work)
+                logging.info(f"[CREATE_NODE] merged: type: {node_type}\nname: {name}\n description: {description}")
+                return node_name
+            except Exception as e:
+                logging.error(f"Error in merge_node: {str(e)}")
+                raise RuntimeError(f"Failed to merge node: {str(e)}")
 
 async def core_create_edge(
     ctx: GraphOpsCtx,
@@ -326,13 +329,24 @@ async def core_create_edge(
     )
     params = {"source_name": source_name, "target_name": target_name, **props_dict}
 
-    async with ctx.lock:
-        record_list = await run_transaction(ctx.tx, query, params)
-        record = record_list[0] if record_list else None
-        if record is None:
-            raise RuntimeError("Failed to create edge")
-        logging.info(f"Created edge: {source_name} -> {target_name} with type: {relationship_type} and properties: {properties}")
-        return record
+    async with ctx.neo4jdriver.session() as session:
+        
+        async def write_work(tx: AsyncTransaction):
+            result = await tx.run(query, params)
+            record_list = await result.data()
+            record = record_list[0] if record_list else None
+            if not record:
+                raise RuntimeError("Failed to create edge")
+            return record
+
+        async with ctx.lock:
+            try:
+                edge = await session.execute_write(write_work)
+                logging.info(f"Created edge: {source_name} -> {target_name} with type: {relationship_type} and properties: {properties}")
+                return edge
+            except Exception as e:
+                logging.error(f"Error in create_edge: {str(e)}")
+                raise RuntimeError(f"Failed to create edge: {str(e)}")
 
 async def core_find_node(
     ctx: GraphOpsCtx,
@@ -362,24 +376,48 @@ async def core_find_node(
     )
     query_embedding = emb_response.data[0].embedding
 
-    async def vector_search(ctx: GraphOpsCtx):
-        cypher_query = """
-        CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
-        YIELD node, score
-        RETURN
-            CASE
-                WHEN node:Milestone
-                THEN node { .name, .description, .milestone_reached_date }
-                ELSE node { .name, .description }
-            END AS node,
-            score
-        ORDER BY score DESC
-        """
-        records = await run_transaction(ctx.tx, cypher_query, {"index_name": f"{node_type.lower()}_description_embeddings", "top_k": top_k, "embedding": query_embedding})
-        return records
+    cypher_query = """
+    CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
+    YIELD node, score
+    RETURN
+        CASE
+            WHEN node:Milestone
+            THEN node { .name, .description, .milestone_reached_date }
+            ELSE node { .name, .description }
+        END AS node,
+        score
+    ORDER BY score DESC
+    """
 
-    # execute the query
-    async with ctx.lock:
-        results = await vector_search(ctx)
-        logging.info(f"Found {len(results)} nodes similar to {query_text}")
-        return results
+    def filter_embedding(obj):
+        """
+        Recursively removes the 'embedding' key and converts Neo4j Date/DateTime to strings.
+        """
+        if isinstance(obj, dict):
+            return {k: filter_embedding(v) for k, v in obj.items() if k != 'embedding'}
+        elif isinstance(obj, list):
+            return [filter_embedding(item) for item in obj]
+        elif isinstance(obj, Date):
+            return obj.iso_format()  # Convert Neo4j Date to ISO 8601 string (e.g., "2025-07-28")
+        elif isinstance(obj, DateTime):
+            return obj.iso_format()  # Convert Neo4j DateTime to ISO 8601 string (e.g., "2025-07-28T10:55:00+00:00")
+        return obj
+
+    async with ctx.neo4jdriver.session() as session:
+        
+        async def read_work(tx: AsyncTransaction):
+            result = await tx.run(cypher_query, {"index_name": f"{node_type.lower()}_description_embeddings", "top_k": top_k, "embedding": query_embedding})
+            records = await result.data()
+            if not records:
+                return []
+            filtered_records = [filter_embedding(record) for record in records]
+            return filtered_records
+
+        async with ctx.lock:
+            try:
+                results = await session.execute_read(read_work)
+                logging.info(f"Found {len(results)} nodes similar to {query_text}")
+                return results
+            except Exception as e:
+                logging.error(f"Error in find_node: {str(e)}")
+                raise RuntimeError(f"Failed to find nodes: {str(e)}")

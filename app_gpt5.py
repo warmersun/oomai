@@ -246,8 +246,8 @@ async def _neo4j_connect():
         os.environ['NEO4J_URI'],
         auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD']),
         liveness_check_timeout=0,
-        max_connection_lifetime=2700,
-        # keep_alive=False,00
+        max_connection_lifetime=30,
+        max_connection_pool_size=5,
     )
     await neo4jdriver.verify_connectivity()
     cl.user_session.set("neo4jdriver", neo4jdriver)
@@ -336,76 +336,46 @@ async def on_message(message: cl.Message):
     openai_client = cl.user_session.get("openai_client")
     assert openai_client is not None, "No OpenAI client found in user session"
 
-    # neo4js session begins...
-    session = neo4jdriver.session()
-    try:
-
-        tts_action = cl.Action(name="tts", payload={"value": "tts"}, icon="circle-play", tooltip="Read out loud" )
-        # setup context: begin Neo5j transation and create lock
-        
-        lock = asyncio.Lock()
-        
-        input_data = cl.user_session.get("input_data")
-        input_data.append({
-            "role": "user",
-            "content": processed_message
-        })
-        previous_id = cl.user_session.get("previous_id")
+    tts_action = cl.Action(name="tts", payload={"value": "tts"}, icon="circle-play", tooltip="Read out loud" )
+    # setup context: begin Neo5j transation and create lock
     
-        output_message = cl.Message(content="", actions=[tts_action])
-        needs_continue = False
-        new_input = None
-        
-        while True:
-            tx = await session.begin_transaction()
-            ctx = GraphOpsCtx(tx, lock)
-            try:
-                response = await create_response(input_data, previous_id)
-                previous_id, needs_continue, new_input = await process_stream(response, ctx, output_message)
-                # Commit the Neo4j transaction
-                logger.warning(" ✅ Committing the Neo4j transaction.")
-                await tx.commit()
+    lock = asyncio.Lock()
+    ctx = GraphOpsCtx(neo4jdriver, lock)
     
-            except asyncio.CancelledError:
-                logger.error("❌ Rolling back the Neo4j transaction due to cancellation.")
-                await cl.Message(content="❌ Rolling back the Neo4j transaction due to cancellation.", type="system_message").send()
-                if tx is not None:
-                    await tx.cancel()
-                else:
-                    logger.error("No Neo4j transaction to cancel.")
-                needs_continue = True
-            except Exception as e:
-                logger.error(f"❌ Rolling back the Neo4j transaction. Error: {str(e)}")
-                await cl.Message(content=f"❌ Rolling back the Neo4j transaction. Error: {str(e)}", type="system_message").send()
-                if tx is not None:
-                    await tx.rollback()
-                else:
-                    logger.error("No Neo4j transaction to rollback.")
-                needs_continue = True
-            finally:
-                cl.user_session.set("tts_action", tts_action)
-                if tx is not None:
-                    await tx.close()
-                else:
-                    logger.error("No Neo4j transaction to close.")
-                    
-            if not needs_continue:
-                break
-            if new_input is not None:
-                input_data = new_input
-            
-        await output_message.update()
-        cl.user_session.set("last_message", output_message.content)
-        cl.user_session.set("input_data", input_data)
-        cl.user_session.set("previous_id", previous_id)
+    input_data = cl.user_session.get("input_data")
+    input_data.append({
+        "role": "user",
+        "content": processed_message
+    })
+    previous_id = cl.user_session.get("previous_id")
 
-    finally:
-        # close Neo4j session
-        if session is not None:
-            await session.close()
-        else:
-            logger.error("No Neo4j session to close.")
+    output_message = cl.Message(content="", actions=[tts_action])
+    needs_continue = False
+    new_input = None
+    
+    while True:
+        try:
+            response = await create_response(input_data, previous_id)
+            previous_id, needs_continue, new_input = await process_stream(response, ctx, output_message)
+            # Commit the Neo4j transaction
+            logger.info(" ✅ LLM response is processed.")
 
+        except asyncio.CancelledError:
+            logger.error("❌ Error while processing LLM response. CancelledError.")
+            await cl.Message(content="❌ Error while processing LLM response. CancelledError", type="system_message").send()
+        except Exception as e:
+            logger.error(f"❌ Error while processing LLM response. Error: {str(e)}")
+            await cl.Message(content=f"❌ Error while processing LLM response. Error: {str(e)}", type="system_message").send()
+                
+        if not needs_continue:
+            break
+        if new_input is not None:
+            input_data = new_input
+        
+    await output_message.update()
+    cl.user_session.set("last_message", output_message.content)
+    cl.user_session.set("input_data", input_data)
+    cl.user_session.set("previous_id", previous_id)
 
 @cl.password_auth_callback
 def auth_callback(username: str, password: str) -> Optional[cl.User]:
