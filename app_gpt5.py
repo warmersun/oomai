@@ -328,6 +328,7 @@ async def end_chat():
 
 @cl.on_message
 async def on_message(message: cl.Message):
+    error_count = 0
     message_lock = cl.user_session.get("message_lock")
     assert message_lock is not None, "No message lock found in user session"
     async with message_lock:
@@ -361,11 +362,13 @@ async def on_message(message: cl.Message):
         previous_id = cl.user_session.get("previous_id")
     
         output_message = cl.Message(content="", actions=[tts_action])
-        await output_message.send()
+        temp_message = cl.Message(content="🤔🧠 Thinking...", type="system_message")
+        await temp_message.send()
+        
         needs_continue = False
         new_input = None
         
-        while True:
+        while error_count < 3:
             try:
                 response = await create_response(input_data, previous_id)
                 previous_id, needs_continue, new_input = await process_stream(response, ctx, output_message)
@@ -378,6 +381,7 @@ async def on_message(message: cl.Message):
             except Exception as e:
                 logger.error(f"❌ Error while processing LLM response. Error: {str(e)}")
                 await cl.Message(content=f"❌ Error while processing LLM response. Error: {str(e)}", type="system_message").send()
+                error_count += 1
                     
             if not needs_continue:
                 break
@@ -385,6 +389,7 @@ async def on_message(message: cl.Message):
                 input_data = new_input
             
         await output_message.update()
+        await temp_message.remove()
         cl.user_session.set("last_message", output_message.content)
         cl.user_session.set("input_data", input_data)
         cl.user_session.set("previous_id", previous_id)
