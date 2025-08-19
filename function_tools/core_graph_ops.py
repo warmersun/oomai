@@ -249,7 +249,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
             )
             async with ctx.lock:
                 # Create a new node
-                create_query = f"""-
+                create_query = f"""
                 CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
                 RETURN n.name AS name
                 """
