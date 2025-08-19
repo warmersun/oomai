@@ -251,12 +251,14 @@ async def _neo4j_connect():
     )
     await neo4jdriver.verify_connectivity()
     cl.user_session.set("neo4jdriver", neo4jdriver)
+    logger.info("Neo4j driver connected.")
 
 async def _neo4j_disconnect():
     neo4jdriver = cl.user_session.get("neo4jdriver")
     if neo4jdriver is not None:
         await neo4jdriver.close()
         cl.user_session.set("neo4jdriver", None)
+    logger.info("Neo4j driver disconnected.")
         
 @cl.on_chat_start
 async def start():
@@ -332,7 +334,10 @@ async def on_message(message: cl.Message):
 
     # get drivers from session
     neo4jdriver = cl.user_session.get("neo4jdriver")
-    assert neo4jdriver is not None, "No Neo4j driver found in user session"    
+    if neo4jdriver is None:
+        logger.warning("Neo4j driver not found in user session. Reconnecting...")
+        await _neo4j_connect()
+        
     openai_client = cl.user_session.get("openai_client")
     assert openai_client is not None, "No OpenAI client found in user session"
 
