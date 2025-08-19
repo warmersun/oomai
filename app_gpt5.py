@@ -382,6 +382,8 @@ async def on_message(message: cl.Message):
                 logger.error(f"❌ Error while processing LLM response. Error: {str(e)}")
                 await cl.Message(content=f"❌ Error while processing LLM response. Error: {str(e)}", type="system_message").send()
                 error_count += 1
+                logger.info("Reconnecting to Neo4j driver...")
+                await _neo4j_connect()
                     
             if not needs_continue:
                 break
