@@ -321,13 +321,6 @@ async def on_settings_update(settings):
 async def end_chat():
     await _neo4j_disconnect()
 
-@cl.on_chat_resume
-async def resume_chat():
-    neo4jdriver = cl.user_session.get("neo4jdriver")
-    if neo4jdriver is None:
-        logger.warning("No Neo4j driver found in user session, creating a new one.")
-        await _neo4j_connect()
-
 @cl.on_message
 async def on_message(message: cl.Message):
     # TTS cleanup
@@ -339,16 +332,11 @@ async def on_message(message: cl.Message):
 
     # get drivers from session
     neo4jdriver = cl.user_session.get("neo4jdriver")
-    if neo4jdriver is None:
-        logger.warning("No Neo4j driver found in user session, creating a new one.")
-        await _neo4j_connect()
-        neo4jdriver = cl.user_session.get("neo4jdriver")
-    
+    assert neo4jdriver is not None, "No Neo4j driver found in user session"    
     openai_client = cl.user_session.get("openai_client")
     assert openai_client is not None, "No OpenAI client found in user session"
 
     # neo4js session begins...
-    assert neo4jdriver is not None, "Neo4j driver found is None, this should never happen."
     session = neo4jdriver.session()
     try:
 
@@ -369,13 +357,6 @@ async def on_message(message: cl.Message):
         new_input = None
         
         while True:
-            if session is None:
-                logger.warning("‼ No Neo4j session is None, Reconnecting.")
-                await _neo4j_disconnect()
-                await _neo4j_connect()
-                session = await neo4jdriver.session()
-    
-            assert session is not None, "No Neo4j session. This should never happen."
             tx = await session.begin_transaction()
             ctx = GraphOpsCtx(tx, lock)
             try:
