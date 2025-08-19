@@ -384,6 +384,9 @@ async def on_message(message: cl.Message):
                 error_count += 1
                 logger.info("Reconnecting to Neo4j driver...")
                 await _neo4j_connect()
+                neo4jdriver = cl.user_session.get("neo4jdriver")
+                assert neo4jdriver is not None, "No Neo4j driver found in user session, This should not happen."
+                ctx = GraphOpsCtx(neo4jdriver, lock)
                     
             if not needs_continue:
                 break
