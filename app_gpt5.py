@@ -278,6 +278,9 @@ async def start():
     cl.user_session.set("xai_client", xai_client)
     elevenlabs_client= ElevenLabs(api_key=os.environ['ELEVENLABS_API_KEY'])
     cl.user_session.set("elevenlabs_client", elevenlabs_client)
+    # locking
+    message_lock = asyncio.Lock()
+    cl.user_session.set("message_lock", message_lock)
     # settings
     settings = await cl.ChatSettings(
         [
@@ -325,63 +328,67 @@ async def end_chat():
 
 @cl.on_message
 async def on_message(message: cl.Message):
-    # TTS cleanup
-    last_tts_action = cl.user_session.get("tts_action")
-    if last_tts_action is not None:
-        await last_tts_action.remove()
-    # process command
-    processed_message = _process_command(message)
-
-    # get drivers from session
-    neo4jdriver = cl.user_session.get("neo4jdriver")
-    if neo4jdriver is None:
-        logger.warning("Neo4j driver not found in user session. Reconnecting...")
-        await _neo4j_connect()
+    message_lock = cl.user_session.get("message_lock")
+    assert message_lock is not None, "No message lock found in user session"
+    async with message_lock:
+        # TTS cleanup
+        last_tts_action = cl.user_session.get("tts_action")
+        if last_tts_action is not None:
+            await last_tts_action.remove()
+        # process command
+        processed_message = _process_command(message)
+    
+        # get drivers from session
+        neo4jdriver = cl.user_session.get("neo4jdriver")
+        if neo4jdriver is None:
+            logger.warning("Neo4j driver not found in user session. Reconnecting...")
+            await _neo4j_connect()
+            
+        openai_client = cl.user_session.get("openai_client")
+        assert openai_client is not None, "No OpenAI client found in user session"
+    
+        tts_action = cl.Action(name="tts", payload={"value": "tts"}, icon="circle-play", tooltip="Read out loud" )
+        # setup context: begin Neo5j transation and create lock
         
-    openai_client = cl.user_session.get("openai_client")
-    assert openai_client is not None, "No OpenAI client found in user session"
-
-    tts_action = cl.Action(name="tts", payload={"value": "tts"}, icon="circle-play", tooltip="Read out loud" )
-    # setup context: begin Neo5j transation and create lock
-    
-    lock = asyncio.Lock()
-    ctx = GraphOpsCtx(neo4jdriver, lock)
-    
-    input_data = cl.user_session.get("input_data")
-    input_data.append({
-        "role": "user",
-        "content": processed_message
-    })
-    previous_id = cl.user_session.get("previous_id")
-
-    output_message = cl.Message(content="", actions=[tts_action])
-    needs_continue = False
-    new_input = None
-    
-    while True:
-        try:
-            response = await create_response(input_data, previous_id)
-            previous_id, needs_continue, new_input = await process_stream(response, ctx, output_message)
-            # Commit the Neo4j transaction
-            logger.info(" ✅ LLM response is processed.")
-
-        except asyncio.CancelledError:
-            logger.error("❌ Error while processing LLM response. CancelledError.")
-            await cl.Message(content="❌ Error while processing LLM response. CancelledError", type="system_message").send()
-        except Exception as e:
-            logger.error(f"❌ Error while processing LLM response. Error: {str(e)}")
-            await cl.Message(content=f"❌ Error while processing LLM response. Error: {str(e)}", type="system_message").send()
-                
-        if not needs_continue:
-            break
-        if new_input is not None:
-            input_data = new_input
+        lock = asyncio.Lock()
+        ctx = GraphOpsCtx(neo4jdriver, lock)
         
-    await output_message.update()
-    cl.user_session.set("last_message", output_message.content)
-    cl.user_session.set("input_data", input_data)
-    cl.user_session.set("previous_id", previous_id)
-
+        input_data = cl.user_session.get("input_data")
+        input_data.append({
+            "role": "user",
+            "content": processed_message
+        })
+        previous_id = cl.user_session.get("previous_id")
+    
+        output_message = cl.Message(content="", actions=[tts_action])
+        await output_message.send()
+        needs_continue = False
+        new_input = None
+        
+        while True:
+            try:
+                response = await create_response(input_data, previous_id)
+                previous_id, needs_continue, new_input = await process_stream(response, ctx, output_message)
+                # Commit the Neo4j transaction
+                logger.info(" ✅ LLM response is processed.")
+    
+            except asyncio.CancelledError:
+                logger.error("❌ Error while processing LLM response. CancelledError.")
+                await cl.Message(content="❌ Error while processing LLM response. CancelledError", type="system_message").send()
+            except Exception as e:
+                logger.error(f"❌ Error while processing LLM response. Error: {str(e)}")
+                await cl.Message(content=f"❌ Error while processing LLM response. Error: {str(e)}", type="system_message").send()
+                    
+            if not needs_continue:
+                break
+            if new_input is not None:
+                input_data = new_input
+            
+        await output_message.update()
+        cl.user_session.set("last_message", output_message.content)
+        cl.user_session.set("input_data", input_data)
+        cl.user_session.set("previous_id", previous_id)
+    
 @cl.password_auth_callback
 def auth_callback(username: str, password: str) -> Optional[cl.User]:
     if (username, password) == ("Sic", "kadima"):
