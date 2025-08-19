@@ -36,7 +36,6 @@ with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
 
 embedding_model = "text-embedding-3-large"
-llm_model = "grok-4"
 
 LAST_RUN_FILE = "last_run_timestamp.txt"
 
@@ -61,7 +60,7 @@ async def create_response(openai_client, input_data, previous_response_id=None):
         system_prompt = f.read()
 
     kwargs = {
-        "model": "gpt-5",
+        "model": "gpt-5-mini",
         "instructions": system_prompt,
         "input": input_data,
         "tools": TOOLS,
@@ -229,56 +228,36 @@ async def main() -> None:
 
         logger.info("Now processing the extracted content into the knowledge graph.")
 
-        # create Neo4j session
-        async with neo4jdriver.session() as session:
-            # setup context: begin Neo5j transation and create lock
-            lock = asyncio.Lock()
-            previous_id = None
-            input_data = [
-                {
-                    "role": "user",
-                    "content": extract_for_kg
-                }
-            ]
-            new_input = None
-            
-            while True:
-                tx = await session.begin_transaction()
-                ctx = GraphOpsCtx(tx, lock)
-                try:
-                    response = await create_response(openai_client, input_data, previous_id)
-                    previous_id, needs_continue, new_input = await process_stream(response, ctx, groq_client, openai_client)
-                    
-    
-                    # Commit the Neo4j transaction
-                    logger.warning("✅ Committing the Neo4j transaction.")
-                    await tx.commit()
-                except asyncio.CancelledError:
-                    logger.error("❌ Rolling back the Neo4j transaction due to cancellation.")
-                    if tx is not None:
-                        await tx.cancel()
-                    else:
-                        logger.error("No Neo4j transaction to cancel.")
-                    needs_continue = True
-                except Exception as e:
-                    logger.error(f"❌ Rolling back the Neo4j transaction. Error: {str(e)}")
-                    if tx is not None:
-                        await tx.rollback()
-                    else:
-                        logger.error("No Neo4j transaction to rollback.")
-                    needs_continue = True
-                finally:
-                    if tx is not None:
-                        await tx.close()
-                    else:
-                        logger.error("No Neo4j transaction to close.")
+        
+        lock = asyncio.Lock()
+        ctx = GraphOpsCtx(neo4jdriver, lock)
 
-                if not needs_continue:
-                    break
+        previous_id = None
+        input_data = [
+            {
+                "role": "user",
+                "content": extract_for_kg
+            }
+        ]
+        needs_continue = False
+        new_input = None
+        
+        while True:    
+            try:
+                response = await create_response(openai_client, input_data, previous_id)
+                previous_id, needs_continue, new_input = await process_stream(response, ctx, groq_client, openai_client)
+            except asyncio.CancelledError:
+                logger.error("❌ Error while processing LLM response. CamcelledError.")
+            except Exception as e:
+                logger.error(f"❌ Error while processing LLM response. Error: {str(e)}")
+
+            if not needs_continue:
+                break
+            if new_input is not None:
                 input_data = new_input
     
     await neo4jdriver.close()
-
+    logger.info("Batch processing completed.")
 
 if __name__ == "__main__":
     asyncio.run(main())
