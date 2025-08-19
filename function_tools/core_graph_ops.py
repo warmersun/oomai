@@ -249,12 +249,12 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
             )
             async with ctx.lock:
                 # Create a new node
-                create_query = f"""
+                create_query = f"""-
                 CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
                 RETURN n.name AS name
                 """
                 create_record_list = await run_transaction(ctx.tx, create_query, {"name": name, "description": description, "embedding": new_embedding})
-                create_record = await create_record_list[0] if create_record_list else None
+                create_record = create_record_list[0] if create_record_list else None
                 if create_record is None:
                     raise RuntimeError("Failed to create new node")
                 return create_record['name']
