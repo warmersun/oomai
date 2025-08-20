@@ -395,6 +395,10 @@ async def on_message(message: cl.Message):
             
         await output_message.update()
         await temp_message.remove()
+
+        if error_count >= 3:
+            await cl.Message(content="❌ Too many errors. I.ve tried and retried. I'll never give up... just taking a break now.", type="system_message").send()
+        
         cl.user_session.set("last_message", output_message.content)
         cl.user_session.set("input_data", input_data)
         cl.user_session.set("previous_id", previous_id)
