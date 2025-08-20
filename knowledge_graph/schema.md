@@ -1,6 +1,8 @@
 ## node types:
 
-All nodes have `name` and `description` properties. All `name` values are guaranteed unique identifiers.
+All nodes have `name` and `description` properties.  
+All `name` values are guaranteed unique identifiers.  
+Name values are in Title Case: Each word is capitalized, separated by spaces, like book or article titles in English — e.g. _"The Quick Brown Fox"_.
 
 ### EmTech
 Emerging technologies, e.g., AI, robots, 3D printing.
