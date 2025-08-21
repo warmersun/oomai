@@ -15,7 +15,7 @@ requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
 run = ["sh", "-c", "chainlit run app_gpt5.py"]
-deploymentTarget = "scheduled"
+deploymentTarget = "cloudrun"
 
 [[ports]]
 localPort = 8000

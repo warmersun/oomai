@@ -2,7 +2,13 @@
 
 All nodes have `name` and `description` properties.  
 All `name` values are guaranteed unique identifiers.  
-Name values are in Title Case: Each word is capitalized, separated by spaces, like book or article titles in English — e.g. _"The Quick Brown Fox"_.
+
+Name values are in Title Case:  
+
+- the first letter of most major words is capitalized
+- separated by spaces
+- short glue words are lowercase, like book or article titles in English
+- e.g. _"Gone With the Wind", "A Brief History of Time", "The Book of AI"_.
 
 ### EmTech
 Emerging technologies, e.g., AI, robots, 3D printing.
