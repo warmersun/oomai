@@ -24,7 +24,7 @@ async def core_x_search(
         search_parameters=SearchParameters(
             mode="on",
             sources=[src],
-            from_date=(datetime.today() - timedelta(days=1)) if last_24hrs else None,
+            from_date=(datetime.now() - timedelta(days=1)) if last_24hrs else None,
         ),
         messages=[
             system(system_prompt) if system_prompt else system("Search on X and return a detailed summary.") ,
