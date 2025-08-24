@@ -241,8 +241,9 @@ async def main() -> None:
         ]
         needs_continue = False
         new_input = None
+        error_count = 0
         
-        while True:    
+        while error_count < 3:    
             try:
                 response = await create_response(openai_client, input_data, previous_id)
                 previous_id, needs_continue, new_input = await process_stream(response, ctx, groq_client, openai_client)
@@ -250,12 +251,16 @@ async def main() -> None:
                 logger.error("❌ Error while processing LLM response. CamcelledError.")
             except Exception as e:
                 logger.error(f"❌ Error while processing LLM response. Error: {str(e)}")
+                error_count += 1
 
             if not needs_continue:
                 break
             if new_input is not None:
                 input_data = new_input
-    
+
+        if error_count >= 3:
+            logger.error("❌ Too many errors. I've tried and retried. I'll never give up... just taking a break now.")
+            
     await neo4jdriver.close()
     logger.info("Batch processing completed.")
 
