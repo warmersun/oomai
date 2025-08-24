@@ -1,4 +1,4 @@
-from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncTransaction
+from neo4j import AsyncDriver, AsyncTransaction
 from neo4j.exceptions import ClientError, CypherSyntaxError
 import json
 from typing import List, Dict, Optional, Union
@@ -9,13 +9,8 @@ from dataclasses import dataclass
 from typing import Literal
 from asyncio import Lock
 import logging
-import asyncio
 from neo4j.exceptions import ServiceUnavailable
 
-
-class KVPair(BaseModel):
-    key: str
-    value: Union[str, int, float, bool]
 
 class Neo4jDateEncoder(json.JSONEncoder):
     def default(self, o):
@@ -305,7 +300,7 @@ async def core_create_edge(
     source_name: str,
     target_name: str,
     relationship_type: str,
-    properties: Optional[List[KVPair]] = None,
+    properties: Optional[Dict[str, Union[str, int, float, bool]]] = None,
 ) -> dict:
     """
     Creates a directed edge (relationship) between two existing nodes in Neo4j.
@@ -315,8 +310,8 @@ async def core_create_edge(
 
     logging.info(f"[CREATE_EDGE]\nSOURCE: {source_name}\n->\nTARGET:{target_name}\nWITH TYPE:{relationship_type} AND PROPERTIES: {properties}")
 
-    # rebuild a strict dict for Cypher params
-    props_dict = {p.key: p.value for p in (properties or [])}
+    # Use the properties dict directly
+    props_dict = properties or {}
 
     prop_keys = ", ".join(f"{key}: ${key}" for key in props_dict)
     prop_str = f"{{{prop_keys}}}" if prop_keys else ""
@@ -330,7 +325,7 @@ async def core_create_edge(
     params = {"source_name": source_name, "target_name": target_name, **props_dict}
 
     async with ctx.neo4jdriver.session() as session:
-        
+
         async def write_work(tx: AsyncTransaction):
             result = await tx.run(query, params)
             record_list = await result.data()

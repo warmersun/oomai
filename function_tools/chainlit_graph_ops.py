@@ -4,8 +4,7 @@ from .core_graph_ops import core_execute_cypher_query
 from .core_graph_ops import core_create_node
 from .core_graph_ops import core_create_edge
 from .core_graph_ops import core_find_node
-from .core_graph_ops import KVPair
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Union
 
 
 async def execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
@@ -34,7 +33,7 @@ async def create_edge(
     source_name: str,
     target_name: str,
     relationship_type: str,
-    properties: Optional[List[KVPair]] = None,
+    properties: Optional[Dict[str, Union[str, int, float, bool]]] = None,
 ) -> dict:
     async with cl.Step(name="Create_Edge", type="tool") as step:
         step.show_input = True
@@ -42,7 +41,7 @@ async def create_edge(
             "source_name": source_name,
             "target_name": target_name,
             "relationship_type": relationship_type,
-            "properties": [p.model_dump() for p in properties] if properties else None,
+            "properties": [{"key": k, "value": v} for k, v in (properties or {}).items()],
         }
 
         output = await core_create_edge(ctx, source_name, target_name, relationship_type, properties)
