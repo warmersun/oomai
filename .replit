@@ -1,15 +1,10 @@
-[env]
-CHAINLIT_DATA_LAYER = "none"
-DATABASE_URL = ""
-
-run = "chainlit run app_gpt5.py"
+run = "chainlit run app.py"
 entrypoint = "app.py"
 modules = ["nodejs-20", "python-3.11"]
-disableGuessImports = true
 
 [nix]
 channel = "stable-24_05"
-packages = ["libxcrypt", "libyaml"]
+packages = ["libxcrypt"]
 
 [unitTest]
 language = "python3"
@@ -18,7 +13,7 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["sh", "-c", "chainlit run app_gpt5.py"]
+run = ["sh", "-c", "chainlit run app.py"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
