@@ -1,3 +1,7 @@
+[env]
+CHAINLIT_DATA_LAYER = "none"
+DATABASE_URL = ""
+
 run = "chainlit run app_gpt5.py"
 entrypoint = "app.py"
 modules = ["nodejs-20", "python-3.11"]
