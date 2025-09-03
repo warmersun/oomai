@@ -405,6 +405,8 @@ async def on_message(message: cl.Message):
     
 @cl.password_auth_callback
 def auth_callback(username: str, password: str) -> Optional[cl.User]:
+    DATABASE_URL = os.environ['DATABASE_URL']
+    logger.info(f"DATABASE_URL: {DATABASE_URL}")
     if (username, password) == ("Sic", "kadima"):
         return cl.User(identifier="Sic", metadata={"role": "admin", "provider": "credentials"})
     elif (username, password) == ("User", "oom.today"):
