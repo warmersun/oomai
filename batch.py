@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import os
 import yaml
 # drivers
 from neo4j import AsyncGraphDatabase
@@ -19,6 +18,7 @@ from function_tools import (
     core_x_search,
     TOOLS_DEFINITIONS,
 )
+from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
 
 
 logging.basicConfig(level=logging.WARNING)
@@ -176,19 +176,19 @@ async def process_stream(response, ctx: GraphOpsCtx, groq_client, openai_client)
 
 async def main() -> None:
     neo4jdriver = AsyncGraphDatabase.driver(
-        os.environ['NEO4J_URI'],
-        auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD']),
+        NEO4J_URI,
+        auth=(NEO4J_USERNAME, NEO4J_PASSWORD),
         liveness_check_timeout=0,
         max_connection_lifetime=2700,
         # keep_alive=False,
     )
     await neo4jdriver.verify_connectivity()
     groq_client = AsyncGroq(
-        api_key=os.getenv("GROQ_API_KEY"),
+        api_key=GROQ_API_KEY,
     )
-    openai_client = AsyncOpenAI(api_key=os.environ['OPENAI_API_KEY'])
+    openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
     xai_client = AsyncClient(
-        api_key=os.getenv("XAI_API_KEY"),
+        api_key=XAI_API_KEY,
         timeout=3600
     )
 

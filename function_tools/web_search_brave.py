@@ -1,4 +1,5 @@
 import os
+from config import BRAVE_SEARCH_API_KEY
 from typing import Optional
 
 import chainlit as cl
@@ -12,7 +13,7 @@ async def web_search_brave(query: str, freshness : Optional[str] = None) -> list
     headers = {
         "Accept": "application/json",
         "Accept-Encoding": "gzip",
-        "X-Subscription-Token": os.environ['BRAVE_SEARCH_API_KEY']
+        "X-Subscription-Token": BRAVE_SEARCH_API_KEY
     }
     params = {
         "q": query,

@@ -30,6 +30,7 @@ from function_tools import (
     TOOLS_DEFINITIONS,
 )
 
+from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, BRAVE_SEARCH_API_KEY, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
 
 class Neo4jDateEncoder(json.JSONEncoder):
     def default(self, o):
@@ -62,7 +63,7 @@ TOOLS_EDIT = [
     TOOLS_DEFINITIONS["get_tasks"],
     TOOLS_DEFINITIONS["mark_task_as_running"],
     TOOLS_DEFINITIONS["mark_task_as_done"],
-    {"type": "web_search_preview", "search_context_size":"high"},
+    {"type": "web_search", "search_context_size":"high"},
 ]
 
 TOOLS_READONLY = [
@@ -73,7 +74,7 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["get_tasks"],
     TOOLS_DEFINITIONS["mark_task_as_running"],
     TOOLS_DEFINITIONS["mark_task_as_done"],
-    {"type": "web_search_preview", "search_context_size":"high"}
+    {"type": "web_search", "search_context_size":"high"}
 ]
 
 AVAILABLE_FUNCTIONS_EDIT = {
@@ -115,13 +116,14 @@ async def create_response(input_data, previous_response_id=None):
     assert system_prompt is not None, "No system prompt found in user session"
     tools=cl.user_session.get("tools")
     assert tools is not None, "No tools found in user session"
+    logger.warning(f"Creating response with model: {model}")
     kwargs = {
         "model": model,
         "instructions": system_prompt,
         "input": input_data,
         "tools": tools,
         "stream": True,
-        "reasoning": {"effort": reasoning_effort},
+        "reasoning": {"effort": reasoning_effort, "summary": "auto"},
         "safety_identifier": current_user.identifier,
     }
     if previous_response_id:
@@ -168,9 +170,6 @@ async def process_stream(response, ctx: GraphOpsCtx, output_message: cl.Message)
         elif event.type == "response.output_text.delta":
             content += event.delta
             await output_message.stream_token(event.delta)
-        elif event.type == "response.reasoning_summary.delta":
-            reasoning += event.delta
-            await output_message.stream_token("\nReasoning: " + event.delta)
         elif event.type == "response.web_search_call.searching":
             await search_msg.send()
         elif event.type == "response.web_search_call.completed":
@@ -208,8 +207,6 @@ async def process_stream(response, ctx: GraphOpsCtx, output_message: cl.Message)
                     })
         return response_id, True, new_input
     else:
-        if reasoning:
-            await output_message.stream_token("\nFull Reasoning Summary: " + reasoning)
         return response_id, False, None
 
 commands = [
@@ -243,8 +240,8 @@ async def _neo4j_connect():
     await _neo4j_disconnect()
     # driver
     neo4jdriver = AsyncGraphDatabase.driver(
-        os.environ['NEO4J_URI'],
-        auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD']),
+        NEO4J_URI,
+        auth=(NEO4J_USERNAME, NEO4J_PASSWORD),
         liveness_check_timeout=0,
         max_connection_lifetime=30,
         max_connection_pool_size=5,
@@ -266,17 +263,17 @@ async def start():
     cl.user_session.set("previous_id", None)
     await _neo4j_connect()
     groq_client = AsyncGroq(
-        api_key=os.getenv("GROQ_API_KEY"),
+        api_key=GROQ_API_KEY,
     )
     cl.user_session.set("groq_client", groq_client)
-    openai_client = AsyncOpenAI(api_key=os.environ['OPENAI_API_KEY'])
+    openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
     cl.user_session.set("openai_client",openai_client)
     xai_client = AsyncClient(
-        api_key=os.getenv("XAI_API_KEY"),
+        api_key=XAI_API_KEY,
         timeout=3600, # override default timeout with longer timeout for reasoning models
     )
     cl.user_session.set("xai_client", xai_client)
-    elevenlabs_client= ElevenLabs(api_key=os.environ['ELEVENLABS_API_KEY'])
+    elevenlabs_client= ElevenLabs(api_key=ELEVENLABS_API_KEY)
     cl.user_session.set("elevenlabs_client", elevenlabs_client)
     # locking
     message_lock = asyncio.Lock()
@@ -434,7 +431,7 @@ def text_to_speech(text: str):
     audio = elevenlabs_client.text_to_speech.convert(
         model_id="eleven_flash_v2_5",
         text=text,
-        voice_id=os.environ['ELEVENLABS_VOICE_ID'],
+        voice_id=ELEVENLABS_VOICE_ID,
         output_format="mp3_44100_128",
         voice_settings=VoiceSettings(
             stability=0.5,

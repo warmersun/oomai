@@ -2,7 +2,9 @@
 name = "python-template"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = [
+    {name = "Tamas Simon", email = "tamas.simon@warmersun.com"}
+]
 requires-python = ">=3.11"
 dependencies = [
     "chainlit>=2.6.2",
@@ -15,3 +17,10 @@ dependencies = [
     "elevenlabs>=2.9.1",
     "lark>=1.2.2",
 ]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["function_tools*"]
