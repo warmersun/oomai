@@ -205,4 +205,20 @@ TOOLS_DEFINITIONS = {
             "required": ["task_title"]
         }
     ),
+    "display_mermaid_diagram": tool(
+        name="display_mermaid_diagram",
+        description="""
+        Displays a Mermaid diagram.
+        """,
+        parameters={
+            "type": "object",
+            "properties": {
+                "diagram_str": {
+                    "type": "string",
+                    "description": "The Mermaid diagram string to display.",
+                },
+            },
+            "required": ["diagram_str"]
+        }
+    ),
 }

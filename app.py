@@ -31,6 +31,7 @@ from function_tools import (
     get_tasks,
     mark_task_as_running,
     mark_task_as_done,
+    display_mermaid_diagram,
     TOOLS_DEFINITIONS,
 )
 from chainlit_xai_util import process_stream
@@ -67,6 +68,7 @@ TOOLS_EDIT = [
     TOOLS_DEFINITIONS["get_tasks"],
     TOOLS_DEFINITIONS["mark_task_as_running"],
     TOOLS_DEFINITIONS["mark_task_as_done"],
+    TOOLS_DEFINITIONS["display_mermaid_diagram"],
 ]
 
 TOOLS_READONLY = [
@@ -87,6 +89,7 @@ AVAILABLE_FUNCTIONS_EDIT = {
     "get_tasks": get_tasks,
     "mark_task_as_running": mark_task_as_running,
     "mark_task_as_done": mark_task_as_done,
+    "display_mermaid_diagram": display_mermaid_diagram,
 }
 
 AVAILABLE_FUNCTIONS_READONLY = {
@@ -150,7 +153,7 @@ async def _neo4j_disconnect():
     logger.info("Neo4j driver disconnected.")
       
 @cl.on_chat_start
-async def start():
+async def start():    
     cl.user_session.set("user_messages", [])
     cl.user_session.set("assistant_messages", [])
     await _neo4j_connect()
@@ -215,14 +218,28 @@ async def on_message(message: cl.Message):
         ctx = GraphOpsCtx(neo4jdriver, lock)
         # setup outlook message
         output_message = cl.Message(content="", actions=[tts_action])
+        diagram_message = cl.Message(content="")
+        cl.user_session.set("diagram_message", diagram_message)
 
-        success = await process_stream(message.content, ctx, output_message)
+        cl.user_session.set("diagrams", [])
+
+        async with cl.Step(name="the Knowledge Graph", type="tool", default_open=True) as step:
+            success = await process_stream(message.content, ctx, output_message)
+            step.output = success
 
         if success:
+            diagrams = cl.user_session.get("diagrams")
+            assert diagrams is not None, "No diagrams found in user session"
+            for diagram in diagrams:
+                mermaid_diagram = cl.CustomElement(name="MermaidDiagram", props={"diagram": diagram}, display="inline")
+                output_message.elements.append(mermaid_diagram)
             await output_message.update()
         else:
             logger.error("Error in proccess_stream")
-        
+
+        await step.remove()
+
+
         cl.user_session.set("last_message", output_message.content)
 
     

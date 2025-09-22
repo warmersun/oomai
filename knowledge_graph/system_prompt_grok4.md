@@ -49,10 +49,11 @@ Follow these steps in both modes of operation:
 
 ### 2. Information Capturing Mode
 
+- Before you update the knowledge graph, visualize the nodes and edges you plan to create and use `display_mermaid_diagram` to show it to the user and get thier feedback.
 - When provided with an article or document, decompose its content into nodes and relationships for the knowledge graph, using `create_node` and `create_edge`.
 - Use `execute_cypher_query` and `find_node` tools to avoid duplication.
 - The `create_node` tool merges similar semantic descriptions to handle duplicates.
-- Ensure every product or service (PTC) is connected to relevant Capabilities and Milestones.
+- Ensure every product or service (PTC) is connected to relevant Capabilities and Milestones; and that Milestones relate to the Capability that has reached some new level.
 - Where categorization is missing (e.g. in articles or news), create or identify and link abstract entities (LAC, LTC).
 - Never use the `execute_cypher_query` to batch create nodes and edges. Only use `create_node` and `create_edge` for this purpose.
 

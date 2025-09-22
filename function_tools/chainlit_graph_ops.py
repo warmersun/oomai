@@ -12,8 +12,13 @@ async def execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
         step.show_input = True
         step.input = {"query": query}
 
+        step_message = cl.Message(content=f"Executing Cypher query: {query}")
+        await step_message.send()
+
         output = await core_execute_cypher_query(ctx, query)
+
         step.output = output
+        await step.remove()
         return output
 
 async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str) -> str:
@@ -24,8 +29,13 @@ async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: 
         groq_client = cl.user_session.get("groq_client")
         openai_embedding_client = cl.user_session.get("openai_embedding_client")
 
+        step_message = cl.Message(content=f"Creating node: {name} of type {node_type} with description: {description}")
+        await step_message.send()
+
         output = await core_create_node(ctx, node_type, name, description, groq_client, openai_embedding_client)
+
         step.output = output
+        await step.remove()
         return output
 
 async def create_edge(
@@ -44,8 +54,12 @@ async def create_edge(
             "properties": [{"key": k, "value": v} for k, v in (properties or {}).items()],
         }
 
+        step_message = cl.Message(content=f"Creating edge between {source_name} and {target_name} with type {relationship_type} and properties {properties}")
+        await step_message.send()
+
         output = await core_create_edge(ctx, source_name, target_name, relationship_type, properties)
         step.output = output
+        await step.remove()
         return output
 
 async def find_node(
@@ -63,6 +77,17 @@ async def find_node(
         openai_embedding_client = cl.user_session.get("openai_embedding_client")
         assert openai_embedding_client is not None, "No OpenAI client found in user session"
 
+        step_message = cl.Message(content=f"Finding nodes of type {node_type} with query text {query_text} and top_k {top_k}")
+        await step_message.send()
+
         output = await core_find_node(ctx, query_text, node_type, top_k, openai_embedding_client)
+
         step.output = output
+        await step.remove()
         return output
+
+async def display_mermaid_diagram(diagram_str: str):
+    diagrams = cl.user_session.get("diagrams")
+    assert diagrams is not None, "No diagrams found in user session"
+    diagrams.append(diagram_str)
+    cl.user_session.set("diagrams", diagrams)

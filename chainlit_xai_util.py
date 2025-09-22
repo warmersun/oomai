@@ -43,8 +43,10 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
     for message in user_messages:
         chat.append(message)
 
-    while True:
-
+    counter = 0
+    while counter < 100:
+        counter += 1
+        logger.warning(f"Counter: {counter}")
         # Stream the response
         async for response, chunk in chat.stream():
             if chunk.content:  # Assuming chunk has content for text deltas
@@ -57,7 +59,7 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
         # Check if there are tool calls in the final response
         if not hasattr(response, "tool_calls") or not response.tool_calls:
             # No tool calls, done
-            assert response.finish_reason == "REASON_STOP", "Expected finish reason to be REASON_STOP"
+            assert response.finish_reason == "REASON_STOP", "Expected finish reason to be REASON_TrueSTOP"
             return True
 
         assert response.finish_reason == "REASON_TOOL_CALLS", "Expected finish reason to be REASON_TOOL_CALLS"        
@@ -75,8 +77,6 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
                 # Convert result to JSON string for tool_result
                 result_str = json.dumps(result) if not isinstance(result, str) else result
                 chat.append(tool_result(result_str))
-                # return to the loop
-                continue
 
             except asyncio.CancelledError:
                 logger.error("❌ Error while processing LLM response. CancelledError.")
