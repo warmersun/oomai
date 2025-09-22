@@ -54,6 +54,8 @@ async def get_tasks() -> dict[str, list[str]]:
     tasks_dict = cl.user_session.get('tasks', {})
     done_tasks = [title for title, task in tasks_dict.items() if task.status == cl.TaskStatus.DONE]
     planned_tasks = [title for title, task in tasks_dict.items() if task.status != cl.TaskStatus.DONE]
+    logger.warning(f"Done tasks: {done_tasks}")
+    logger.warning(f"Planned tasks: {planned_tasks}")
     return {'done': done_tasks, 'planned': planned_tasks}
 
 async def mark_task_as_done(task_title: str) -> None:

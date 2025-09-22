@@ -16,6 +16,7 @@ dependencies = [
     "groq>=0.30.0",
     "elevenlabs>=2.9.1",
     "lark>=1.2.2",
+    "mdclense>=0.1.0",
 ]
 
 [build-system]

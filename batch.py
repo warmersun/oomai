@@ -55,12 +55,12 @@ AVAILABLE_FUNCTIONS = {
 }
 
 # Function to create the response, streaming
-async def create_response(openai_client, input_data, previous_response_id=None):
+async def create_response(openai_embedding_client, input_data, previous_response_id=None):
     with open("knowledge_graph/system_prompt_batch_gpt5.md", "r") as f:
         system_prompt = f.read()
 
     kwargs = {
-        "model": "gpt-5-mini",
+        "model": "gpt-5",
         "instructions": system_prompt,
         "input": input_data,
         "tools": TOOLS,
@@ -70,10 +70,10 @@ async def create_response(openai_client, input_data, previous_response_id=None):
     }
     if previous_response_id:
         kwargs["previous_response_id"] = previous_response_id
-    return await openai_client.responses.create(**kwargs)
+    return await openai_embedding_client.responses.create(**kwargs)
 
 # Function to process the streaming response
-async def process_stream(response, ctx: GraphOpsCtx, groq_client, openai_client):
+async def process_stream(response, ctx: GraphOpsCtx, groq_client, openai_embedding_client):
     tool_calls = []
     content = ""
     reasoning = ""
@@ -143,10 +143,10 @@ async def process_stream(response, ctx: GraphOpsCtx, groq_client, openai_client)
                     # create nodes needs extra args, to have the groq and openai clients
                     if function_name == "create_node":
                         function_args["groq_client"] = groq_client
-                        function_args["openai_client"] = openai_client
+                        function_args["openai_embedding_client"] = openai_embedding_client
                     # find nodes needs extra args, to have the openai client
                     if function_name == "find_node":
-                        function_args["openai_client"] = openai_client
+                        function_args["openai_embedding_client"] = openai_embedding_client
                 except json.JSONDecodeError:
                     function_args = {}
                 if function_name in AVAILABLE_FUNCTIONS:
@@ -186,7 +186,7 @@ async def main() -> None:
     groq_client = AsyncGroq(
         api_key=GROQ_API_KEY,
     )
-    openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    openai_embedding_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
     xai_client = AsyncClient(
         api_key=XAI_API_KEY,
         timeout=3600
@@ -245,8 +245,8 @@ async def main() -> None:
         
         while error_count < 3:    
             try:
-                response = await create_response(openai_client, input_data, previous_id)
-                previous_id, needs_continue, new_input = await process_stream(response, ctx, groq_client, openai_client)
+                response = await create_response(openai_embedding_client, input_data, previous_id)
+                previous_id, needs_continue, new_input = await process_stream(response, ctx, groq_client, openai_embedding_client)
             except asyncio.CancelledError:
                 logger.error("❌ Error while processing LLM response. CamcelledError.")
             except Exception as e:

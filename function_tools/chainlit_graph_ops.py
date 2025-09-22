@@ -22,9 +22,9 @@ async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: 
         step.input = {"node_type": node_type, "name": name, "description": description}
 
         groq_client = cl.user_session.get("groq_client")
-        openai_client = cl.user_session.get("openai_client")
+        openai_embedding_client = cl.user_session.get("openai_embedding_client")
 
-        output = await core_create_node(ctx, node_type, name, description, groq_client, openai_client)
+        output = await core_create_node(ctx, node_type, name, description, groq_client, openai_embedding_client)
         step.output = output
         return output
 
@@ -60,9 +60,9 @@ async def find_node(
         step.show_input = True
         step.input = {"query_text": query_text, "node_type": node_type, "top_k": top_k}
 
-        openai_client = cl.user_session.get("openai_client")
-        assert openai_client is not None, "No OpenAI client found in user session"
+        openai_embedding_client = cl.user_session.get("openai_embedding_client")
+        assert openai_embedding_client is not None, "No OpenAI client found in user session"
 
-        output = await core_find_node(ctx, query_text, node_type, top_k, openai_client)
+        output = await core_find_node(ctx, query_text, node_type, top_k, openai_embedding_client)
         step.output = output
         return output

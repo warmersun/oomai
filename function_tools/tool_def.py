@@ -1,12 +1,13 @@
+from xai_sdk.chat import tool
+
 with open("knowledge_graph/cypher.cfg", "r") as f:
     CYPHER_CFG = f.read()
 
 
 TOOLS_DEFINITIONS = {
-    "execute_cypher_query": {
-        "type": "custom",
-        "name": "execute_cypher_query",
-        "description": """
+    "execute_cypher_query": tool(
+        name="execute_cypher_query",
+        description="""
         Executes a read-only Cypher query against a Neo4j database.
         Only supports safe, query-only operations: MATCH, OPTIONAL MATCH, UNWIND, WITH, RETURN, UNION.
         No data modification (e.g., no CREATE, MERGE, SET, DELETE, CALL procedures, or unsafe APOC procedures).
@@ -38,23 +39,27 @@ TOOLS_DEFINITIONS = {
         2. Disallowed operation: CREATE (e:EmTech {name: 'New Tech'}) (error: mutation not allowed; EmTechs are fixed).
         3. Unsafe function: CALL apoc.do.it() (error: not allow-listed).
         """,
-        "format": {
-            "type": "grammar",
-            "syntax": "lark",
-            "definition": CYPHER_CFG,
+        parameters= {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "A read-only Cypher query string to execute against the Neo4j database, following the allowed subset and guidelines."
+                }
+            },
+            "required": ["query"]
         }
-    },
-    "create_node": {
-        "type": "function",
-        "name": "create_node",
-        "description": """
+    ),
+    "create_node": tool(
+        name="create_node",
+        description="""
         Creates or updates a node in the Neo4j knowledge graph, ensuring no duplicates by checking for similar nodes based on their descriptions.
         If a similar node exists, it updates the node with a merged description. If not, it creates a new node.
         Returns the node's name ( which is guaranteed to be a unique string identifier).
         Use this tool to add or update nodes like technologies, capabilities, or parties in the graph.
         Provide the node type, a short name, and a detailed description.
         """,
-        "parameters": {
+        parameters={
             "type": "object",
             "properties": {
                 "node_type": {
@@ -72,18 +77,17 @@ TOOLS_DEFINITIONS = {
             },
             "required": ["node_type", "name", "description"],
         }
-    },
-    "create_edge": {
-        "type": "function",
-        "name": "create_edge",
-        "description": """
+    ),
+    "create_edge": tool(
+        name="create_edge",
+        description="""
         Creates or merges a directed relationship (edge) between two existing nodes in the Neo4j knowledge graph.
         If the relationship doesn't exist, it creates it; if it does, it matches the existing one.
         Use this tool to connect nodes, such as linking an emerging technology to a capability it enables.
         Provide the source and target node names, the relationship type, and optional properties for the edge.
         Returns the relationship object.
         """,
-        "parameters": {
+        parameters={
             "type": "object",
             "properties": {
                 "source_name": {
@@ -106,16 +110,15 @@ TOOLS_DEFINITIONS = {
             },
             "required": ["source_id", "target_id", "relationship_type"],
         },
-    },
-    "find_node": {
-        "type": "function",
-        "name": "find_node",
-        "description": """
+    ),
+    "find_node": tool(
+        name="find_node",
+        description="""
         Finds nodes in knowledge graph that are similar to a given query text.
         Uses vector similarity search based on node descriptions.
         Returns a list of nodes with their names, descriptions, and similarity scores.
         """,
-        "parameters": {
+        parameters={
             "type": "object",
             "properties": {
                 "query_text": {
@@ -135,45 +138,15 @@ TOOLS_DEFINITIONS = {
             },
             "required": ["query_text", "node_type"],
         },
-    },
-    "x_search": {
-        "type": "function",
-        "name": "x_search",
-        "description": """
-        Search on X and return a detailed summary.
-        """,
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "The search prompt.",
-                },
-                "included_handles": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "maxItems": 10  # Limit the array to a maximum of 10 handles,
-                    },
-                    "description": "Optional list of included X handles, limited to 10.",
-                },
-                "last_24hrs": {
-                    "type": "boolean",
-                    "description": "Optional flag to search only in the last 24 hours.",
-                }
-            },
-            "required": ["prompt"]
-        },
-    },
-    "plan_tasks": {
-        "type": "function",
-        "name": "plan_tasks",
-        "description": """
+    ),
+    "plan_tasks": tool(
+        name="plan_tasks",
+        description="""
         Completely rewrites the list of planned tasks, preserving done tasks.
         Done tasks remain unchanged and are not altered.
         The TaskList will show both DONE and planned tasks.
         """,
-        "parameters": {
+        parameters={
             "type": "object",
             "properties": {
                 "planned_tasks": {
@@ -186,27 +159,27 @@ TOOLS_DEFINITIONS = {
             },
             "required": ["planned_tasks"]
         }
-    },
-    "get_tasks": {
-        "type": "function",
-        "name": "get_tasks",
-        "description": """
+    ),
+    "get_tasks": tool(
+        name="get_tasks",
+        description="""
          Returns a dictionary with two lists: tasks that are done and planned tasks.
         Planned tasks include those in READY, RUNNING, FAILED, etc., but not DONE.
+        This function takes no input parameter.
         """,
-        "parameters": {
+        parameters={
             "type": "object",
             "properties": {},
+            "required": []
         }
-    },
-    "mark_task_as_running": {
-        "type": "function",
-        "name": "mark_task_as_running",
-        "description": """
+    ),
+    "mark_task_as_running": tool(
+        name="mark_task_as_running",
+        description="""
         Marks a task as done by updating its status to DONE, only if it's not already done.
         Does not affect done tasks. Refreshes the TaskList, which shows both DONE and planned tasks.
         """,
-        "parameters": {
+        parameters={
             "type": "object",
             "properties": {
                 "task_title": {
@@ -215,15 +188,14 @@ TOOLS_DEFINITIONS = {
             },
             "required": ["task_title"]
         },
-    },
-    "mark_task_as_done": {
-        "type": "function",
-        "name": "mark_task_as_done",
-        "description": """
+    ),
+    "mark_task_as_done": tool(
+        name="mark_task_as_done",
+        description="""
         Marks a task as running by updating its status to RUNNING, only if it's not done.
         Does not affect done tasks. Refreshes the TaskList, which shows both DONE and planned tasks.
         """,
-        "parameters": {
+        parameters={
             "type": "object",
             "properties": {
                 "task_title": {
@@ -232,5 +204,5 @@ TOOLS_DEFINITIONS = {
             },
             "required": ["task_title"]
         }
-    },
+    ),
 }

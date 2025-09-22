@@ -1,7 +1,7 @@
 from neo4j import AsyncDriver, AsyncTransaction
 from neo4j.exceptions import ClientError, CypherSyntaxError
 import json
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Tuple
 from pydantic import BaseModel
 
 from neo4j.time import Date, DateTime
@@ -10,6 +10,40 @@ from typing import Literal
 from asyncio import Lock
 import logging
 from neo4j.exceptions import ServiceUnavailable
+from lark import Lark, ParseError, UnexpectedCharacters, UnexpectedToken
+
+# Load the Cypher grammar
+with open("knowledge_graph/cypher.cfg", "r") as f:
+    CYPHER_GRAMMAR = f.read()
+
+
+def validate_cypher_query(query: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validates a Cypher query using the context-free grammar.
+    
+    Args:
+        query: The Cypher query string to validate
+        
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    try:
+        # Create Lark parser with the grammar
+        parser = Lark(CYPHER_GRAMMAR, start='start', parser='earley')
+        
+        # Parse the query - this will raise an exception if invalid
+        parser.parse(query.strip())
+        
+        return True, None  # Valid query
+        
+    except ParseError as e:
+        return False, f"Parse error: {str(e)}"
+    except UnexpectedCharacters as e:
+        return False, f"Unexpected characters at position {e.pos_in_stream}: {str(e)}"
+    except UnexpectedToken as e:
+        return False, f"Unexpected token '{e.token}' at position {e.pos_in_stream}: {str(e)}"
+    except Exception as e:
+        return False, f"Validation error: {str(e)}"
 
 
 class Neo4jDateEncoder(json.JSONEncoder):
@@ -50,8 +84,6 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
         RuntimeError: If there is an error executing the Cypher query.
     """
 
-    logging.info(f"[CYPHER_QUERY]:\n{query}")
-
     def filter_embedding(obj):
         """
         Recursively removes the 'embedding' key and converts Neo4j Date/DateTime to strings.
@@ -65,6 +97,13 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
         elif isinstance(obj, DateTime):
             return obj.iso_format()  # Convert Neo4j DateTime to ISO 8601 string (e.g., "2025-07-28T10:55:00+00:00")
         return obj
+
+    logging.info(f"[CYPHER_QUERY]:\n{query}")
+    
+    # Validate the query before execution
+    is_valid, validation_error = validate_cypher_query(query)
+    if not is_valid:
+        raise RuntimeError(f"Invalid Cypher query: {validation_error}")
 
     async with ctx.neo4jdriver.session() as session:
         
@@ -82,13 +121,13 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
             except (ClientError, CypherSyntaxError, ServiceUnavailable) as e:
                 raise RuntimeError(f"Error executing Cypher query: {str(e)}")
                 
-async def core_create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str, groq_client=None, openai_client=None) -> str:
+async def core_create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str, groq_client=None, openai_embedding_client=None) -> str:
     logging.info(f"[CREATE_NODE] TYPE: {node_type}\nNAME: {name}\n DESCRIPTION: {description}")
 
     if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
-        if groq_client is None or openai_client is None:
-            raise ValueError("groq_client and openai_client are required for smart_upsert node types")
-        return await core_smart_upsert(ctx, node_type, name, description, groq_client, openai_client)
+        if groq_client is None or openai_embedding_client is None:
+            raise ValueError("groq_client and openai_embedding_client are required for smart_upsert node types")
+        return await core_smart_upsert(ctx, node_type, name, description, groq_client, openai_embedding_client)
     elif node_type == "EmTech":
         return "Do not create new EmTech type nodes. EmTechs are reference data, use existing ones."
     else:
@@ -99,7 +138,7 @@ class CompareResult(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
 
-async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, description: str, groq_client, openai_client) -> str:
+async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, description: str, groq_client, openai_embedding_client) -> str:
     """
     Performs a smart UPSERT for a node in Neo4j.
     - Queries for similar nodes based on description embedding similarity >= 0.8 (top 100 candidates, filtered).
@@ -114,7 +153,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
 
     try:
         # Generate embedding for the new description
-        emb_response = await openai_client.embeddings.create(
+        emb_response = await openai_embedding_client.embeddings.create(
             model=EMBEDDING_MODEL,
             input=description
         )
@@ -203,7 +242,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                 )
 
                 # Generate new embedding for the updated description
-                updated_emb_response = await openai_client.embeddings.create(
+                updated_emb_response = await openai_embedding_client.embeddings.create(
                     model=EMBEDDING_MODEL,
                     input=updated_description
                 )
@@ -350,7 +389,7 @@ async def core_find_node(
         "Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"
     ],
     top_k: int = 5,
-    openai_client=None
+    openai_embedding_client=None
 ) -> list:
     """
     Finds nodes in knowledge graph that are similar to a given query text.
@@ -361,11 +400,11 @@ async def core_find_node(
 
     logging.info(f"[FIND_NODE] SIMILAR TO:\n{query_text}\nOF TYPE:\n{node_type}")
 
-    if openai_client is None:
-        raise ValueError("openai_client is required for find_node")
+    if openai_embedding_client is None:
+        raise ValueError("openai_embedding_client is required for find_node")
 
     # calculate embedding for the query text
-    emb_response = await openai_client.embeddings.create(
+    emb_response = await openai_embedding_client.embeddings.create(
         model=EMBEDDING_MODEL,
         input=query_text
     )

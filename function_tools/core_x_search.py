@@ -20,7 +20,7 @@ async def core_x_search(
         src = x_source(included_x_handles=included_handles) if included_handles else x_source()
 
     chat = xai_client.chat.create(
-        model="grok-3-mini",
+        model="grok-4-fast",
         search_parameters=SearchParameters(
             mode="on",
             sources=[src],
