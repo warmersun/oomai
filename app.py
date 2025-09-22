@@ -2,7 +2,7 @@ import os
 import json
 import chainlit as cl
 from chainlit.logger import logger
-from chainlit.input_widget import Select
+from chainlit.input_widget import Switch
 import asyncio
 import re
 from literalai.observability.filter import OrderBy
@@ -173,6 +173,19 @@ async def start():
     # locking
     message_lock = asyncio.Lock()
     cl.user_session.set("message_lock", message_lock)
+    # settings
+    settings = await cl.ChatSettings(
+        [
+            Switch(
+                id="search",
+                label="Search",
+                initial_value=False,
+                tooltip="Search on or off",
+                description="Search on X, Web and News",
+            ),
+        ]
+    ).send()
+    cl.user_session.set("search_settings", settings["search"])
     chat_profile = cl.user_session.get("chat_profile")
     if chat_profile == READ_EDIT_PROFILE:
         cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_EDIT)])
@@ -187,6 +200,9 @@ async def start():
     functions_with_ctx = ["create_node", "create_edge", "find_node", "execute_cypher_query"]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
 
+@cl.on_settings_update
+async def on_settings_update(settings):
+    cl.user_session.set("search_settings", settings["search"])
 
 @cl.on_chat_end
 async def end_chat():

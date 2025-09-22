@@ -23,6 +23,8 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
     assert function_map is not None, "No function_map found in user session"
     functions_with_ctx = cl.user_session.get("functions_with_ctx")
     assert functions_with_ctx is not None, "No functions_with_ctx found in user session"
+    search_settings = cl.user_session.get("search_settings")
+    assert search_settings is not None, "No search settings found in user session"
 
     # Append the new user input as a proper message object
     user_messages.append(user(user_input))
@@ -30,9 +32,13 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
     error_count = 0
 
     # Create chat session
+    if search_settings:
+        search_parameters = SearchParameters()
+    else:
+        search_parameters = None
     chat = xai_client.chat.create(
         model="grok-4-fast",
-        search_parameters=SearchParameters(),
+        search_parameters=search_parameters,
         tools=tools,
         tool_choice="auto"  # Assuming this is supported, based on previous example
     )

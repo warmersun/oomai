@@ -355,32 +355,84 @@ async def core_create_edge(
     prop_keys = ", ".join(f"{key}: ${key}" for key in props_dict)
     prop_str = f"{{{prop_keys}}}" if prop_keys else ""
 
-    query = (
-        "MATCH (source) WHERE source.name = $source_name "
-        "MATCH (target) WHERE target.name = $target_name "
-        f"MERGE (source)-[r:{relationship_type} {prop_str}]->(target) "
-        "RETURN r"
-    )
-    params = {"source_name": source_name, "target_name": target_name, **props_dict}
-
+    # First, verify both nodes exist
+    check_nodes_query = """
+    MATCH (source) WHERE source.name = $source_name 
+    MATCH (target) WHERE target.name = $target_name 
+    RETURN source.name as source_name, target.name as target_name
+    """
+    
     async with ctx.neo4jdriver.session() as session:
+        async def check_nodes(tx: AsyncTransaction):
+            result = await tx.run(check_nodes_query, {"source_name": source_name, "target_name": target_name})
+            records = await result.data()
+            return records
+
+        try:
+            async with ctx.lock:
+                node_check = await session.execute_read(check_nodes)
+                
+            if not node_check:
+                missing_nodes = []
+                # Check which specific nodes are missing
+                check_source_query = "MATCH (n) WHERE n.name = $source_name RETURN n.name as name"
+                check_target_query = "MATCH (n) WHERE n.name = $target_name RETURN n.name as name"
+                
+                async def check_source(tx: AsyncTransaction):
+                    result = await tx.run(check_source_query, {"source_name": source_name})
+                    return await result.data()
+                
+                async def check_target(tx: AsyncTransaction):
+                    result = await tx.run(check_target_query, {"target_name": target_name})
+                    return await result.data()
+                
+                async with ctx.lock:
+                    source_exists = await session.execute_read(check_source)
+                    target_exists = await session.execute_read(check_target)
+                
+                if not source_exists:
+                    missing_nodes.append(f"source node '{source_name}'")
+                if not target_exists:
+                    missing_nodes.append(f"target node '{target_name}'")
+                
+                raise RuntimeError(f"Cannot create edge: {', '.join(missing_nodes)} not found in database")
+                
+        except RuntimeError:
+            raise  # Re-raise our custom error
+        except Exception as e:
+            logging.error(f"Error checking nodes existence: {str(e)}")
+            raise RuntimeError(f"Failed to verify nodes exist: {str(e)}")
+
+        # Now create the edge
+        query = (
+            "MATCH (source) WHERE source.name = $source_name "
+            "MATCH (target) WHERE target.name = $target_name "
+            f"MERGE (source)-[r:{relationship_type} {prop_str}]->(target) "
+            "RETURN r"
+        )
+        params = {"source_name": source_name, "target_name": target_name, **props_dict}
+
+        logging.info(f"[CREATE_EDGE] Executing query: {query}")
+        logging.info(f"[CREATE_EDGE] With params: {params}")
 
         async def write_work(tx: AsyncTransaction):
             result = await tx.run(query, params)
             record_list = await result.data()
             record = record_list[0] if record_list else None
             if not record:
-                raise RuntimeError("Failed to create edge")
+                raise RuntimeError("Failed to create edge - no relationship returned from query")
             return record
 
-        async with ctx.lock:
-            try:
+        try:
+            async with ctx.lock:
                 edge = await session.execute_write(write_work)
-                logging.info(f"Created edge: {source_name} -> {target_name} with type: {relationship_type} and properties: {properties}")
+                logging.info(f"Successfully created edge: {source_name} -> {target_name} with type: {relationship_type} and properties: {properties}")
                 return edge
-            except Exception as e:
-                logging.error(f"Error in create_edge: {str(e)}")
-                raise RuntimeError(f"Failed to create edge: {str(e)}")
+        except Exception as e:
+            logging.error(f"Error in create_edge: {str(e)}")
+            logging.error(f"Query was: {query}")
+            logging.error(f"Params were: {params}")
+            raise RuntimeError(f"Failed to create edge: {str(e)}")
 
 async def core_find_node(
     ctx: GraphOpsCtx,
