@@ -1,6 +1,6 @@
 import chainlit as cl
 
-@cl.on_start
+@cl.on_chat_start
 async def on_start():
     # Example Mermaid diagram string (replace with your own or dynamic input)
     diagram_str = """
