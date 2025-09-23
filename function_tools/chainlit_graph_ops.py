@@ -18,7 +18,9 @@ async def execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
         output = await core_execute_cypher_query(ctx, query)
 
         step.output = output
-        await step.remove()
+        debug = cl.user_session.get("debug_settings")
+        if not debug:
+            await step.remove()
         return output
 
 async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str) -> str:
@@ -59,7 +61,9 @@ async def create_edge(
 
         output = await core_create_edge(ctx, source_name, target_name, relationship_type, properties)
         step.output = output
-        await step.remove()
+        debug = cl.user_session.get("debug_settings")
+        if not debug:
+            await step.remove()
         return output
 
 async def find_node(
@@ -83,7 +87,9 @@ async def find_node(
         output = await core_find_node(ctx, query_text, node_type, top_k, openai_embedding_client)
 
         step.output = output
-        await step.remove()
+        debug = cl.user_session.get("debug_settings")
+        if not debug:
+            await step.remove()
         return output
 
 async def display_mermaid_diagram(diagram_str: str):

@@ -89,8 +89,8 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
                 await cl.Message(content="❌ Error while processing LLM response. CancelledError", type="system_message").send()
                 return False
             except Exception as e:
-                logger.error(f"❌ Error while processing LLM response. Error: {str(e)}")
-                await cl.Message(content=f"❌ Error while processing LLM response. Error: {str(e)}", type="system_message").send()
+                logger.error(f"❌ Error while processing LLM response. Error: {str(e)}")                
                 error_count += 1
                 if error_count >= 3:
+                    await cl.Message(content=f"❌ Error while processing LLM response. Error: {str(e)}", type="system_message").send()
                     return False

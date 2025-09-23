@@ -178,9 +178,17 @@ async def start():
                 tooltip="Search on or off",
                 description="Search on X, Web and News",
             ),
+            Switch(
+                id="debug",
+                label="Debug",
+                initial_value=False,
+                tooltip="Debug on or off",
+                description="See knowledge graph usage details",
+            ),
         ]
     ).send()
     cl.user_session.set("search_settings", settings["search"])
+    cl.user_session.set("debug_settings", settings["debug"])
     chat_profile = cl.user_session.get("chat_profile")
     if chat_profile == READ_EDIT_PROFILE:
         cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_EDIT)])
@@ -198,6 +206,7 @@ async def start():
 @cl.on_settings_update
 async def on_settings_update(settings):
     cl.user_session.set("search_settings", settings["search"])
+    cl.user_session.set("debug_settings", settings["debug"])
 
 @cl.on_chat_end
 async def end_chat():
@@ -248,7 +257,9 @@ async def on_message(message: cl.Message):
         else:
             logger.error("Error in proccess_stream")
 
-        await step.remove()
+        debug = cl.user_session.get("debug_settings")
+        if not debug:
+            await step.remove()
 
 
         cl.user_session.set("last_message", output_message.content)
