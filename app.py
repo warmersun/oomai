@@ -35,15 +35,10 @@ from function_tools import (
     TOOLS_DEFINITIONS,
 )
 from chainlit_xai_util import process_stream
-
+from utils import Neo4jDateEncoder
 
 from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, BRAVE_SEARCH_API_KEY, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
 
-class Neo4jDateEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, (Date, DateTime)):
-            return o.iso_format()  # Convert Neo4j Date/DateTime to ISO 8601 string
-        return super().default(o)
 
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()

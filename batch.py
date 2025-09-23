@@ -7,7 +7,8 @@ from neo4j import AsyncGraphDatabase
 from openai import AsyncOpenAI
 from groq import AsyncGroq
 from xai_sdk import AsyncClient
-from neo4j.time import Date, DateTime
+from xai_sdk.chat import user, system, assistant, tool_result
+from xai_sdk.search import SearchParameters, x_source, rss_source
 # tools
 from function_tools import (
     core_execute_cypher_query,
@@ -15,22 +16,16 @@ from function_tools import (
     core_create_edge,
     core_find_node,
     GraphOpsCtx,
-    core_x_search,
     TOOLS_DEFINITIONS,
 )
 from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
+from utils import Neo4jDateEncoder
 
 
 logging.basicConfig(level=logging.WARNING)
 
 logger = logging.getLogger('kg_batch')
 logger.setLevel(logging.INFO)
-
-class Neo4jDateEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, (Date, DateTime)):
-            return o.iso_format()  # Convert Neo4j Date/DateTime to ISO 8601 string
-        return super().default(o)
 
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
@@ -44,7 +39,6 @@ TOOLS = [
     TOOLS_DEFINITIONS["create_node"],
     TOOLS_DEFINITIONS["create_edge"],
     TOOLS_DEFINITIONS["find_node"],
-    {"type": "web_search_preview", "search_context_size":"high"},
 ]
 
 AVAILABLE_FUNCTIONS = {
@@ -55,132 +49,79 @@ AVAILABLE_FUNCTIONS = {
 }
 
 # Function to create the response, streaming
-async def create_response(openai_embedding_client, input_data, previous_response_id=None):
-    with open("knowledge_graph/system_prompt_batch_gpt5.md", "r") as f:
-        system_prompt = f.read()
+def create_response(xai_client, prompt: str, search_parameters=None):
+    with open("knowledge_graph/system_prompt_batch_grok4.md", "r") as f:
+        system_prompt_template = f.read()
+    system_prompt = system_prompt_template.format(schema=schema)
 
-    kwargs = {
-        "model": "gpt-5",
-        "instructions": system_prompt,
-        "input": input_data,
-        "tools": TOOLS,
-        "stream": True,
-        "reasoning": {"effort": "high"},
-        "safety_identifier": "kg_batch",
-    }
-    if previous_response_id:
-        kwargs["previous_response_id"] = previous_response_id
-    return await openai_embedding_client.responses.create(**kwargs)
+    chat = xai_client.chat.create(
+        model="grok-4-fast",
+        search_parameters=search_parameters,
+        tools=TOOLS,
+        tool_choice="auto"
+    )
+    # Add system message
+    chat.append(system(system_prompt))
+    chat.append(user(prompt))
+    return chat
 
-# Function to process the streaming response
-async def process_stream(response, ctx: GraphOpsCtx, groq_client, openai_embedding_client):
-    tool_calls = []
-    content = ""
-    reasoning = ""
-    response_id = None
-    current_tool = None
-    output_message = ""
-    
-    async for event in response:
-        if event.type == "response.created":
-            response_id = event.response.id
-        elif event.type == "response.output_item.added":
-            item = event.item
-            if item.type == "function_call":
-                current_tool = {
-                    "id": item.call_id,
-                    "type": "function",
-                    "function": {
-                        "name": item.name,
-                        "arguments": "",
-                    }
-                }
-                tool_calls.append(current_tool)
-            elif item.type == "custom_tool_call":
-                current_tool = {
-                    "id": item.call_id,
-                    "type": "custom_tool",
-                    "name": item.name,
-                    "input": item.input,
-                }
-                tool_calls.append(current_tool)
-        elif event.type == "response.function_call_arguments.delta":
-            if current_tool:
-                current_tool["function"]["arguments"] += event.delta
-        elif event.type == "response.custom_tool_call_input.delta":
-            if current_tool:
-                current_tool["input"] += event.delta
-        elif event.type == "response.output_text.delta":
-            content += event.delta
-            output_message += event.delta
-        elif event.type == "response.reasoning_summary.delta":
-            reasoning += event.delta
-            output_message += "\nReasoning: " + event.delta
-        elif event.type == "response.web_search_call.searching":
-            logger.info("Searching the web...")
-        elif event.type == "response.web_search_call.completed":
-            pass
-        elif event.type == "response.done":
-            pass  # Can check finish_reason here if needed
-    if tool_calls:
-        new_input = []
-        for tool_call in tool_calls:
-            if tool_call["type"] == "custom_tool":
-                # custom tool call
-                if tool_call["name"] == "execute_cypher_query":
-                    function_response = await core_execute_cypher_query(ctx, tool_call["input"])
-                    new_input.append({
-                        "type": "function_call_output",
-                        "call_id": tool_call["id"],
-                        "output":  json.dumps(function_response, cls=Neo4jDateEncoder),
-                    })
+# Function to process the chat - no streaming needed
+async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client):
+    error_count = 0
+    counter = 0
+
+    while counter < 100:
+        counter += 1
+        logger.warning(f"Counter: {counter}")
+        response = await chat.sample()
+
+        if not hasattr(response, "tool_calls") or not response.tool_calls:
+            if response.finish_reason == "REASON_STOP":
+                logger.info(f"[OUTPUT MESSAGE] {response.content}")
+                return
             else:
-                function_name = tool_call["function"]["name"]
-                try:
-                    function_args = json.loads(tool_call["function"]["arguments"])
-                    if function_name in ["create_node", "create_edge", "find_node"]:
-                        function_args = {"ctx": ctx, **function_args}
-                    # create nodes needs extra args, to have the groq and openai clients
-                    if function_name == "create_node":
-                        function_args["groq_client"] = groq_client
-                        function_args["openai_embedding_client"] = openai_embedding_client
-                    # find nodes needs extra args, to have the openai client
-                    if function_name == "find_node":
-                        function_args["openai_embedding_client"] = openai_embedding_client
-                except json.JSONDecodeError:
-                    function_args = {}
-                if function_name in AVAILABLE_FUNCTIONS:
-                    try:
-                        function_response = await AVAILABLE_FUNCTIONS[function_name](**function_args)
-                        new_input.append({
-                            "type": "function_call_output",
-                            "call_id": tool_call["id"],
-                            "output":  json.dumps(function_response, cls=Neo4jDateEncoder),
-                        })
-                    except Exception as e:
-                        logger.error(f"Error calling function {function_name}: {str(e)}")
-                        new_input.append({
-                            "type": "function_call_output",
-                            "call_id": tool_call["id"],
-                            "output":  json.dumps({"error": str(e)}),
-                        })
-                        raise e
-                        
-            logger.info(f"[OUTPUT MESSAGE] {output_message}")
-        return response_id, True, new_input
-    else:
-        if reasoning:
-            output_message += "\nFull Reasoning Summary: " + reasoning
-        logger.info(f"[OUTPUT MESSAGE] {output_message}")
-        return response_id, False, None
+                logger.warning(f"Unexpected finish reason: {response.finish_reason}")
+                return
+
+        assert response.finish_reason == "REASON_TOOL_CALLS", f"Expected finish reason to be REASON_TOOL_CALLS, got {response.finish_reason}"
+        chat.append(response)
+
+        for tool_call in response.tool_calls:
+            try:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments)
+                if function_name in ["create_node", "create_edge", "find_node", "execute_cypher_query"]:
+                    function_args = {"ctx": ctx, **function_args}
+                # create nodes needs extra args, to have the groq and openai clients
+                if function_name == "create_node":
+                    function_args["groq_client"] = groq_client
+                    function_args["openai_embedding_client"] = openai_embedding_client
+                # find nodes needs extra args, to have the openai client
+                if function_name == "find_node":
+                    function_args["openai_embedding_client"] = openai_embedding_client
+
+                result = await AVAILABLE_FUNCTIONS[function_name](**function_args)
+
+                # Convert result to JSON string for tool_result
+                result_str = json.dumps(result, cls=Neo4jDateEncoder)
+                chat.append(tool_result(result_str))
+
+            except Exception as e:
+                logger.error(f"Error while processing tool call {function_name}: {str(e)}")
+                error_count += 1
+                if error_count >= 3:
+                    raise e
+                # Add error result
+                chat.append(tool_result(json.dumps({"error": str(e)})))
+                break
 
 async def main() -> None:
     neo4jdriver = AsyncGraphDatabase.driver(
         NEO4J_URI,
         auth=(NEO4J_USERNAME, NEO4J_PASSWORD),
         liveness_check_timeout=0,
-        max_connection_lifetime=2700,
-        # keep_alive=False,
+        max_connection_lifetime=30,
+        max_connection_pool_size=5,
     )
     await neo4jdriver.verify_connectivity()
     groq_client = AsyncGroq(
@@ -195,72 +136,42 @@ async def main() -> None:
     with open("knowledge_graph/batch_sources.yaml", "r") as f:
         config = yaml.safe_load(f)
 
-    with open("knowledge_graph/schema.md", "r") as f:
-        schema = f.read()
-    
-    with open("knowledge_graph/system_prompt_batch_extract_grok3.md", "r") as f:
-        system_prompt_batch_extract_grok3 = f.read().format(schema=schema)
-
     for source in config.get("sources", []):
         prompt = source.get("prompt", "Do nothing, just say 'No insttuctions given!'")
-        
+
         logger.info(f"Processing {source.get('name')}")
 
-        extract_for_kg = None
+        # Create search parameters based on source type
+        search_parameters = None
         if source.get("source_type") == "RSS" and "url" in source:
-            extract_for_kg = await core_x_search(
-                xai_client=xai_client, 
-                prompt=prompt, 
-                rss_url=source.get("url"),
-                last_24hrs=True,
-                system_prompt=system_prompt_batch_extract_grok3)
+            from datetime import datetime, timedelta
+            search_parameters = SearchParameters(
+                mode="on",
+                sources=[rss_source([source.get("url")])],
+                from_date=datetime.today() - timedelta(days=1)
+            )
         elif source.get("source_type") == "X" and "handles" in source:
-            extract_for_kg = await core_x_search(
-                xai_client=xai_client, 
-                prompt=prompt, 
-                included_handles=source.get("handles", []),
-                last_24hrs=True,
-                system_prompt=system_prompt_batch_extract_grok3)
+            from datetime import datetime, timedelta
+            search_parameters = SearchParameters(
+                mode="on",
+                sources=[x_source(included_x_handles=source.get("handles", []))],
+                from_date=datetime.today() - timedelta(days=1)
+            )
         else:
             logger.error(f"Unknown source type: {source.get('source_type')} or missing required parameters")
-        assert extract_for_kg is not None, "Failed to extract for KG"
-        logger.info(f"Processed {source.get('name')}:\n{extract_for_kg}")
+            continue
 
-        logger.info("Now processing the extracted content into the knowledge graph.")
+        logger.info("Now processing content from sources into the knowledge graph using Grok-4-fast with built-in search.")
 
-        
         lock = asyncio.Lock()
         ctx = GraphOpsCtx(neo4jdriver, lock)
 
-        previous_id = None
-        input_data = [
-            {
-                "role": "user",
-                "content": extract_for_kg
-            }
-        ]
-        needs_continue = False
-        new_input = None
-        error_count = 0
-        
-        while error_count < 3:    
-            try:
-                response = await create_response(openai_embedding_client, input_data, previous_id)
-                previous_id, needs_continue, new_input = await process_stream(response, ctx, groq_client, openai_embedding_client)
-            except asyncio.CancelledError:
-                logger.error("❌ Error while processing LLM response. CamcelledError.")
-            except Exception as e:
-                logger.error(f"❌ Error while processing LLM response. Error: {str(e)}")
-                error_count += 1
+        try:
+            chat = create_response(xai_client, prompt, search_parameters)
+            await process(chat, ctx, groq_client, openai_embedding_client)
+        except Exception as e:
+            logger.error(f"❌ Error while processing {source.get('name')}: {str(e)}")
 
-            if not needs_continue:
-                break
-            if new_input is not None:
-                input_data = new_input
-
-        if error_count >= 3:
-            logger.error("❌ Too many errors. I've tried and retried. I'll never give up... just taking a break now.")
-            
     await neo4jdriver.close()
     logger.info("Batch processing completed.")
 
