@@ -257,6 +257,7 @@ async def on_message(message: cl.Message):
             await output_message.update()
         else:
             logger.error("Error in proccess_stream")
+            await cl.Message(content="❌ Error while Processing LLM reposonse.", type="system_message").send()
 
         debug = cl.user_session.get("debug_settings")
         if not debug:

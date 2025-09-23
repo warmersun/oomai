@@ -94,3 +94,6 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
                 if error_count >= 3:
                     await cl.Message(content=f"❌ Error while processing LLM response. Error: {str(e)}", type="system_message").send()
                     return False
+                # else - if we didn't return
+                chat.append(tool_result(json.dumps({"error": str(e)})))
+                break

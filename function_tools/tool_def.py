@@ -55,7 +55,7 @@ TOOLS_DEFINITIONS = {
         description="""
         Creates or updates a node in the Neo4j knowledge graph, ensuring no duplicates by checking for similar nodes based on their descriptions.
         If a similar node exists, it updates the node with a merged description. If not, it creates a new node.
-        Returns the node's name ( which is guaranteed to be a unique string identifier).
+        Returns the node's name ( which is guaranteed to be a unique string identifier and may be different from the provided name).
         Use this tool to add or update nodes like technologies, capabilities, or parties in the graph.
         Provide the node type, a short name, and a detailed description.
         """,
