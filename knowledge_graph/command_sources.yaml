@@ -1,13 +1,45 @@
 commands:
   books:
     icon: book
-    description: Capture ideas from a boook.
-    template: "Capture ideas from this preprocessed book in the knowledge graph. Make sure to relate them to existing ideas and concepts."
+    description: "Capture ideas from a boook summary:"
+    template: |
+      Capture ideas from this preprocessed book in the knowledge graph.
+      Make sure to relate them to existing ideas and concepts.
+      ---
+      {user_input}
+
   articles:
     icon: newspaper
-    description: Capture ideas from an article.
-    template: "Capture ideas from this article in the knowledge graph. Make sure to relate them to existing ideas and concepts."
+    description: "Capture ideas from article:"
+    template: |
+      Capture ideas from the article in the knowledge graph.
+      Make sure to relate them to existing ideas and concepts.
+      ---
+      {user_input}
+
   link:
     icon: link-2
-    description: Capture ideas from a URL.
-    template: "Visit the URL and process the contents. Extract informaiton and capture it the knowledge graph. Make sure to relate new nodes to existing ones."
+    description: "Capture ideas from URL:"
+    template: |
+      Visit the following URL: {user_input}.
+      Pprocess the contents. 
+      Extract information and capture it the knowledge graph. Make sure to relate new nodes to existing ones.
+  trend:
+    icon: trending-up
+    description: "Spot a trend related to..."
+    template: |
+      Query the knowledge graph for capabilities and milestones related to {user_input}. 
+      Look at milestones over time. Look at new capabilities emerging and the use cases they unlock. 
+      Identify the trend and capture it in the knowledge graph.
+      Trends are explanations of what we observe.
+      Checklist for Validating Explanations:
+      - **Hard to Vary (Core Criterion)**: Is the explanation tightly constrained by the problem it addresses? Can you easily alter details (e.g., swap gods in a myth or arbitrary parameters) without changing its predictions or fit? Good explanations resist such variations; bad ones allow many equivalent variants.
+      - **Explanatory Depth**: Does it explain *why* things are as they are in reality, beyond mere predictions or descriptions? It should address underlying mechanisms, not just patterns or "what happens." Avoids being a rule of thumb or prediction without interpretation.
+      - **Testability and Falsifiability**: Does it make specific, risky predictions that could be refuted by observation or experiment? Mere compatibility with data isn't enough; it must be refutable in principle.
+      - **Avoids Induction and Empiricism Flaws**: Does it rely on "deriving" from repeated experiences or assuming the future resembles the past without explanation? Good explanations are conjectural, not induced; they use experience to test, not source, ideas.
+      - **Fallibilism and Criticism**: Acknowledges potential flaws and invites criticism? It shouldn't claim certainty or justification from authority; knowledge is tentative and improvable.
+      - **Objective Reality Focus**: Describes what is *really* out there (e.g., stars as nuclear furnaces, not just dots in the sky)? Rejects instrumentalism (explanations as mere tools for prediction) and relativism (no objective truth).
+      - **No Parochialism or Anthropocentrism**: Avoids narrow, human-centered assumptions (e.g., the universe is tuned for us) without broader explanatory power. Considers cosmic-scale reach and universality.
+      - **Logical Consistency and No Fallacies**: Free from fallacies like justificationism (seeking authority for truth), relativism (truth is subjective), or bad philosophy (e.g., supernatural appeals without testability)?
+      - **Reach and Universality**: Does it have broad implications or apply universally? Good explanations often jump to universality, explaining more than intended without ad-hoc adjustments.
+      - **Creativity and Progress Potential**: Originates from conjecture and criticism? Contributes to unbounded knowledge growth, not stagnation?

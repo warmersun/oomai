@@ -359,6 +359,6 @@ def _process_command(message: cl.Message) -> str:
     if message.command:
         if message.command in COMMAND_DATA:
             template = COMMAND_DATA[message.command]['template']
-            return template + message.content
+            return template.format(user_input=message.content)
     return message.content
     
