@@ -200,6 +200,7 @@ async def start():
         cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_READONLY)])
         cl.user_session.set("tools", TOOLS_READONLY)
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
+        await cl.context.emitter.set_commands([])
     functions_with_ctx = ["create_node", "create_edge", "find_node", "execute_cypher_query"]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
 
