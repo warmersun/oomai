@@ -53,6 +53,27 @@ with open("knowledge_graph/command_sources.yaml", "r") as f:
     config = yaml.safe_load(f)
 COMMAND_DATA = config['commands']
 
+# Create filtered command lists based on mode flags in YAML
+commands_edit = [
+    {
+        "id": command_id,
+        "icon": data['icon'],
+        "description": data['description']
+    }
+    for command_id, data in COMMAND_DATA.items()
+    if 'edit' in data.get('modes', [])
+]
+
+commands_readonly = [
+    {
+        "id": command_id,
+        "icon": data['icon'],
+        "description": data['description']
+    }
+    for command_id, data in COMMAND_DATA.items()
+    if 'readonly' in data.get('modes', [])
+]
+
 # Define the tools (functions) - flattened structure for Responses API
 TOOLS_EDIT = [
     TOOLS_DEFINITIONS["execute_cypher_query"],
@@ -99,14 +120,6 @@ AVAILABLE_FUNCTIONS_READONLY = {
 READ_ONLY_PROFILE = "Read-Only"
 READ_EDIT_PROFILE = "Read/Edit"
 
-commands = [
-    {
-        "id": command_id,
-        "icon": data['icon'],
-        "description": data['description']
-    }
-    for command_id, data in COMMAND_DATA.items()
-]
 
 @cl.set_chat_profiles
 async def set_chat_profile(current_user: cl.User):
@@ -195,12 +208,12 @@ async def start():
         cl.user_session.set("tools", TOOLS_EDIT)
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_EDIT)
         # only edit mode has commands
-        await cl.context.emitter.set_commands(commands)
+        await cl.context.emitter.set_commands(commands_edit)
     else:
         cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_READONLY)])
         cl.user_session.set("tools", TOOLS_READONLY)
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
-        await cl.context.emitter.set_commands([])
+        await cl.context.emitter.set_commands(commands_readonly)
     functions_with_ctx = ["create_node", "create_edge", "find_node", "execute_cypher_query"]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
 

@@ -1,32 +1,39 @@
 commands:
-  books:
+  book:
     icon: book
     description: "Capture ideas from a boook summary:"
+    modes: [edit]
     template: |
       Capture ideas from this preprocessed book in the knowledge graph.
       Make sure to relate them to existing ideas and concepts.
+      There is no need to ask for confirmation, but you can use `display_mermaid_diagram` tool to show the nodes and edges added.
       ---
       {user_input}
 
   articles:
     icon: newspaper
     description: "Capture ideas from article:"
+    modes: [edit]
     template: |
       Capture ideas from the article in the knowledge graph.
       Make sure to relate them to existing ideas and concepts.
+      There is no need to ask for confirmation, but you can use `display_mermaid_diagram` tool to show the nodes and edges added.
       ---
       {user_input}
 
   link:
     icon: link-2
     description: "Capture ideas from URL:"
+    modes: [edit]
     template: |
       Visit the following URL: {user_input}.
       Pprocess the contents. 
       Extract information and capture it the knowledge graph. Make sure to relate new nodes to existing ones.
+      There is no need to ask for confirmation, but you can use `display_mermaid_diagram` tool to show the nodes and edges added.
   trend:
     icon: trending-up
     description: "Spot a trend related to..."
+    modes: [edit, readonly]
     template: |
       Query the knowledge graph for capabilities and milestones related to {user_input}. 
       Look at milestones over time. Look at new capabilities emerging and the use cases they unlock. 
@@ -46,6 +53,7 @@ commands:
   check:
     icon: check-check
     description: "Check if the prediction is valid:"
+    modes: [edit, readonly]
     template: |
       Search the knowledge graph for an idea or trend related to the following:
       {user_input}
