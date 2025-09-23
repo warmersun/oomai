@@ -43,3 +43,11 @@ commands:
       - **Logical Consistency and No Fallacies**: Free from fallacies like justificationism (seeking authority for truth), relativism (truth is subjective), or bad philosophy (e.g., supernatural appeals without testability)?
       - **Reach and Universality**: Does it have broad implications or apply universally? Good explanations often jump to universality, explaining more than intended without ad-hoc adjustments.
       - **Creativity and Progress Potential**: Originates from conjecture and criticism? Contributes to unbounded knowledge growth, not stagnation?
+  check:
+    icon: check-check
+    description: "Check if the prediction is valid:"
+    template: |
+      Search the knowledge graph for an idea or trend related to the following:
+      {user_input}
+      Check if the prediction is valid.
+      Look for related capabilities, use cases, milestones, use cases (LAC), products (PTC), implementations, solutions (PAC).
