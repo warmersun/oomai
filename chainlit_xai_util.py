@@ -65,7 +65,7 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
         # Check if there are tool calls in the final response
         if not hasattr(response, "tool_calls") or not response.tool_calls:
             # No tool calls, done
-            assert response.finish_reason == "REASON_STOP", "Expected finish reason to be REASON_TrueSTOP"
+            assert response.finish_reason == "REASON_STOP", "Expected finish reason to be REASON_STOP"
             return True
 
         assert response.finish_reason == "REASON_TOOL_CALLS", "Expected finish reason to be REASON_TOOL_CALLS"        

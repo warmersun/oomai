@@ -76,12 +76,8 @@ async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client):
         response = await chat.sample()
 
         if not hasattr(response, "tool_calls") or not response.tool_calls:
-            if response.finish_reason == "REASON_STOP":
-                logger.info(f"[OUTPUT MESSAGE] {response.content}")
-                return
-            else:
-                logger.warning(f"Unexpected finish reason: {response.finish_reason}")
-                return
+            assert response.finish_reason == "REASON_STOP", "Expected finish reason to be REASON_STOP"
+            return
 
         assert response.finish_reason == "REASON_TOOL_CALLS", f"Expected finish reason to be REASON_TOOL_CALLS, got {response.finish_reason}"
         chat.append(response)
