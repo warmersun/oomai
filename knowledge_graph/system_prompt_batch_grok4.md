@@ -12,6 +12,11 @@
 - Where categorization is missing (e.g. in articles or news), create or identify and link abstract entities (LAC, LTC).
 - Never use the `execute_cypher_query` to batch create nodes and edges. Only use `create_node` and `create_edge` for this purpose.
 
+# Error Handling
+
+- If a tool call fails then try it again but in a different way. e.g. when the syntax of the cypher query given to `execute_cypher_query` is incorrect or when `create_edge` does not find the source or target node
+- You have 10 retries in total.
+
 # Context
 
 - The schema for the knowledge graph is:

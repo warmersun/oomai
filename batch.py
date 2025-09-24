@@ -74,6 +74,7 @@ async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client):
         counter += 1
         logger.warning(f"Counter: {counter}")
         response = await chat.sample()
+        logger.info("Response received.")
 
         if not hasattr(response, "tool_calls") or not response.tool_calls:
             assert response.finish_reason == "REASON_STOP", "Expected finish reason to be REASON_STOP"
@@ -105,7 +106,7 @@ async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client):
             except Exception as e:
                 logger.error(f"Error while processing tool call {function_name}: {str(e)}")
                 error_count += 1
-                if error_count >= 3:
+                if error_count >= 10:
                     raise e
                 # Add error result
                 chat.append(tool_result(json.dumps({"error": str(e)})))
@@ -135,7 +136,7 @@ async def main() -> None:
     for source in config.get("sources", []):
         prompt = source.get("prompt", "Do nothing, just say 'No insttuctions given!'")
 
-        logger.info(f"Processing {source.get('name')}")
+        logger.info(f"\n\nProcessing {source.get('name')}")
 
         # Create search parameters based on source type
         search_parameters = None
@@ -157,19 +158,19 @@ async def main() -> None:
             logger.error(f"Unknown source type: {source.get('source_type')} or missing required parameters")
             continue
 
-        logger.info("Now processing content from sources into the knowledge graph using Grok-4-fast with built-in search.")
-
         lock = asyncio.Lock()
         ctx = GraphOpsCtx(neo4jdriver, lock)
 
         try:
+            logger.info("Now processing content from sources into the knowledge graph using Grok-4-fast with built-in search.")
             chat = create_response(xai_client, prompt, search_parameters)
             await process(chat, ctx, groq_client, openai_embedding_client)
+            logger.info(f"✅ Processed {source.get('name')} successfully.")
         except Exception as e:
             logger.error(f"❌ Error while processing {source.get('name')}: {str(e)}")
 
     await neo4jdriver.close()
-    logger.info("Batch processing completed.")
+    logger.info("\n\nBatch processing completed.")
 
 if __name__ == "__main__":
     asyncio.run(main())
