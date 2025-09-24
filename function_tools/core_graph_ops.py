@@ -237,7 +237,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
             if found_same_name:
                 logging.info(
                     f"[CREATE_NODE] Found semantically equivalent node to: {name}; "
-                    f"updating the node with name: {updated_name}" 
+                    f"updating the node with name: {updated_name} " 
                     f"and description: {updated_description}"
                 )
 
