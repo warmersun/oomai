@@ -46,10 +46,12 @@ Follow these steps:
 
 # Context
 
-- The schema for the knowledge graph is:
-  {schema}
 - Write Cypher queries with explicit node labels and relationship types for clarity.
 - Limit the number of results for each query.
+- The schema for the knowledge graph is:
+
+  {schema}
+
 
 # Output Format
 
@@ -63,3 +65,4 @@ Follow these steps:
 # Stop Conditions
 
 - Consider the task complete when you have provided a thorough, user-centered answer or have captured all relevant information into the knowledge graph.
+- Check if you still have any planned tasks left that you can perform before you wait for the user's response. Either carry these out or update the plan if they are no longer relevant.
