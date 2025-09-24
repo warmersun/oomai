@@ -55,7 +55,25 @@ commands:
     description: "Check if the prediction is valid:"
     modes: [edit, readonly]
     template: |
-      Search the knowledge graph for an idea or trend related to the following:
-      {user_input}
+      Search the knowledge graph for an idea or trend related to {user_input}
       Check if the prediction is valid.
       Look for related capabilities, use cases, milestones, use cases (LAC), products (PTC), implementations, solutions (PAC).
+  map:
+    icon: map
+    description: "Map ideas, and predictions to..."
+    modes: [edit, readonly]
+    template: |
+      Find ideas and trends related to {user_input}
+      Are what we are observing now in line with the ideas, spottend trends, predictions?
+      Go at length on ideas and predictions, including the parties these come from.
+      Do a deep dive on trends: what is the timline of milestones that we are observing?  
+      For those milestones what were similar applications (LAC, PAC), use cases (LAC)?
+      With what  products (PTC), in what what product categories (LTC) were these milestones reached?
+      Is the {user_input} in line with the ideas, spottend trends, predictions or is it an outlier?
+  tool:
+    icon: wrench
+    description: "find toolset for:"
+    modes: [edit, readonly]
+    template: |
+      Find toolset for {user_input}
+      Work backwards. Find LAC, and PAC and then traverse the knowledge graph back to capabilities, LTC, PTC and EmTech.
