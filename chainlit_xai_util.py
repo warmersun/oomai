@@ -9,10 +9,8 @@ import asyncio
 
 async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) -> bool:
     # Retrieve from session
-    user_messages = cl.user_session.get("user_messages")
-    assert user_messages is not None, "No user messages found in user session"
-    assistant_messages = cl.user_session.get("assistant_messages")
-    assert assistant_messages is not None, "No assistant messages found in user session"
+    user_and_assistant_messages = cl.user_session.get("user_and_assistant_messages")
+    assert user_and_assistant_messages is not None, "No user and assistant messages found in user session"
     system_messages = cl.user_session.get("system_messages")
     assert system_messages is not None, "No system messages found in user session"
     tools = cl.user_session.get("tools")
@@ -27,7 +25,7 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
     assert search_settings is not None, "No search settings found in user session"
 
     # Append the new user input as a proper message object
-    user_messages.append(user(user_input))
+    user_and_assistant_messages.append(user(user_input))
 
     error_count = 0
 
@@ -44,9 +42,7 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
     )
     for message in system_messages:
         chat.append(message)
-    for message in assistant_messages:
-        chat.append(message)
-    for message in user_messages:
+    for message in user_and_assistant_messages:
         chat.append(message)
 
     counter = 0
@@ -59,8 +55,8 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
                 text_chunk = chunk.content
                 await output_message.stream_token(text_chunk)  # Stream to output
 
-        # After streaming, append the full assistant content to assistant_messages
-        assistant_messages.append(assistant(response.content))
+        # After streaming, append the full assistant content
+        user_and_assistant_messages.append(assistant(response.content))
 
         # Check if there are tool calls in the final response
         if not hasattr(response, "tool_calls") or not response.tool_calls:

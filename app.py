@@ -162,8 +162,7 @@ async def _neo4j_disconnect():
       
 @cl.on_chat_start
 async def start():    
-    cl.user_session.set("user_messages", [])
-    cl.user_session.set("assistant_messages", [])
+    cl.user_session.set("user_and_assistant_messages", [])
     await _neo4j_connect()
     groq_client = AsyncGroq(
         api_key=GROQ_API_KEY,
