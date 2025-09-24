@@ -75,7 +75,7 @@ An emerging technology enables a capability. Technology can be thought of as tak
 ### REACHES
 (:PTC)-[:REACHES]->(:Milestone)
 
-As a capability progresses, there are measurable milestones. For example, a Large Language Model has a context window. When a particular LLM, such as Google Gemini 15 Pro, reaches a 1M token context window, that is a milestone because it unlocks new use cases and new kinds of applications.  
+As a capability progresses, there are measurable milestones. For example, a Large Language Model has a context window. When a particular LLM, such as Google Gemini 1.5 Pro, reaches a 1M token context window, that is a milestone because it unlocks new use cases and new kinds of applications.  
 
 (:PAC)-[:REACHES]->(:Milestone)
 
