@@ -1,4 +1,4 @@
-run = "unset DATABASE_URL; chainlit run app_gpt5.py"
+run = "unset DATABASE_URL; chainlit run app.py"
 entrypoint = "app.py"
 modules = ["nodejs-20", "python-3.11"]
 
@@ -13,7 +13,7 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["sh", "-c", "unset DATABASE_URL; chainlit run app_gpt5.py"]
+run = ["sh", "-c", "unset DATABASE_URL; chainlit run app.py"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
