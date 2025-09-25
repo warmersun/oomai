@@ -2,20 +2,163 @@ import { useEffect, useState } from 'react';
 
 export default function MermaidDiagram() {
   const [svg, setSvg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
-  useEffect(() => {
+  // Basic syntax validation for common Mermaid errors
+  const validateMermaidSyntax = (diagramText) => {
+    if (!diagramText || typeof diagramText !== 'string') {
+      return { isValid: false, error: 'Diagram text is required and must be a string' };
+    }
+
+    const trimmed = diagramText.trim();
+    if (trimmed.length === 0) {
+      return { isValid: false, error: 'Diagram text cannot be empty' };
+    }
+
+    // Check for common syntax issues
+    const commonErrors = [
+      { pattern: /graph\s*$/i, error: 'Graph definition is incomplete - missing direction (TD, LR, etc.)' },
+      { pattern: /flowchart\s*$/i, error: 'Flowchart definition is incomplete - missing direction (TD, LR, etc.)' },
+      { pattern: /sequenceDiagram\s*$/i, error: 'Sequence diagram is incomplete - missing participants or interactions' },
+      { pattern: /classDiagram\s*$/i, error: 'Class diagram is incomplete - missing class definitions' },
+      { pattern: /stateDiagram\s*$/i, error: 'State diagram is incomplete - missing states or transitions' },
+      { pattern: /erDiagram\s*$/i, error: 'ER diagram is incomplete - missing entities or relationships' },
+      { pattern: /gantt\s*$/i, error: 'Gantt chart is incomplete - missing tasks or dates' },
+      { pattern: /pie\s*$/i, error: 'Pie chart is incomplete - missing data' },
+      { pattern: /gitgraph\s*$/i, error: 'Git graph is incomplete - missing commits or branches' },
+      { pattern: /journey\s*$/i, error: 'User journey is incomplete - missing steps' },
+      { pattern: /mindmap\s*$/i, error: 'Mind map is incomplete - missing nodes' },
+      { pattern: /timeline\s*$/i, error: 'Timeline is incomplete - missing events' },
+    ];
+
+    for (const { pattern, error } of commonErrors) {
+      if (pattern.test(trimmed)) {
+        return { isValid: false, error };
+      }
+    }
+
+    // Check for unmatched brackets/parentheses
+    const openBrackets = (trimmed.match(/\[/g) || []).length;
+    const closeBrackets = (trimmed.match(/\]/g) || []).length;
+    if (openBrackets !== closeBrackets) {
+      return { isValid: false, error: 'Unmatched square brackets in diagram syntax' };
+    }
+
+    const openParens = (trimmed.match(/\(/g) || []).length;
+    const closeParens = (trimmed.match(/\)/g) || []).length;
+    if (openParens !== closeParens) {
+      return { isValid: false, error: 'Unmatched parentheses in diagram syntax' };
+    }
+
+    return { isValid: true };
+  };
+
+  const renderDiagram = async (diagramText, retryAttempt = 0) => {
     if (!window.mermaid) {
-      console.error('Mermaid not loaded');
+      setError('Mermaid library is not loaded. Please refresh the page and try again.');
       return;
     }
 
-    const uniqueId = 'mermaid-' + Math.random().toString(36).substr(2, 9);
-    window.mermaid.render(uniqueId, props.diagram)
-      .then(({ svg }) => setSvg(svg))
-      .catch((err) => console.error('Mermaid render error:', err));
+    if (!diagramText) {
+      setError('No diagram provided');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    // Validate syntax before attempting to render
+    const validation = validateMermaidSyntax(diagramText);
+    if (!validation.isValid) {
+      setError(validation.error);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Configure MermaidJS globally to suppress error rendering
+      window.mermaid.initialize({
+        suppressErrorRendering: true,
+        logLevel: 'fatal',
+        securityLevel: 'loose',
+        theme: 'default',
+        startOnLoad: false
+      });
+
+      // First, validate the diagram syntax using mermaid.parse()
+      try {
+        const isValid = await window.mermaid.parse(diagramText);
+        if (!isValid) {
+          setError('Invalid diagram syntax detected');
+          setIsLoading(false);
+          return;
+        }
+      } catch (parseError) {
+        // Parse failed, handle the error gracefully
+        setError('Diagram syntax validation failed: ' + (parseError.message || 'Unknown parse error'));
+        setIsLoading(false);
+        return;
+      }
+
+      // If parsing succeeded, proceed with rendering
+      const uniqueId = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+      const { svg } = await window.mermaid.render(uniqueId, diagramText);
+      
+      setSvg(svg);
+      setError(null);
+    } catch (err) {
+      console.error('Mermaid render error:', err);
+      
+      // Provide more specific error messages based on the error type
+      let errorMessage = 'Failed to render diagram';
+      
+      if (err.message) {
+        if (err.message.includes('Parse error')) {
+          errorMessage = 'Syntax error in diagram: ' + err.message.replace('Parse error on line', 'Error on line');
+        } else if (err.message.includes('Lexical error')) {
+          errorMessage = 'Invalid characters in diagram: ' + err.message;
+        } else if (err.message.includes('Unknown diagram type')) {
+          errorMessage = 'Unknown diagram type. Supported types: graph, flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, pie, gitgraph, journey, mindmap, timeline';
+        } else if (err.message.includes('Invalid direction')) {
+          errorMessage = 'Invalid direction specified. Use TD (top-down), LR (left-right), RL (right-left), or BT (bottom-top)';
+        } else {
+          errorMessage = 'Diagram error: ' + err.message;
+        }
+      }
+
+      // If this is a retry attempt and we haven't exceeded max retries, try again
+      if (retryAttempt < 2) {
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          renderDiagram(diagramText, retryAttempt + 1);
+        }, 1000);
+        return;
+      }
+
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    renderDiagram(props.diagram);
   }, [props.diagram]);
 
+
+  const handleRetry = () => {
+    setRetryCount(0);
+    renderDiagram(props.diagram);
+  };
+
   const handlePopOut = () => {
+    if (error) {
+      alert('Cannot open popup: Diagram has errors that need to be fixed first.');
+      return;
+    }
+    
     const popup = window.open('', '_blank', 'width=1200,height=800');
     if (popup) {
       popup.document.write(`
@@ -270,46 +413,151 @@ export default function MermaidDiagram() {
 
   return (
     <div style={{ position: 'relative', border: '1px solid #ccc', padding: '10px', background: '#fff' }}>
-      {/* Toolbar with only pop-out */}
-      <div style={{ position: 'absolute', top: '5px', right: '5px', zIndex: 1 }}>
+      {/* Toolbar with pop-out and retry */}
+      <div style={{ position: 'absolute', top: '5px', right: '5px', zIndex: 1, display: 'flex', gap: '8px' }}>
+        {error && (
+          <button 
+            onClick={handleRetry}
+            style={{
+              background: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              transition: 'all 0.2s ease',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.background = '#218838';
+              e.target.style.transform = 'translateY(-1px)';
+              e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = '#28a745';
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            }}
+          >
+            🔄 Retry
+          </button>
+        )}
         <button 
           onClick={handlePopOut}
+          disabled={!!error}
           style={{
-            background: '#007bff',
+            background: error ? '#6c757d' : '#007bff',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
             padding: '6px 12px',
             fontSize: '12px',
             fontWeight: '500',
-            cursor: 'pointer',
+            cursor: error ? 'not-allowed' : 'pointer',
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
             transition: 'all 0.2s ease',
             textTransform: 'uppercase',
-            letterSpacing: '0.5px'
+            letterSpacing: '0.5px',
+            opacity: error ? 0.6 : 1
           }}
           onMouseOver={(e) => {
-            e.target.style.background = '#0056b3';
-            e.target.style.transform = 'translateY(-1px)';
-            e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+            if (!error) {
+              e.target.style.background = '#0056b3';
+              e.target.style.transform = 'translateY(-1px)';
+              e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+            }
           }}
           onMouseOut={(e) => {
-            e.target.style.background = '#007bff';
-            e.target.style.transform = 'translateY(0)';
-            e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            if (!error) {
+              e.target.style.background = '#007bff';
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            }
           }}
         >
           🔍 Pop Out
         </button>
       </div>
-      {/* Diagram container (no zoom) */}
-      <div
-        style={{
-          overflow: 'auto',
-          maxHeight: '500px', // Adjustable; prevents huge diagrams from overflowing chat
-        }}
-        dangerouslySetInnerHTML={{ __html: svg }}
-      />
+
+      {/* Loading state */}
+      {isLoading && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '40px 20px',
+          color: '#666',
+          fontSize: '14px'
+        }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid #f3f3f3',
+            borderTop: '4px solid #007bff',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            marginBottom: '16px'
+          }} />
+          <div>Rendering diagram...</div>
+          {retryCount > 0 && (
+            <div style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
+              Retry attempt {retryCount}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Error state */}
+      {error && !isLoading && (
+        <div style={{
+          padding: '20px',
+          background: '#f8d7da',
+          border: '1px solid #f5c6cb',
+          borderRadius: '4px',
+          color: '#721c24',
+          fontSize: '14px',
+          lineHeight: '1.5'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+            <span style={{ fontSize: '18px', marginRight: '8px' }}>⚠️</span>
+            <strong>Diagram Error</strong>
+          </div>
+          <div style={{ marginBottom: '12px' }}>{error}</div>
+          <div style={{ fontSize: '12px', color: '#856404', background: '#fff3cd', padding: '8px', borderRadius: '4px' }}>
+            <strong>Tips:</strong>
+            <ul style={{ margin: '8px 0 0 20px', padding: 0 }}>
+              <li>Check for typos in diagram syntax</li>
+              <li>Ensure all brackets and parentheses are properly closed</li>
+              <li>Verify diagram type is supported (graph, flowchart, sequenceDiagram, etc.)</li>
+              <li>Make sure direction is specified for graphs and flowcharts (TD, LR, etc.)</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Diagram container */}
+      {!error && !isLoading && (
+        <div
+          style={{
+            overflow: 'auto',
+            maxHeight: '500px', // Adjustable; prevents huge diagrams from overflowing chat
+          }}
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
+      )}
+
+      {/* CSS for loading animation */}
+      <style jsx>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
