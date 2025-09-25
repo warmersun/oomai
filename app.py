@@ -457,18 +457,72 @@ def _process_command(message: cl.Message) -> str:
 
 # Callbacks for persistence
 
+
 @cl.on_shared_thread_view
 async def on_shared_thread_view(thread, viewer) -> bool:
     return True
 
+
 @cl.on_chat_resume
 async def on_chat_resume(thread: ThreadDict):
+    user_messages = []
     root_messages = [m for m in thread["steps"] if m["parentId"] == None]
     for message in root_messages:
         if message["type"] == "user_message":
-            # message["output"]
-            pass
+            user_messages.append(user(message["output"]))
         else:
             # message["output"]
-            pass
-        
+            user_messages.append(assistant(message["output"]))
+    cl.user_session.set("user_and_assistant_messages", user_messages)
+    await _neo4j_connect()
+    groq_client = AsyncGroq(api_key=GROQ_API_KEY, )
+    cl.user_session.set("groq_client", groq_client)
+    xai_client = AsyncClient(
+        api_key=XAI_API_KEY,
+        timeout=
+        3600,  # override default timeout with longer timeout for reasoning models
+    )
+    cl.user_session.set("xai_client", xai_client)
+    openai_embedding_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    cl.user_session.set("openai_embedding_client", openai_embedding_client)
+    elevenlabs_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
+    cl.user_session.set("elevenlabs_client", elevenlabs_client)
+    # locking
+    message_lock = asyncio.Lock()
+    cl.user_session.set("message_lock", message_lock)
+    # settings
+    settings = await cl.ChatSettings([
+        Switch(
+            id="search",
+            label="Search",
+            initial_value=False,
+            tooltip="Search on or off",
+            description="Search on X, Web and News",
+        ),
+        Switch(
+            id="debug",
+            label="Debug",
+            initial_value=False,
+            tooltip="Debug on or off",
+            description="See knowledge graph usage details",
+        ),
+    ]).send()
+    cl.user_session.set("search_settings", settings["search"])
+    cl.user_session.set("debug_settings", settings["debug"])
+    chat_profile = cl.user_session.get("chat_profile")
+    if chat_profile == READ_EDIT_PROFILE:
+        cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_EDIT)])
+        cl.user_session.set("tools", TOOLS_EDIT)
+        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_EDIT)
+        # only edit mode has commands
+        await cl.context.emitter.set_commands(commands_edit)
+    else:
+        cl.user_session.set("system_messages",
+                            [system(SYSTEM_PROMPT_READONLY)])
+        cl.user_session.set("tools", TOOLS_READONLY)
+        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
+        await cl.context.emitter.set_commands(commands_readonly)
+    functions_with_ctx = [
+        "create_node", "create_edge", "find_node", "execute_cypher_query"
+    ]
+    cl.user_session.set("functions_with_ctx", functions_with_ctx)
