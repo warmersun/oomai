@@ -5,6 +5,7 @@ from chainlit.logger import logger
 from chainlit.input_widget import Switch
 import asyncio
 import re
+from chainlit.types import ThreadDict
 from literalai.observability.filter import OrderBy
 import yaml
 from typing import Optional
@@ -460,3 +461,15 @@ def _process_command(message: cl.Message) -> str:
 @cl.on_shared_thread_view
 async def on_shared_thread_view(thread, viewer) -> bool:
     return True
+
+@cl.on_chat_resume
+async def on_chat_resume(thread: ThreadDict):
+    root_messages = [m for m in thread["steps"] if m["parentId"] == None]
+    for message in root_messages:
+        if message["type"] == "user_message":
+            # message["output"]
+            pass
+        else:
+            # message["output"]
+            pass
+        
