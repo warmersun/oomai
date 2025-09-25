@@ -32,6 +32,8 @@ from function_tools import (
     mark_task_as_running,
     mark_task_as_done,
     display_mermaid_diagram,
+    display_convergence_canvas,
+    visualize_oom,
     TOOLS_DEFINITIONS,
 )
 from chainlit_xai_util import process_stream
@@ -85,6 +87,8 @@ TOOLS_EDIT = [
     TOOLS_DEFINITIONS["mark_task_as_running"],
     TOOLS_DEFINITIONS["mark_task_as_done"],
     TOOLS_DEFINITIONS["display_mermaid_diagram"],
+    TOOLS_DEFINITIONS["display_convergence_canvas"],
+    TOOLS_DEFINITIONS["visualize_oom"],
 ]
 
 TOOLS_READONLY = [
@@ -94,6 +98,9 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["get_tasks"],
     TOOLS_DEFINITIONS["mark_task_as_running"],
     TOOLS_DEFINITIONS["mark_task_as_done"],
+    TOOLS_DEFINITIONS["display_mermaid_diagram"],
+    TOOLS_DEFINITIONS["display_convergence_canvas"],
+    TOOLS_DEFINITIONS["visualize_oom"],
 ]
 
 AVAILABLE_FUNCTIONS_EDIT = {
@@ -106,6 +113,8 @@ AVAILABLE_FUNCTIONS_EDIT = {
     "mark_task_as_running": mark_task_as_running,
     "mark_task_as_done": mark_task_as_done,
     "display_mermaid_diagram": display_mermaid_diagram,
+    "display_convergence_canvas": display_convergence_canvas,
+    "visualize_oom": visualize_oom,
 }
 
 AVAILABLE_FUNCTIONS_READONLY = {
@@ -115,6 +124,9 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "get_tasks": get_tasks,
     "mark_task_as_running": mark_task_as_running,
     "mark_task_as_done": mark_task_as_done,
+    "display_mermaid_diagram": display_mermaid_diagram,
+    "display_convergence_canvas": display_convergence_canvas,
+    "visualize_oom": visualize_oom,
 }
 
 READ_ONLY_PROFILE = "Read-Only"

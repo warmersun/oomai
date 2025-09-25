@@ -208,7 +208,8 @@ TOOLS_DEFINITIONS = {
     "display_mermaid_diagram": tool(
         name="display_mermaid_diagram",
         description="""
-        Displays a Mermaid diagram.
+        Displays a MermaidJS diagram.  
+        Use MermaidJS flowchart syntax to visualize nodes and edges in the knowledge graph, or use the timeline syntax to show milestones and their progression over time.
         """,
         parameters={
             "type": "object",
@@ -219,6 +220,77 @@ TOOLS_DEFINITIONS = {
                 },
             },
             "required": ["diagram_str"]
+        }
+    ),
+    "display_convergence_canvas": tool(
+        name="display_convergence_canvas",
+        description="""
+        Displays a Convergence Canvas visualization—a visual tool to describe, assess, and create Pathways that build off the *convergence* of multiple emerging technologies.
+
+        ---
+        **Convergence Canvas** helps you map out how different emerging technologies (emTechs) interact to enable new solutions. It distinguishes between the digital world of information ("bits") and the real, physical world ("atoms"), showing how technologies operate within and between these realms.
+
+        - **Technology**: Anything that takes something scarce and makes it abundant (e.g., speech, clothing, computing, 3D printing).
+        - **Emerging Technology (emTech)**: Technologies that, once information-based, progress exponentially (e.g., AI, robotics, synthetic biology).
+        - **Counterparts**: Some emTechs have digital and physical analogs (e.g., transportation ↔ networking, AI ↔ robotics, energy ↔ computing).
+        - **emTechs in Both Worlds**: Some technologies bridge both realms (e.g., IoT and sensors as portals, 3D printing turning digital into physical, synthetic biology, AR/VR, and crypto).
+        - **Convergence**: The interplay where advances in one emTech accelerate another, enabling new Pathways.
+            - *Weak convergence*: Using multiple emTechs together to build something new.
+            - *Strong convergence*: Using one emTech to advance another, unlocking new possibilities.
+        - **Pathway**: A trajectory or approach (not just a solution) enabled by the convergence of emTechs.
+
+        The Convergence Canvas provides a structured way to visualize and discuss these relationships, helping you design and communicate innovative Pathways that address real-world problems—most of which ultimately require solutions in the physical world.
+        """,
+        parameters={
+            "type": "object",
+            "properties": {
+                "json_str": {
+                    "type": "string",
+                    "description": """
+                    JSON-encoded string that must represent a single JSON object.
+                    - Keys: Emerging-technology identifiers from the allowed list:
+                    - "ai"
+                    - "arvr"
+                    - "computing"
+                    - "crypto"
+                    - "energy"
+                    - "iot"
+                    - "networks"
+                    - "robot"
+                    - "synbio"
+                    - "threeDprinting"
+                    - "transportation"
+                    - Values: Plain-text descriptions explaining each selected technology's role in the solution.
+
+                    Example (must be stringified before passing):
+
+                    {
+                    "robot": "Robots for automated assembly tasks.",
+                    "ai": "AI algorithms for real-time quality control."
+                    }
+                    """,
+                },
+            },
+            "required": ["json_str"]
+        },
+
+    ),
+    "visualize_oom": tool(
+        name="visualize_oom",
+        description="""
+        Displays a OOM Visualizer, an interactive tool to visualize exponential growth of a technology over time.
+        It shows the number of doublings needed to reach different orders of magnitude (OOM) developments: 10X, 100X, 1000X 
+        and, based on the compounding rate, calculates how long it will take to reach each OOM.
+        """,
+        parameters={
+            "type": "object",
+            "properties": {
+                "months_per_doubling": {
+                    "type": "integer",
+                    "description": "The number of months per doubling.",
+                },
+            },
+            "required": ["months_per_doubling"]
         }
     ),
 }

@@ -93,3 +93,7 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
                 # else - if we didn't return
                 chat.append(tool_result(json.dumps({"error": str(e)})))
                 break
+
+    search_settings = cl.user_session.get("search_settings")
+    if search_settings:
+        logger.info(f"Number of sources used in Live Search: {response.usage.num_sources_used}")

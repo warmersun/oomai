@@ -16,4 +16,6 @@ from .task_ops import plan_tasks
 from .task_ops import get_tasks
 from .task_ops import mark_task_as_running
 from .task_ops import mark_task_as_done
+from .visual_ops import display_convergence_canvas
+from .visual_ops import visualize_oom
 from .tool_def import TOOLS_DEFINITIONS
