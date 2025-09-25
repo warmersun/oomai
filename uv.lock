@@ -910,6 +910,15 @@ wheels = [
 ]
 
 [[package]]
+name = "mdclense"
+version = "0.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/7e/0f7547766716534a8ed484f0509f1f296d7b820e352642e3412ead030acc/mdclense-0.1.2.tar.gz", hash = "sha256:e8464f17bde450cff66aba64d5391f146432e293434619e7798fb7166e33a515", size = 7186 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/91/71/dd6769438749c63b7b2cd09e4374e0be6e9a0752a4850d7d8b51ef9c879b/mdclense-0.1.2-py3-none-any.whl", hash = "sha256:41c9c45a099478424b866b3c1a23c51397a4d135f0dce019c9128bbb4f4fb987", size = 5116 },
+]
+
+[[package]]
 name = "monotonic"
 version = "1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1953,15 +1962,18 @@ wheels = [
 [[package]]
 name = "python-template"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "chainlit" },
     { name = "elevenlabs" },
     { name = "groq" },
     { name = "lark" },
+    { name = "literalai" },
+    { name = "mdclense" },
     { name = "neo4j" },
     { name = "openai" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "xai-sdk" },
 ]
@@ -1972,9 +1984,12 @@ requires-dist = [
     { name = "elevenlabs", specifier = ">=2.9.1" },
     { name = "groq", specifier = ">=0.30.0" },
     { name = "lark", specifier = ">=1.2.2" },
+    { name = "literalai", specifier = ">=0.1.201" },
+    { name = "mdclense", specifier = ">=0.1.0" },
     { name = "neo4j", specifier = ">=5.28.1" },
     { name = "openai", specifier = ">=1.97.0" },
     { name = "pydantic", specifier = ">=2.11.7" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "xai-sdk", specifier = ">=1.0.0" },
 ]

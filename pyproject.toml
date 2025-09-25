@@ -17,6 +17,8 @@ dependencies = [
     "elevenlabs>=2.9.1",
     "lark>=1.2.2",
     "mdclense>=0.1.0",
+    "literalai>=0.1.201",
+    "python-dotenv>=1.1.1",
 ]
 
 [build-system]
