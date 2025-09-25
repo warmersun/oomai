@@ -1,6 +1,6 @@
-run = "unset DATABASE_URL; chainlit run app.py"
+run = "chainlit run app.py"
 entrypoint = "app.py"
-modules = ["nodejs-20", "python-3.11"]
+modules = ["nodejs-20", "python-3.11", "postgresql-16"]
 
 [nix]
 channel = "stable-24_05"
@@ -13,7 +13,7 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["sh", "-c", "unset DATABASE_URL; chainlit run app.py"]
+run = ["sh", "-c", "chainlit run app.py"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
