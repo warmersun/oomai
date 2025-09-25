@@ -41,7 +41,6 @@ from utils import Neo4jDateEncoder
 
 from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, BRAVE_SEARCH_API_KEY, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
 
-
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
 with open("knowledge_graph/system_prompt_grok4.md", "r") as f:
@@ -56,25 +55,19 @@ with open("knowledge_graph/command_sources.yaml", "r") as f:
 COMMAND_DATA = config['commands']
 
 # Create filtered command lists based on mode flags in YAML
-commands_edit = [
-    {
-        "id": command_id,
-        "icon": data['icon'],
-        "description": data['description']
-    }
-    for command_id, data in COMMAND_DATA.items()
-    if 'edit' in data.get('modes', [])
-]
+commands_edit = [{
+    "id": command_id,
+    "icon": data['icon'],
+    "description": data['description']
+} for command_id, data in COMMAND_DATA.items()
+                 if 'edit' in data.get('modes', [])]
 
-commands_readonly = [
-    {
-        "id": command_id,
-        "icon": data['icon'],
-        "description": data['description']
-    }
-    for command_id, data in COMMAND_DATA.items()
-    if 'readonly' in data.get('modes', [])
-]
+commands_readonly = [{
+    "id": command_id,
+    "icon": data['icon'],
+    "description": data['description']
+} for command_id, data in COMMAND_DATA.items()
+                     if 'readonly' in data.get('modes', [])]
 
 # Define the tools (functions) - flattened structure for Responses API
 TOOLS_EDIT = [
@@ -146,9 +139,9 @@ async def set_chat_profile(current_user: cl.User):
             cl.ChatProfile(
                 name=READ_EDIT_PROFILE,
                 markdown_description="Query and update the knowledge graph.",
-            )
-        )
+            ))
     return profiles
+
 
 async def _neo4j_connect():
     # disconnect if already connected
@@ -165,52 +158,51 @@ async def _neo4j_connect():
     cl.user_session.set("neo4jdriver", neo4jdriver)
     logger.info("Neo4j driver connected.")
 
+
 async def _neo4j_disconnect():
     neo4jdriver = cl.user_session.get("neo4jdriver")
     if neo4jdriver is not None:
         await neo4jdriver.close()
         cl.user_session.set("neo4jdriver", None)
     logger.info("Neo4j driver disconnected.")
-      
+
+
 @cl.on_chat_start
-async def start():    
+async def start():
     cl.user_session.set("user_and_assistant_messages", [])
     await _neo4j_connect()
-    groq_client = AsyncGroq(
-        api_key=GROQ_API_KEY,
-    )
+    groq_client = AsyncGroq(api_key=GROQ_API_KEY, )
     cl.user_session.set("groq_client", groq_client)
     xai_client = AsyncClient(
         api_key=XAI_API_KEY,
-        timeout=3600, # override default timeout with longer timeout for reasoning models
+        timeout=
+        3600,  # override default timeout with longer timeout for reasoning models
     )
     cl.user_session.set("xai_client", xai_client)
     openai_embedding_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
     cl.user_session.set("openai_embedding_client", openai_embedding_client)
-    elevenlabs_client= ElevenLabs(api_key=ELEVENLABS_API_KEY)
+    elevenlabs_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
     cl.user_session.set("elevenlabs_client", elevenlabs_client)
     # locking
     message_lock = asyncio.Lock()
     cl.user_session.set("message_lock", message_lock)
     # settings
-    settings = await cl.ChatSettings(
-        [
-            Switch(
-                id="search",
-                label="Search",
-                initial_value=False,
-                tooltip="Search on or off",
-                description="Search on X, Web and News",
-            ),
-            Switch(
-                id="debug",
-                label="Debug",
-                initial_value=False,
-                tooltip="Debug on or off",
-                description="See knowledge graph usage details",
-            ),
-        ]
-    ).send()
+    settings = await cl.ChatSettings([
+        Switch(
+            id="search",
+            label="Search",
+            initial_value=False,
+            tooltip="Search on or off",
+            description="Search on X, Web and News",
+        ),
+        Switch(
+            id="debug",
+            label="Debug",
+            initial_value=False,
+            tooltip="Debug on or off",
+            description="See knowledge graph usage details",
+        ),
+    ]).send()
     cl.user_session.set("search_settings", settings["search"])
     cl.user_session.set("debug_settings", settings["debug"])
     chat_profile = cl.user_session.get("chat_profile")
@@ -221,21 +213,27 @@ async def start():
         # only edit mode has commands
         await cl.context.emitter.set_commands(commands_edit)
     else:
-        cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_READONLY)])
+        cl.user_session.set("system_messages",
+                            [system(SYSTEM_PROMPT_READONLY)])
         cl.user_session.set("tools", TOOLS_READONLY)
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
         await cl.context.emitter.set_commands(commands_readonly)
-    functions_with_ctx = ["create_node", "create_edge", "find_node", "execute_cypher_query"]
+    functions_with_ctx = [
+        "create_node", "create_edge", "find_node", "execute_cypher_query"
+    ]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
+
 
 @cl.on_settings_update
 async def on_settings_update(settings):
     cl.user_session.set("search_settings", settings["search"])
     cl.user_session.set("debug_settings", settings["debug"])
 
+
 @cl.on_chat_end
 async def end_chat():
     await _neo4j_disconnect()
+
 
 @cl.on_message
 async def on_message(message: cl.Message):
@@ -249,15 +247,19 @@ async def on_message(message: cl.Message):
             await last_tts_action.remove()
         # process command
         processed_message = _process_command(message)
-    
+
         # get drivers from session
         neo4jdriver = cl.user_session.get("neo4jdriver")
         if neo4jdriver is None:
-            logger.warning("Neo4j driver not found in user session. Reconnecting...")
-            await _neo4j_connect()           
-     
-        tts_action = cl.Action(name="tts", payload={"value": "tts"}, icon="circle-play", tooltip="Read out loud" )
-        
+            logger.warning(
+                "Neo4j driver not found in user session. Reconnecting...")
+            await _neo4j_connect()
+
+        tts_action = cl.Action(name="tts",
+                               payload={"value": "tts"},
+                               icon="circle-play",
+                               tooltip="Read out loud")
+
         # setup context: begin Neo4j transation and create lock
         lock = asyncio.Lock()
         ctx = GraphOpsCtx(neo4jdriver, lock)
@@ -270,8 +272,11 @@ async def on_message(message: cl.Message):
         cl.user_session.set("convergence_canvases", [])
         cl.user_session.set("oom_visualizers", [])
 
-        async with cl.Step(name="the Knowledge Graph", type="tool", default_open=True) as step:
-            success = await process_stream(message.content, ctx, output_message)
+        async with cl.Step(name="the Knowledge Graph",
+                           type="tool",
+                           default_open=True) as step:
+            success = await process_stream(message.content, ctx,
+                                           output_message)
             step.output = success
 
         if success:
@@ -280,45 +285,63 @@ async def on_message(message: cl.Message):
             diagrams = cl.user_session.get("diagrams")
             assert diagrams is not None, "No diagrams found in user session"
             for diagram in diagrams:
-                mermaid_diagram = cl.CustomElement(name="MermaidDiagram", props={"diagram": diagram}, display="inline")
+                mermaid_diagram = cl.CustomElement(name="MermaidDiagram",
+                                                   props={"diagram": diagram},
+                                                   display="inline")
                 output_message.elements.append(mermaid_diagram)
             await output_message.update()
             # 2. Convergence Canvas
             convergence_canvases = cl.user_session.get("convergence_canvases")
             assert convergence_canvases is not None, "No convergence canvases found in user session"
             for convergence_canvas in convergence_canvases:
-                convergence_canvas_element = cl.CustomElement(name="Pathway", props={"data": convergence_canvas}, display="inline")
+                convergence_canvas_element = cl.CustomElement(
+                    name="Pathway",
+                    props={"data": convergence_canvas},
+                    display="inline")
                 output_message.elements.append(convergence_canvas_element)
                 await output_message.update()
             # 3. OOM Visualizer
             oom_visualizers = cl.user_session.get("oom_visualizers")
             assert oom_visualizers is not None, "No OOM Visualizers found in user session"
             for oom_visualizer in oom_visualizers:
-                oom_visualizers_element = cl.CustomElement(name="OomVisualizer", props={"monthsPerDoubling": oom_visualizer}, display="inline")
+                oom_visualizers_element = cl.CustomElement(
+                    name="OomVisualizer",
+                    props={"monthsPerDoubling": oom_visualizer},
+                    display="inline")
                 output_message.elements.append(oom_visualizers_element)
                 await output_message.update()
         else:
             logger.error("Error in proccess_stream")
-            await cl.Message(content="❌ Error while Processing LLM reposonse.", type="system_message").send()
+            await cl.Message(content="❌ Error while Processing LLM reposonse.",
+                             type="system_message").send()
 
         debug = cl.user_session.get("debug_settings")
         if not debug:
             await step.remove()
 
-
         cl.user_session.set("last_message", output_message.content)
 
-    
+
 @cl.password_auth_callback
 def auth_callback(username: str, password: str) -> Optional[cl.User]:
     if (username, password) == ("Sic", "kadima"):
-        return cl.User(identifier="Sic", metadata={"role": "admin", "provider": "credentials"})
+        return cl.User(identifier="Sic",
+                       metadata={
+                           "role": "admin",
+                           "provider": "credentials"
+                       })
     elif (username, password) == ("User", "oom.today"):
-        return cl.User(identifier=username, metadata={"role": "user", "provider": "credentials"})
+        return cl.User(identifier=username,
+                       metadata={
+                           "role": "user",
+                           "provider": "credentials"
+                       })
     else:
         return None
 
+
 # Text to Speech
+
 
 def clean_text_for_tts(text: str) -> str:
     """
@@ -329,41 +352,54 @@ def clean_text_for_tts(text: str) -> str:
     """
     if not text or not text.strip():
         return ""
-    
+
     try:
         # Use mdclense to convert markdown to plain text
         parser = MarkdownParser()
         plain_text = parser.parse(text)
-        
+
         # Additional cleaning for TTS optimization
         # Remove excessive whitespace and normalize spacing
         plain_text = re.sub(r'\s+', ' ', plain_text)
-        
+
         # Remove any remaining HTML tags that might have slipped through
         plain_text = re.sub(r'<[^>]+>', '', plain_text)
-        
+
         # Clean up common markdown artifacts that might remain
-        plain_text = re.sub(r'^\s*[-*+]\s+', '', plain_text, flags=re.MULTILINE)  # Remove list markers
-        plain_text = re.sub(r'^\s*\d+\.\s+', '', plain_text, flags=re.MULTILINE)  # Remove numbered list markers
-        
+        plain_text = re.sub(r'^\s*[-*+]\s+',
+                            '',
+                            plain_text,
+                            flags=re.MULTILINE)  # Remove list markers
+        plain_text = re.sub(r'^\s*\d+\.\s+',
+                            '',
+                            plain_text,
+                            flags=re.MULTILINE)  # Remove numbered list markers
+
         # Remove excessive punctuation that might sound awkward in TTS
-        plain_text = re.sub(r'[.]{3,}', '...', plain_text)  # Normalize ellipses
-        plain_text = re.sub(r'[!]{2,}', '!', plain_text)    # Normalize exclamation marks
-        plain_text = re.sub(r'[?]{2,}', '?', plain_text)    # Normalize question marks
-        
+        plain_text = re.sub(r'[.]{3,}', '...',
+                            plain_text)  # Normalize ellipses
+        plain_text = re.sub(r'[!]{2,}', '!',
+                            plain_text)  # Normalize exclamation marks
+        plain_text = re.sub(r'[?]{2,}', '?',
+                            plain_text)  # Normalize question marks
+
         # Clean up any remaining markdown syntax
-        plain_text = re.sub(r'#{1,6}\s*', '', plain_text)   # Remove heading markers
-        plain_text = re.sub(r'^\s*[-=]+\s*$', '', plain_text, flags=re.MULTILINE)  # Remove horizontal rules
-        
+        plain_text = re.sub(r'#{1,6}\s*', '',
+                            plain_text)  # Remove heading markers
+        plain_text = re.sub(r'^\s*[-=]+\s*$',
+                            '',
+                            plain_text,
+                            flags=re.MULTILINE)  # Remove horizontal rules
+
         # Final cleanup
         plain_text = plain_text.strip()
-        
+
         return plain_text
-        
+
     except Exception as e:
         # Fallback to regex-based cleaning if mdclense fails
         logger.warning(f"mdclense parsing failed, falling back to regex: {e}")
-        
+
         # Original regex-based approach as fallback
         text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
         text = re.sub(r"`[^`]*`", "", text)
@@ -374,6 +410,7 @@ def clean_text_for_tts(text: str) -> str:
         text = re.sub(r"\s+", " ", text)
         return text.strip()
 
+
 def text_to_speech(text: str):
     elevenlabs_client = cl.user_session.get("elevenlabs_client")
     assert elevenlabs_client is not None, "No ElevenLabs client found in user session"
@@ -383,14 +420,12 @@ def text_to_speech(text: str):
         text=text,
         voice_id=ELEVENLABS_VOICE_ID,
         output_format="mp3_44100_128",
-        voice_settings=VoiceSettings(
-            stability=0.5,
-            similarity_boost=0.76,
-            use_speaker_boost=True,
-            speed=1.0
-        )
-    )
+        voice_settings=VoiceSettings(stability=0.5,
+                                     similarity_boost=0.76,
+                                     use_speaker_boost=True,
+                                     speed=1.0))
     return audio
+
 
 @cl.action_callback("tts")
 async def tts(action: cl.Action):
@@ -406,9 +441,11 @@ async def tts(action: cl.Action):
             mime="audio/mp3",
         )
 
-        await cl.Message(content="👂 Listen...", elements=[output_audio_el]).send()
+        await cl.Message(content="👂 Listen...",
+                         elements=[output_audio_el]).send()
 
     await action.remove()
+
 
 def _process_command(message: cl.Message) -> str:
     if message.command:
@@ -416,4 +453,10 @@ def _process_command(message: cl.Message) -> str:
             template = COMMAND_DATA[message.command]['template']
             return template.format(user_input=message.content)
     return message.content
-    
+
+
+# Callbacks for persistence
+
+@cl.on_shared_thread_view
+async def on_shared_thread_view(thread, viewer) -> bool:
+    return True
