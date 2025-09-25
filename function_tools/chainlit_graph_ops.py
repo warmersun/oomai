@@ -92,8 +92,4 @@ async def find_node(
             await step.remove()
         return output
 
-async def display_mermaid_diagram(diagram_str: str):
-    diagrams = cl.user_session.get("diagrams")
-    assert diagrams is not None, "No diagrams found in user session"
-    diagrams.append(diagram_str)
-    cl.user_session.set("diagrams", diagrams)
+

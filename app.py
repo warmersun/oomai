@@ -267,18 +267,36 @@ async def on_message(message: cl.Message):
         cl.user_session.set("diagram_message", diagram_message)
 
         cl.user_session.set("diagrams", [])
+        cl.user_session.set("convergence_canvases", [])
+        cl.user_session.set("oom_visualizers", [])
 
         async with cl.Step(name="the Knowledge Graph", type="tool", default_open=True) as step:
             success = await process_stream(message.content, ctx, output_message)
             step.output = success
 
         if success:
+            # process visualizations
+            # 1. Mermaid diagrams
             diagrams = cl.user_session.get("diagrams")
             assert diagrams is not None, "No diagrams found in user session"
             for diagram in diagrams:
                 mermaid_diagram = cl.CustomElement(name="MermaidDiagram", props={"diagram": diagram}, display="inline")
                 output_message.elements.append(mermaid_diagram)
             await output_message.update()
+            # 2. Convergence Canvas
+            convergence_canvases = cl.user_session.get("convergence_canvases")
+            assert convergence_canvases is not None, "No convergence canvases found in user session"
+            for convergence_canvas in convergence_canvases:
+                convergence_canvas_element = cl.CustomElement(name="Pathway", props={"data": convergence_canvas}, display="inline")
+                output_message.elements.append(convergence_canvas_element)
+                await output_message.update()
+            # 3. OOM Visualizer
+            oom_visualizers = cl.user_session.get("oom_visualizers")
+            assert oom_visualizers is not None, "No OOM Visualizers found in user session"
+            for oom_visualizer in oom_visualizers:
+                oom_visualizers_element = cl.CustomElement(name="OomVisualizer", props={"monthsPerDoubling": oom_visualizer}, display="inline")
+                output_message.elements.append(oom_visualizers_element)
+                await output_message.update()
         else:
             logger.error("Error in proccess_stream")
             await cl.Message(content="❌ Error while Processing LLM reposonse.", type="system_message").send()

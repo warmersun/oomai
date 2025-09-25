@@ -67,6 +67,8 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
         assert response.finish_reason == "REASON_TOOL_CALLS", "Expected finish reason to be REASON_TOOL_CALLS"        
         chat.append(response)
         
+
+        logger.info(f"Going to process tool calls: {len(response.tool_calls)}")
         # Handle function calls
         for tool_call in response.tool_calls:
             try:                
