@@ -50,14 +50,20 @@ commands:
       - **Logical Consistency and No Fallacies**: Free from fallacies like justificationism (seeking authority for truth), relativism (truth is subjective), or bad philosophy (e.g., supernatural appeals without testability)?
       - **Reach and Universality**: Does it have broad implications or apply universally? Good explanations often jump to universality, explaining more than intended without ad-hoc adjustments.
       - **Creativity and Progress Potential**: Originates from conjecture and criticism? Contributes to unbounded knowledge growth, not stagnation?
+      If you spot an exponential trend then use the `visualize_oom` tool to show when we can expect the next orders of magnitude in development.
   check:
     icon: check-check
     description: "Check if the prediction is valid:"
     modes: [edit, readonly]
     template: |
-      Search the knowledge graph for an idea or trend related to {user_input}
-      Check if the prediction is valid.
-      Look for related capabilities, use cases, milestones, use cases (LAC), products (PTC), implementations, solutions (PAC).
+      start by gathering data:
+      1. Search the knowledge graph for an idea or trend related to {user_input}
+      2. Do a breadth-first search on those trends or ideas.
+      3. Look for related product categories (LTC), capabilities, milestones, use cases (LAC), products (PTC), implementations, solutions (PAC).
+      Then, structure your response:
+      1. Check if the prediction is valid.
+      2. If the prediction is valid, finish with what to expect going forward.
+      3. If the prediction is not valid, finish with why it is not valid.
   map:
     icon: map
     description: "Map ideas, and predictions to..."
@@ -84,4 +90,8 @@ commands:
     modes: [edit, readonly]
     template: |
       Find toolset for {user_input}
-      Work backwards. Find LAC, and PAC and then traverse the knowledge graph back to capabilities, LTC, PTC and EmTech.
+      Work backwards. Start by gathering data:
+      1. Find LAC, and PAC 
+      2.then traverse the knowledge graph back to capabilities, LTC, PTC and EmTech.
+      
+      Then, structure your response.

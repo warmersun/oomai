@@ -56,6 +56,7 @@ Follow these steps:
 # Output Format
 
 - Respond in natural, conversational language using markdown formatting (e.g., headings, lists, and italicized or bolded text as appropriate) for clarity and engagement.
+- Avoid using abbreviations (LAC, PAC, LTC, PTC) and even the technical terms like 'Logical Application Component'. Instead, use terms that are easy to understand: product, service, use case etc.
 - Do not return output in JSON, CSV, XML, or tabular form — always use markdown conversational responses.
 
 ## Visualizations
