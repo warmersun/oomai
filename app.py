@@ -38,8 +38,9 @@ from function_tools import (
 )
 from chainlit_xai_util import process_stream
 from utils import Neo4jDateEncoder
+from descope import DescopeClient
 
-from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, BRAVE_SEARCH_API_KEY, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
+from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, BRAVE_SEARCH_API_KEY, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, DESCOPE_PROJECT_ID
 
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
@@ -349,11 +350,18 @@ def oauth_callback(
     default_user: cl.User,
 ) -> Optional[cl.User]:
     logger.info(f"OAuth callback: {provider_id}, {token}, {raw_user_data}")
-    roles = raw_user_data.get("roles", [])
-    if "admin" in roles:
-        default_user.metadata["role"] = "admin"
-    return default_user
-
+    assert DESCOPE_PROJECT_ID is not None, "DESCOPE_PROJECT_ID is not set"
+    descope_client = DescopeClient(project_id=DESCOPE_PROJECT_ID)
+    try:
+        jwt_response = descope_client.validate_session(session_token=token)
+        matched_roles = descope_client.get_matched_roles(jwt_response, ["admin"])
+        logger.info(f"Matched roles: {matched_roles}")
+        if "admin" in matched_roles:
+            default_user.metadata["role"] = "admin"
+    except Exception as error:
+        logger.error(f"Error getting matched roles: {error}")
+    finally:
+        return default_user
 
 # Text to Speech
 
