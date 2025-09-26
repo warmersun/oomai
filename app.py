@@ -8,7 +8,7 @@ import re
 from chainlit.types import ThreadDict
 from literalai.observability.filter import OrderBy
 import yaml
-from typing import Optional
+from typing import Optional, Dict
 from mdclense.parser import MarkdownParser
 # drivers
 from neo4j import AsyncGraphDatabase
@@ -340,9 +340,6 @@ async def on_message(message: cl.Message):
 #     else:
 #         return None
 
-from typing import Dict, Optional
-import chainlit as cl
-
 
 @cl.oauth_callback
 def oauth_callback(
@@ -351,6 +348,10 @@ def oauth_callback(
     raw_user_data: Dict[str, str],
     default_user: cl.User,
 ) -> Optional[cl.User]:
+    logger.info(f"OAuth callback: {provider_id}, {token}, {raw_user_data}")
+    roles = raw_user_data.get("roles", [])
+    if "admin" in roles:
+        default_user.metadata["role"] = "admin"
     return default_user
 
 
