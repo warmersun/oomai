@@ -83,6 +83,7 @@ async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client):
         assert response.finish_reason == "REASON_TOOL_CALLS", f"Expected finish reason to be REASON_TOOL_CALLS, got {response.finish_reason}"
         chat.append(response)
 
+        logger.info(f"Going to process tool calls: {len(response.tool_calls)}")
         for tool_call in response.tool_calls:
             try:
                 function_name = tool_call.function.name

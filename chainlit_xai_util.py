@@ -31,8 +31,10 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
 
     # Create chat session
     if search_settings:
+        logger.info("Search settings are on")
         search_parameters = SearchParameters()
     else:
+        logger.info("Search settings are off")
         search_parameters = None
     chat = xai_client.chat.create(
         model="grok-4-fast",
