@@ -134,6 +134,7 @@ async def set_chat_profile(current_user: cl.User):
             markdown_description="Query the knowledge graph in read-only mode.",
         )
     ]
+    logger.info(f"Current user metadata: {current_user.metadata}")
     if current_user.metadata.get("role") == "admin":
         profiles.append(
             cl.ChatProfile(
@@ -345,12 +346,13 @@ import chainlit as cl
 
 @cl.oauth_callback
 def oauth_callback(
-  provider_id: str,
-  token: str,
-  raw_user_data: Dict[str, str],
-  default_user: cl.User,
+    provider_id: str,
+    token: str,
+    raw_user_data: Dict[str, str],
+    default_user: cl.User,
 ) -> Optional[cl.User]:
-  return default_user
+    return default_user
+
 
 # Text to Speech
 
