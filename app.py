@@ -322,23 +322,35 @@ async def on_message(message: cl.Message):
         cl.user_session.set("last_message", output_message.content)
 
 
-@cl.password_auth_callback
-def auth_callback(username: str, password: str) -> Optional[cl.User]:
-    if (username, password) == ("Sic", "kadima"):
-        return cl.User(identifier="Sic",
-                       metadata={
-                           "role": "admin",
-                           "provider": "credentials"
-                       })
-    elif (username, password) == ("User", "oom.today"):
-        return cl.User(identifier=username,
-                       metadata={
-                           "role": "user",
-                           "provider": "credentials"
-                       })
-    else:
-        return None
+# @cl.password_auth_callback
+# def auth_callback(username: str, password: str) -> Optional[cl.User]:
+#     if (username, password) == ("Sic", "kadima"):
+#         return cl.User(identifier="Sic",
+#                        metadata={
+#                            "role": "admin",
+#                            "provider": "credentials"
+#                        })
+#     elif (username, password) == ("User", "oom.today"):
+#         return cl.User(identifier=username,
+#                        metadata={
+#                            "role": "user",
+#                            "provider": "credentials"
+#                        })
+#     else:
+#         return None
 
+from typing import Dict, Optional
+import chainlit as cl
+
+
+@cl.oauth_callback
+def oauth_callback(
+  provider_id: str,
+  token: str,
+  raw_user_data: Dict[str, str],
+  default_user: cl.User,
+) -> Optional[cl.User]:
+  return default_user
 
 # Text to Speech
 
