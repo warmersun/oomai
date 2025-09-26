@@ -277,8 +277,7 @@ async def on_message(message: cl.Message):
         async with cl.Step(name="the Knowledge Graph",
                            type="tool",
                            default_open=True) as step:
-            success = await process_stream(message.content, ctx,
-                                           output_message)
+            success = await process_stream(processed_message, ctx, output_message)
             step.output = success
 
         if success:
@@ -324,31 +323,31 @@ async def on_message(message: cl.Message):
         cl.user_session.set("last_message", output_message.content)
 
 
-# @cl.password_auth_callback
-# def auth_callback(username: str, password: str) -> Optional[cl.User]:
-#     if (username, password) == ("Sic", "kadima"):
-#         return cl.User(identifier="Sic",
-#                        metadata={
-#                            "role": "admin",
-#                            "provider": "credentials"
-#                        })
-#     elif (username, password) == ("User", "oom.today"):
-#         return cl.User(identifier=username,
-#                        metadata={
-#                            "role": "user",
-#                            "provider": "credentials"
-#                        })
-#     else:
-#         return None
+@cl.password_auth_callback
+def auth_callback(username: str, password: str) -> Optional[cl.User]:
+    if (username, password) == ("Sic", "kadima"):
+        return cl.User(identifier="Sic",
+                       metadata={
+                           "role": "admin",
+                           "provider": "credentials"
+                       })
+    elif (username, password) == ("User", "oom.today"):
+        return cl.User(identifier=username,
+                       metadata={
+                           "role": "user",
+                           "provider": "credentials"
+                       })
+    else:
+        return None
 
 
-@cl.oauth_callback
-def oauth_callback(
-    provider_id: str,
-    token: str,
-    raw_user_data: Dict[str, str],
-    default_user: cl.User,
-) -> Optional[cl.User]:
+# @cl.oauth_callback
+# def oauth_callback(
+#     provider_id: str,
+#     token: str,
+#     raw_user_data: Dict[str, str],
+#     default_user: cl.User,
+# ) -> Optional[cl.User]:
     logger.info(f"OAuth callback: {provider_id}, {token}, {raw_user_data}")
     assert DESCOPE_PROJECT_ID is not None, "DESCOPE_PROJECT_ID is not set"
     descope_client = DescopeClient(project_id=DESCOPE_PROJECT_ID)
