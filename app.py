@@ -352,16 +352,21 @@ def oauth_callback(
     logger.info(f"OAuth callback: {provider_id}, {token}, {raw_user_data}")
     assert DESCOPE_PROJECT_ID is not None, "DESCOPE_PROJECT_ID is not set"
     descope_client = DescopeClient(project_id=DESCOPE_PROJECT_ID)
+    roles = [
+        "admin",
+    ]
     try:
-        jwt_response = descope_client.validate_session(session_token=token)
-        matched_roles = descope_client.get_matched_roles(jwt_response, ["admin"])
-        logger.info(f"Matched roles: {matched_roles}")
-        if "admin" in matched_roles:
+        jwt_response = descope_client.validate_session(
+            session_token=token, audience=DESCOPE_PROJECT_ID)
+        is_admin_role = descope_client.validate_roles(jwt_response, roles)
+        logger.info(f"Is admin role?: {is_admin_role}")
+        if is_admin_role:
             default_user.metadata["role"] = "admin"
     except Exception as error:
         logger.error(f"Error getting matched roles: {error}")
     finally:
         return default_user
+
 
 # Text to Speech
 
