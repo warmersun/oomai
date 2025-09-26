@@ -132,8 +132,8 @@ TOOLS_DEFINITIONS = {
                 },
                 "top_k": {
                     "type": "integer",
-                    "description": "The number of top results to return (default is 5).",
-                    "default": 5,
+                    "description": "The number of top results to return (default is 25).",
+                    "default": 25,
                 },
             },
             "required": ["query_text", "node_type"],

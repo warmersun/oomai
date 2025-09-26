@@ -108,6 +108,7 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
     # Validate the query before execution
     is_valid, validation_error = validate_cypher_query(query)
     if not is_valid:
+        logging.error(f"validate_cypher_query caught and reported an Invalid Cypher query: {validation_error}")
         raise RuntimeError(f"Invalid Cypher query: {validation_error}")
 
     async with ctx.neo4jdriver.session() as session:
@@ -457,7 +458,7 @@ async def core_find_node(
     node_type: Literal[
         "Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"
     ],
-    top_k: int = 5,
+    top_k: int = 25,
     openai_embedding_client=None
 ) -> list:
     """

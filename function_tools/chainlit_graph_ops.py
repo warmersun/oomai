@@ -72,7 +72,7 @@ async def find_node(
     node_type: Literal[
         "Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"
     ],
-    top_k: int = 5
+    top_k: int = 25
 ) -> list:
     async with cl.Step(name="Find_Node", type="retrieval") as step:
         step.show_input = True
