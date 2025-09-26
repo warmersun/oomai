@@ -108,7 +108,7 @@ TOOLS_DEFINITIONS = {
                     "additionalProperties": True,
                 },
             },
-            "required": ["source_id", "target_id", "relationship_type"],
+            "required": ["source_name", "target_name", "relationship_type"],
         },
     ),
     "find_node": tool(

@@ -60,6 +60,11 @@ EMBEDDING_MODEL = "text-embedding-3-large"
 class GraphOpsCtx:
     neo4jdriver: AsyncDriver
     lock: Lock
+    node_name_mapping: Dict[str, str] = None  # Maps old node names to actual node names
+    
+    def __post_init__(self):
+        if self.node_name_mapping is None:
+            self.node_name_mapping = {}
 
 async def run_transaction(tx: AsyncTransaction, query, params=None):
     # If params is None, default to empty dict for safety
@@ -264,7 +269,10 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                     return records[0]['name']
 
                 async with ctx.lock:
-                    return await session.execute_write(write_update)
+                    actual_name = await session.execute_write(write_update)
+                    # Store the mapping from original name to actual name
+                    ctx.node_name_mapping[name] = actual_name
+                    return actual_name
 
             else:
                 logging.info(
@@ -287,7 +295,10 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                     return records[0]['name']
 
                 async with ctx.lock:
-                    return await session.execute_write(write_create)
+                    actual_name = await session.execute_write(write_create)
+                    # Store the mapping from original name to actual name (in case of future updates)
+                    ctx.node_name_mapping[name] = actual_name
+                    return actual_name
     except Exception as e:
         logging.error(f"Error in smart_upsert: {str(e)}")
         raise
@@ -329,6 +340,8 @@ async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str, descripti
             try:
                 node_name = await session.execute_write(write_work)
                 logging.info(f"[CREATE_NODE] merged: type: {node_type}\nname: {name}\n description: {description}")
+                # Store the mapping from original name to actual name
+                ctx.node_name_mapping[name] = node_name
                 return node_name
             except Exception as e:
                 logging.error(f"Error in merge_node: {str(e)}")
@@ -347,7 +360,11 @@ async def core_create_edge(
     Returns the created relationship as a dict.
     """
 
-    logging.info(f"[CREATE_EDGE]\nSOURCE: {source_name}\n->\nTARGET:{target_name}\nWITH TYPE:{relationship_type} AND PROPERTIES: {properties}")
+    # Check if we have mapped names for the source and target
+    actual_source_name = ctx.node_name_mapping.get(source_name, source_name)
+    actual_target_name = ctx.node_name_mapping.get(target_name, target_name)
+    
+    logging.info(f"[CREATE_EDGE]\nSOURCE: {source_name} -> {actual_source_name}\n->\nTARGET:{target_name} -> {actual_target_name}\nWITH TYPE:{relationship_type} AND PROPERTIES: {properties}")
 
     # Use the properties dict directly
     props_dict = properties or {}
@@ -355,7 +372,7 @@ async def core_create_edge(
     prop_keys = ", ".join(f"{key}: ${key}" for key in props_dict)
     prop_str = f"{{{prop_keys}}}" if prop_keys else ""
 
-    # First, verify both nodes exist
+    # First, verify both nodes exist using the actual names
     check_nodes_query = """
     MATCH (source) WHERE source.name = $source_name 
     MATCH (target) WHERE target.name = $target_name 
@@ -364,7 +381,7 @@ async def core_create_edge(
     
     async with ctx.neo4jdriver.session() as session:
         async def check_nodes(tx: AsyncTransaction):
-            result = await tx.run(check_nodes_query, {"source_name": source_name, "target_name": target_name})
+            result = await tx.run(check_nodes_query, {"source_name": actual_source_name, "target_name": actual_target_name})
             records = await result.data()
             return records
 
@@ -379,11 +396,11 @@ async def core_create_edge(
                 check_target_query = "MATCH (n) WHERE n.name = $target_name RETURN n.name as name"
                 
                 async def check_source(tx: AsyncTransaction):
-                    result = await tx.run(check_source_query, {"source_name": source_name})
+                    result = await tx.run(check_source_query, {"source_name": actual_source_name})
                     return await result.data()
                 
                 async def check_target(tx: AsyncTransaction):
-                    result = await tx.run(check_target_query, {"target_name": target_name})
+                    result = await tx.run(check_target_query, {"target_name": actual_target_name})
                     return await result.data()
                 
                 async with ctx.lock:
@@ -391,9 +408,9 @@ async def core_create_edge(
                     target_exists = await session.execute_read(check_target)
                 
                 if not source_exists:
-                    missing_nodes.append(f"source node '{source_name}'")
+                    missing_nodes.append(f"source node '{actual_source_name}' (original: '{source_name}')")
                 if not target_exists:
-                    missing_nodes.append(f"target node '{target_name}'")
+                    missing_nodes.append(f"target node '{actual_target_name}' (original: '{target_name}')")
                 
                 raise RuntimeError(f"Cannot create edge: {', '.join(missing_nodes)} not found in database")
                 
@@ -403,14 +420,14 @@ async def core_create_edge(
             logging.error(f"Error checking nodes existence: {str(e)}")
             raise RuntimeError(f"Failed to verify nodes exist: {str(e)}")
 
-        # Now create the edge
+        # Now create the edge using the actual names
         query = (
             "MATCH (source) WHERE source.name = $source_name "
             "MATCH (target) WHERE target.name = $target_name "
             f"MERGE (source)-[r:{relationship_type} {prop_str}]->(target) "
             "RETURN r"
         )
-        params = {"source_name": source_name, "target_name": target_name, **props_dict}
+        params = {"source_name": actual_source_name, "target_name": actual_target_name, **props_dict}
 
         logging.info(f"[CREATE_EDGE] Executing query: {query}")
         logging.info(f"[CREATE_EDGE] With params: {params}")
@@ -426,7 +443,7 @@ async def core_create_edge(
         try:
             async with ctx.lock:
                 edge = await session.execute_write(write_work)
-                logging.info(f"Successfully created edge: {source_name} -> {target_name} with type: {relationship_type} and properties: {properties}")
+                logging.info(f"Successfully created edge: {actual_source_name} -> {actual_target_name} with type: {relationship_type} and properties: {properties}")
                 return edge
         except Exception as e:
             logging.error(f"Error in create_edge: {str(e)}")
