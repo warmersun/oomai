@@ -486,9 +486,15 @@ def _process_command(message: cl.Message) -> str:
 # Callbacks for persistence
 
 
-@cl.on_shared_thread_view
-async def on_shared_thread_view(thread, viewer) -> bool:
-    return True
+@cl.on_shared_thread_view  
+async def shared_thread_view(thread, viewer):  
+    # Allow anonymous access to shared threads  
+    metadata = thread.get("metadata", {})  
+    if metadata.get("is_shared"):  
+        return True  
+
+    # Require authentication for non-shared threads  
+    return viewer is not None
 
 
 @cl.on_chat_resume
