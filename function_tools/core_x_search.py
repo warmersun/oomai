@@ -32,11 +32,13 @@ async def core_x_search(
             sources=sources,
             from_date=from_date,
             to_date=to_date,
+            return_citations=False,
         )
     else:
         search_parameters = SearchParameters(
             mode="on",
             sources=sources,
+            return_citations=False,
         )
     chat = xai_client.chat.create(
         model="grok-4-fast",
