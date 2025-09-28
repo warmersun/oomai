@@ -7,6 +7,7 @@ from chainlit_xai_util import count_usage
 
 async def core_x_search(
     xai_client: AsyncClient, 
+    user_identifier: str,
     prompt: str, 
     included_handles: Optional[List[str]] = None,
     last_24hrs: Optional[bool] = False, 
@@ -46,7 +47,8 @@ async def core_x_search(
         messages=[
             system(system_prompt) if system_prompt else system("Search on X and return a detailed summary.") ,
             user(prompt),
-        ]
+        ],
+        user=user_identifier,
     )
 
     response = await chat.sample()

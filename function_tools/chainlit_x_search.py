@@ -29,7 +29,9 @@ async def x_search(
 
 		xai_client = cl.user_session.get("xai_client")
 		assert xai_client is not None, "No xAI client found in user session"
-		output = await core_x_search(xai_client, prompt, included_handles, last_24hrs, system_prompt)
+		user = cl.user_session.get("user")
+		assert user is not None, "No user found in user session"
+		output = await core_x_search(xai_client, user.identifier, prompt, included_handles, last_24hrs, system_prompt)
 
 		step.output = output
 		debug = cl.user_session.get("debug_settings")
