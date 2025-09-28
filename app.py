@@ -49,8 +49,13 @@ with open("knowledge_graph/system_prompt_grok4.md", "r") as f:
     system_prompt_edit_template = f.read()
 with open("knowledge_graph/system_prompt_grok4_readonly.md", "r") as f:
     system_prompt_readonly_template = f.read()
+with open("knowledge_graph/system_prompt_grok4_readonly_unhinged.md",
+          "r") as f:
+    system_prompt_readonly_unhinged_template = f.read()
 SYSTEM_PROMPT_EDIT = system_prompt_edit_template.format(schema=schema)
 SYSTEM_PROMPT_READONLY = system_prompt_readonly_template.format(schema=schema)
+SYSTEM_PROMPT_READONLY_UNHINGED = system_prompt_readonly_unhinged_template.format(
+    schema=schema)
 
 with open("knowledge_graph/command_sources.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -130,6 +135,7 @@ AVAILABLE_FUNCTIONS_READONLY = {
 
 READ_ONLY_PROFILE = "Read-Only"
 READ_EDIT_PROFILE = "Read/Edit"
+READ_ONLY_UNHINGED_PROFILE = "Read-Only-Unhinged"
 
 
 @cl.set_chat_profiles
@@ -138,6 +144,11 @@ async def set_chat_profile(current_user: cl.User):
         cl.ChatProfile(
             name=READ_ONLY_PROFILE,
             markdown_description="Query the knowledge graph in read-only mode.",
+        ),
+        cl.ChatProfile(
+            name=READ_ONLY_UNHINGED_PROFILE,
+            markdown_description=
+            "Query the knowledge graph and get unhinged answers.",
         )
     ]
     logger.info(f"Current user metadata: {current_user.metadata}")
@@ -211,6 +222,12 @@ async def start():
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_EDIT)
         # only edit mode has commands
         await cl.context.emitter.set_commands(commands_edit)
+    elif chat_profile == READ_ONLY_UNHINGED_PROFILE:
+        cl.user_session.set("system_messages",
+                            [system(SYSTEM_PROMPT_READONLY_UNHINGED)])
+        cl.user_session.set("tools", TOOLS_READONLY)
+        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
+        await cl.context.emitter.set_commands(commands_readonly)
     else:
         cl.user_session.set("system_messages",
                             [system(SYSTEM_PROMPT_READONLY)])
@@ -596,6 +613,12 @@ async def on_chat_resume(thread: ThreadDict):
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_EDIT)
         # only edit mode has commands
         await cl.context.emitter.set_commands(commands_edit)
+    elif chat_profile == READ_ONLY_UNHINGED_PROFILE:
+        cl.user_session.set("system_messages",
+                            [system(SYSTEM_PROMPT_READONLY_UNHINGED)])
+        cl.user_session.set("tools", TOOLS_READONLY)
+        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
+        await cl.context.emitter.set_commands(commands_readonly)
     else:
         cl.user_session.set("system_messages",
                             [system(SYSTEM_PROMPT_READONLY)])
