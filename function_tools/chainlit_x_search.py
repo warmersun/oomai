@@ -16,7 +16,7 @@ async def x_search(
 		step.show_input = True
 		step.input = {"prompt": prompt, "included_handles": included_handles, "last_24hrs": last_24hrs, "system_prompt": system_prompt}
 
-		message = f"Searching on X with prompt: {prompt}"
+		message = f"Searching on X with prompt: `{prompt}`"
 		details = []
 		if included_handles:
 			details.append(f"including handles: {', '.join(included_handles)}")

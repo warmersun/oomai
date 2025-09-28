@@ -12,7 +12,7 @@ async def execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
         step.show_input = True
         step.input = {"query": query}
 
-        step_message = cl.Message(content=f"Executing Cypher query: {query}")
+        step_message = cl.Message(content=f"Executing Cypher query: `{query}`")
         await step_message.send()
 
         output = await core_execute_cypher_query(ctx, query)
@@ -81,7 +81,7 @@ async def find_node(
         openai_embedding_client = cl.user_session.get("openai_embedding_client")
         assert openai_embedding_client is not None, "No OpenAI client found in user session"
 
-        step_message = cl.Message(content=f"Finding nodes of type {node_type} with query text {query_text} and top_k {top_k}")
+        step_message = cl.Message(content=f"Finding upto {top_k} {node_type}: `{query_text}`")
         await step_message.send()
 
         output = await core_find_node(ctx, query_text, node_type, top_k, openai_embedding_client)
