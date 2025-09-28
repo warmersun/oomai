@@ -1,6 +1,5 @@
 import json
 import chainlit as cl
-from chainlit.types import User
 from chainlit.logger import logger
 from xai_sdk.search import SearchParameters, web_source, news_source, x_source
 from xai_sdk.chat import tool_result, user, assistant, tool
@@ -22,7 +21,7 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
     assert function_map is not None, "No function_map found in user session"
     functions_with_ctx = cl.user_session.get("functions_with_ctx")
     assert functions_with_ctx is not None, "No functions_with_ctx found in user session"
-    user: User= cl.user_session.get("user")
+    user = cl.user_session.get("user")
     assert user is not None, "No user found in user session"
 
     # Append the new user input as a proper message object
