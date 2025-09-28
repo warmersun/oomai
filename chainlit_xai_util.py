@@ -1,8 +1,8 @@
 import json
 import chainlit as cl
 from chainlit.logger import logger
-from xai_sdk.search import SearchParameters
-from xai_sdk.chat import tool_result, user, assistant, tool  # Assuming these exist
+from xai_sdk.search import SearchParameters, web_source, news_source, x_source
+from xai_sdk.chat import tool_result, user, assistant, tool
 from typing import Any  # For GraphOpsCtx, assume it's defined elsewhere
 import asyncio
 
@@ -21,8 +21,6 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
     assert function_map is not None, "No function_map found in user session"
     functions_with_ctx = cl.user_session.get("functions_with_ctx")
     assert functions_with_ctx is not None, "No functions_with_ctx found in user session"
-    search_settings = cl.user_session.get("search_settings")
-    assert search_settings is not None, "No search settings found in user session"
 
     # Append the new user input as a proper message object
     user_and_assistant_messages.append(user(user_input))
@@ -30,15 +28,9 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
     error_count = 0
 
     # Create chat session
-    if search_settings:
-        logger.info("Search settings are on")
-        search_parameters = SearchParameters()
-    else:
-        logger.info("Search settings are off")
-        search_parameters = None
     chat = xai_client.chat.create(
         model="grok-4-fast",
-        search_parameters=search_parameters,
+        search_parameters=SearchParameters(mode="off"),
         tools=tools,
         tool_choice="auto"  # Assuming this is supported, based on previous example
     )
@@ -59,7 +51,8 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
 
         # After streaming, append the full assistant content
         user_and_assistant_messages.append(assistant(response.content))
-
+        await count_usage(response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.num_sources_used)
+    
         # Check if there are tool calls in the final response
         if not hasattr(response, "tool_calls") or not response.tool_calls:
             # No tool calls, done
@@ -98,6 +91,16 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
                 chat.append(tool_result(json.dumps({"error": str(e)})))
                 break
 
-    search_settings = cl.user_session.get("search_settings")
-    if search_settings:
-        logger.info(f"Number of sources used in Live Search: {response.usage.num_sources_used}")
+async def count_usage(prompt_tokens: int, completion_tokens: int, num_sources_used: int) -> None:
+    prompt_tokens_session = cl.user_session.get("prompt_tokens")
+    assert prompt_tokens_session is not None, "No prompt tokens found in user session"
+    completion_tokens_session = cl.user_session.get("completion_tokens")
+    assert completion_tokens_session is not None, "No completion tokens found in user session"
+    num_sources_used_session = cl.user_session.get("num_sources_used")
+    assert num_sources_used_session is not None, "No num sources used found in user session"
+    prompt_tokens_session += prompt_tokens
+    completion_tokens_session += completion_tokens
+    num_sources_used_session += num_sources_used
+    cl.user_session.set("prompt_tokens", prompt_tokens_session)
+    cl.user_session.set("completion_tokens", completion_tokens_session)
+    cl.user_session.set("num_sources_used", num_sources_used_session)

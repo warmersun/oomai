@@ -38,7 +38,7 @@ Follow these steps in both modes of operation:
 - Opt for `execute_cypher_query` when a direct, targeted search (e.g., for Ideas, Parties, or Products of a specific Party) is more suitable.
 - Continue searching or querying as needed until enough context is available to address the user's query.
 - If a missing connection is identified, use `create_edge` to establish it.
-- The priority of your sources is to first search the knowledge graph then use LiveSearch to search on X, the web and news.
+- The priority of your sources is to first search the knowledge graph then search on X and the web usinf `x_search`
 
 #### Typical Query Themes
 

@@ -34,6 +34,7 @@ from function_tools import (
     display_mermaid_diagram,
     display_convergence_canvas,
     visualize_oom,
+    x_search,
     TOOLS_DEFINITIONS,
 )
 from chainlit_xai_util import process_stream
@@ -83,6 +84,7 @@ TOOLS_EDIT = [
     TOOLS_DEFINITIONS["display_mermaid_diagram"],
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
+    TOOLS_DEFINITIONS["x_search"],
 ]
 
 TOOLS_READONLY = [
@@ -95,6 +97,7 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["display_mermaid_diagram"],
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
+    TOOLS_DEFINITIONS["x_search"],
 ]
 
 AVAILABLE_FUNCTIONS_EDIT = {
@@ -109,6 +112,7 @@ AVAILABLE_FUNCTIONS_EDIT = {
     "display_mermaid_diagram": display_mermaid_diagram,
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
+    "x_search": x_search,
 }
 
 AVAILABLE_FUNCTIONS_READONLY = {
@@ -121,6 +125,7 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "display_mermaid_diagram": display_mermaid_diagram,
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
+    "x_search": x_search,
 }
 
 READ_ONLY_PROFILE = "Read-Only"
@@ -191,21 +196,13 @@ async def start():
     # settings
     settings = await cl.ChatSettings([
         Switch(
-            id="search",
-            label="Search",
-            initial_value=False,
-            tooltip="Search on or off",
-            description="Search on X, Web and News",
-        ),
-        Switch(
             id="debug",
             label="Debug",
             initial_value=False,
             tooltip="Debug on or off",
-            description="See knowledge graph usage details",
+            description="See knowledge graph and LiveSearch usage details",
         ),
     ]).send()
-    cl.user_session.set("search_settings", settings["search"])
     cl.user_session.set("debug_settings", settings["debug"])
     chat_profile = cl.user_session.get("chat_profile")
     if chat_profile == READ_EDIT_PROFILE:
@@ -224,11 +221,14 @@ async def start():
         "create_node", "create_edge", "find_node", "execute_cypher_query"
     ]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
+    cl.user_session.set("prompt_tokens", 0)
+    cl.user_session.set("completion_tokens", 0)
+    cl.user_session.set("num_sources_used", 0)
+
 
 
 @cl.on_settings_update
 async def on_settings_update(settings):
-    cl.user_session.set("search_settings", settings["search"])
     cl.user_session.set("debug_settings", settings["debug"])
 
 
@@ -319,6 +319,18 @@ async def on_message(message: cl.Message):
         debug = cl.user_session.get("debug_settings")
         if not debug:
             await step.remove()
+        else:
+            prompt_tokens = cl.user_session.get("prompt_tokens")
+            completion_tokens = cl.user_session.get("completion_tokens")
+            num_sources_used = cl.user_session.get("num_sources_used")
+            await cl.Message(
+                content=(
+                    f"Prompt tokens: {prompt_tokens}\n"
+                    f"Completion tokens: {completion_tokens}\n"
+                    f"LiveSearch number of sources used: {num_sources_used}"
+                ),
+                type="system_message"
+            ).send()
 
         cl.user_session.set("last_message", output_message.content)
 
@@ -348,23 +360,23 @@ def auth_callback(username: str, password: str) -> Optional[cl.User]:
 #     raw_user_data: Dict[str, str],
 #     default_user: cl.User,
 # ) -> Optional[cl.User]:
-    logger.info(f"OAuth callback: {provider_id}, {token}, {raw_user_data}")
-    assert DESCOPE_PROJECT_ID is not None, "DESCOPE_PROJECT_ID is not set"
-    descope_client = DescopeClient(project_id=DESCOPE_PROJECT_ID)
-    roles = [
-        "admin",
-    ]
-    try:
-        jwt_response = descope_client.validate_session(
-            session_token=token, audience=DESCOPE_PROJECT_ID)
-        is_admin_role = descope_client.validate_roles(jwt_response, roles)
-        logger.info(f"Is admin role?: {is_admin_role}")
-        if is_admin_role:
-            default_user.metadata["role"] = "admin"
-    except Exception as error:
-        logger.error(f"Error getting matched roles: {error}")
-    finally:
-        return default_user
+    # logger.info(f"OAuth callback: {provider_id}, {token}, {raw_user_data}")
+    # assert DESCOPE_PROJECT_ID is not None, "DESCOPE_PROJECT_ID is not set"
+    # descope_client = DescopeClient(project_id=DESCOPE_PROJECT_ID)
+    # roles = [
+    #     "admin",
+    # ]
+    # try:
+    #     jwt_response = descope_client.validate_session(
+    #         session_token=token, audience=DESCOPE_PROJECT_ID)
+    #     is_admin_role = descope_client.validate_roles(jwt_response, roles)
+    #     logger.info(f"Is admin role?: {is_admin_role}")
+    #     if is_admin_role:
+    #         default_user.metadata["role"] = "admin"
+    # except Exception as error:
+    #     logger.error(f"Error getting matched roles: {error}")
+    # finally:
+    #     return default_user
 
 
 # Text to Speech
@@ -566,21 +578,13 @@ async def on_chat_resume(thread: ThreadDict):
     # settings
     settings = await cl.ChatSettings([
         Switch(
-            id="search",
-            label="Search",
-            initial_value=False,
-            tooltip="Search on or off",
-            description="Search on X, Web and News",
-        ),
-        Switch(
             id="debug",
             label="Debug",
             initial_value=False,
             tooltip="Debug on or off",
-            description="See knowledge graph usage details",
+            description="See knowledge graph and LiveSearch usage details",
         ),
     ]).send()
-    cl.user_session.set("search_settings", settings["search"])
     cl.user_session.set("debug_settings", settings["debug"])
     chat_profile = cl.user_session.get("chat_profile")
     if chat_profile == READ_EDIT_PROFILE:
@@ -601,3 +605,6 @@ async def on_chat_resume(thread: ThreadDict):
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
     cl.user_session.set("task_list", None)
     cl.user_session.set("tasks", {})
+    cl.user_session.set("prompt_tokens", 0)
+    cl.user_session.set("completion_tokens", 0)
+    cl.user_session.set("num_sources_used", 0)
