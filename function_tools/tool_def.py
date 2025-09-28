@@ -293,4 +293,39 @@ TOOLS_DEFINITIONS = {
             "required": ["months_per_doubling"]
         }
     ),
+    "x_search": tool(
+        name="x_search",
+        description="""
+        Searches on X and on the web.
+        """,
+        parameters={
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "The prompt to search on X.",
+                },
+                "included_handles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description": "A Twitter/X handle to include in the search."
+                    },
+                    "description": "A list of Twitter/X handles (as strings) to search on X.",
+                    "default": [],
+                },
+                "last_24hrs": {
+                    "type": "boolean",
+                    "description": "Whether to search on X for the last 24 hours.",
+                    "default": False,
+                },
+                "system_prompt": {
+                    "type": "string",
+                    "description": "The system prompt to use for the search.",
+                    "default": "Search on X and return a detailed summary.",
+                },
+            },
+            "required": ["prompt"]
+        }
+    ),
 }
