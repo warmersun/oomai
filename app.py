@@ -49,7 +49,7 @@ with open("knowledge_graph/system_prompt_grok4.md", "r") as f:
     system_prompt_edit_template = f.read()
 with open("knowledge_graph/system_prompt_grok4_readonly.md", "r") as f:
     system_prompt_readonly_template = f.read()
-with open("knowledge_graph/system_prompt_grok4_readonly_unhinged.md",
+with open("knowledge_graph/system_prompt_grok4_unhinged_readonly.md",
           "r") as f:
     system_prompt_readonly_unhinged_template = f.read()
 SYSTEM_PROMPT_EDIT = system_prompt_edit_template.format(schema=schema)
@@ -135,7 +135,7 @@ AVAILABLE_FUNCTIONS_READONLY = {
 
 READ_ONLY_PROFILE = "Read-Only"
 READ_EDIT_PROFILE = "Read/Edit"
-READ_ONLY_UNHINGED_PROFILE = "Read-Only-Unhinged"
+READ_ONLY_UNHINGED_PROFILE = "Read-Only Unhinged"
 
 
 @cl.set_chat_profiles
@@ -349,48 +349,48 @@ async def on_message(message: cl.Message):
         cl.user_session.set("last_message", output_message.content)
 
 
-# @cl.password_auth_callback
-# def auth_callback(username: str, password: str) -> Optional[cl.User]:
-#     if (username, password) == ("Sic", "kadima"):
-#         return cl.User(identifier="Sic",
-#                        metadata={
-#                            "role": "admin",
-#                            "provider": "credentials"
-#                        })
-#     elif (username, password) == ("User", "oom.today"):
-#         return cl.User(identifier=username,
-#                        metadata={
-#                            "role": "user",
-#                            "provider": "credentials"
-#                        })
-#     else:
-#         return None
+@cl.password_auth_callback
+def auth_callback(username: str, password: str) -> Optional[cl.User]:
+    if (username, password) == ("Sic", "kadima"):
+        return cl.User(identifier="Sic",
+                       metadata={
+                           "role": "admin",
+                           "provider": "credentials"
+                       })
+    elif (username, password) == ("User", "oom.today"):
+        return cl.User(identifier=username,
+                       metadata={
+                           "role": "user",
+                           "provider": "credentials"
+                       })
+    else:
+        return None
 
 
-@cl.oauth_callback
-def oauth_callback(
-    provider_id: str,
-    token: str,
-    raw_user_data: Dict[str, str],
-    default_user: cl.User,
-) -> Optional[cl.User]:
-    logger.info(f"OAuth callback: {provider_id}, {token}, {raw_user_data}")
-    assert DESCOPE_PROJECT_ID is not None, "DESCOPE_PROJECT_ID is not set"
-    descope_client = DescopeClient(project_id=DESCOPE_PROJECT_ID)
-    roles = [
-        "admin",
-    ]
-    try:
-        jwt_response = descope_client.validate_session(
-            session_token=token, audience=DESCOPE_PROJECT_ID)
-        is_admin_role = descope_client.validate_roles(jwt_response, roles)
-        logger.info(f"Is admin role?: {is_admin_role}")
-        if is_admin_role:
-            default_user.metadata["role"] = "admin"
-    except Exception as error:
-        logger.error(f"Error getting matched roles: {error}")
-    finally:
-        return default_user
+# @cl.oauth_callback
+# def oauth_callback(
+#     provider_id: str,
+#     token: str,
+#     raw_user_data: Dict[str, str],
+#     default_user: cl.User,
+# ) -> Optional[cl.User]:
+#     logger.info(f"OAuth callback: {provider_id}, {token}, {raw_user_data}")
+#     assert DESCOPE_PROJECT_ID is not None, "DESCOPE_PROJECT_ID is not set"
+#     descope_client = DescopeClient(project_id=DESCOPE_PROJECT_ID)
+#     roles = [
+#         "admin",
+#     ]
+#     try:
+#         jwt_response = descope_client.validate_session(
+#             session_token=token, audience=DESCOPE_PROJECT_ID)
+#         is_admin_role = descope_client.validate_roles(jwt_response, roles)
+#         logger.info(f"Is admin role?: {is_admin_role}")
+#         if is_admin_role:
+#             default_user.metadata["role"] = "admin"
+#     except Exception as error:
+#         logger.error(f"Error getting matched roles: {error}")
+#     finally:
+#         return default_user
 
 
 # Text to Speech
@@ -473,8 +473,8 @@ def text_to_speech(text: str):
         text=text,
         voice_id=ELEVENLABS_VOICE_ID,
         output_format="mp3_44100_128",
-        voice_settings=VoiceSettings(stability=0.5,
-                                     similarity_boost=0.76,
+        voice_settings=VoiceSettings(stability=0.4,
+                                     similarity_boost=0.75,
                                      use_speaker_boost=True,
                                      speed=1.0))
     return audio
