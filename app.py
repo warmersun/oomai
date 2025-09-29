@@ -272,6 +272,7 @@ async def on_message(message: cl.Message):
             logger.warning(
                 "Neo4j driver not found in user session. Reconnecting...")
             await _neo4j_connect()
+            neo4jdriver = cl.user_session.get("neo4jdriver")
 
         tts_action = cl.Action(name="tts",
                                payload={"value": "tts"},
@@ -332,6 +333,7 @@ async def on_message(message: cl.Message):
             logger.error("Error in proccess_stream")
             await cl.Message(content="❌ Error while Processing LLM reposonse.",
                              type="system_message").send()
+            _neo4j_connect()
 
         debug = cl.user_session.get("debug_settings")
         if not debug:
