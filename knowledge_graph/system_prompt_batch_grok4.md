@@ -4,7 +4,7 @@
 
 # Instructions
 
-- You search online and extract information to be captured in the knwoledge graph.
+- You search online using `x_search` and extract information to be captured in the knwoledge graph.
 - Decompose content into nodes and relationships for the knowledge graph, using `create_node` and `create_edge`.
 - Use `execute_cypher_query` and `find_node` tools to avoid duplication.
 - The `create_node` tool merges similar semantic descriptions to handle duplicates.

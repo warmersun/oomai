@@ -15,6 +15,7 @@ from function_tools import (
     core_create_node,
     core_create_edge,
     core_find_node,
+    core_x_search,
     GraphOpsCtx,
     TOOLS_DEFINITIONS,
 )
@@ -39,6 +40,7 @@ TOOLS = [
     TOOLS_DEFINITIONS["create_node"],
     TOOLS_DEFINITIONS["create_edge"],
     TOOLS_DEFINITIONS["find_node"],
+    TOOLS_DEFINITIONS["x_search"],
 ]
 
 AVAILABLE_FUNCTIONS = {
@@ -46,17 +48,18 @@ AVAILABLE_FUNCTIONS = {
     "create_node": core_create_node,
     "create_edge": core_create_edge,
     "find_node": core_find_node,
+    "x_search": core_x_search,
 }
 
 # Function to create the response, streaming
-def create_response(xai_client, prompt: str, search_parameters=None):
+def create_response(xai_client, prompt: str):
     with open("knowledge_graph/system_prompt_batch_grok4.md", "r") as f:
         system_prompt_template = f.read()
     system_prompt = system_prompt_template.format(schema=schema)
 
     chat = xai_client.chat.create(
         model="grok-4-fast",
-        search_parameters=search_parameters,
+        search_parameters=SearchParameters(mode="off"),
         tools=TOOLS,
         tool_choice="auto"
     )
@@ -66,7 +69,7 @@ def create_response(xai_client, prompt: str, search_parameters=None):
     return chat
 
 # Function to process the chat - no streaming needed
-async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client):
+async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client, xai_client):
     error_count = 0
     counter = 0
 
@@ -78,6 +81,8 @@ async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client):
 
         if not hasattr(response, "tool_calls") or not response.tool_calls:
             assert response.finish_reason == "REASON_STOP", "Expected finish reason to be REASON_STOP"
+            logger.info("No tool calls, done.")
+            logger.info(f"Response:\n{response.content}")
             return
 
         assert response.finish_reason == "REASON_TOOL_CALLS", f"Expected finish reason to be REASON_TOOL_CALLS, got {response.finish_reason}"
@@ -97,6 +102,9 @@ async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client):
                 # find nodes needs extra args, to have the openai client
                 if function_name == "find_node":
                     function_args["openai_embedding_client"] = openai_embedding_client
+                # x_search needs extra args, to have the xai client
+                if function_name == "x_search":
+                    function_args["xai_client"] = xai_client
 
                 result = await AVAILABLE_FUNCTIONS[function_name](**function_args)
 
@@ -139,22 +147,12 @@ async def main() -> None:
 
         logger.info(f"\n\nProcessing {source.get('name')}")
 
-        # Create search parameters based on source type
-        search_parameters = None
+        # Append source info to the prompt instead of building search_parameters
         if source.get("source_type") == "RSS" and "url" in source:
-            from datetime import datetime, timedelta
-            search_parameters = SearchParameters(
-                mode="on",
-                sources=[rss_source([source.get("url")])],
-                from_date=datetime.today() - timedelta(days=1)
-            )
+            prompt += f"\n\n[Source: RSS feed at {source.get('url')}, last 24 hours]"
         elif source.get("source_type") == "X" and "handles" in source:
-            from datetime import datetime, timedelta
-            search_parameters = SearchParameters(
-                mode="on",
-                sources=[x_source(included_x_handles=source.get("handles", []))],
-                from_date=datetime.today() - timedelta(days=1)
-            )
+            handles_str = ", ".join(source.get("handles", []))
+            prompt += f"\n\n[Source: X handles {handles_str}, last 24 hours]"
         else:
             logger.error(f"Unknown source type: {source.get('source_type')} or missing required parameters")
             continue
@@ -164,8 +162,8 @@ async def main() -> None:
 
         try:
             logger.info("Now processing content from sources into the knowledge graph using Grok-4-fast with built-in search.")
-            chat = create_response(xai_client, prompt, search_parameters)
-            await process(chat, ctx, groq_client, openai_embedding_client)
+            chat = create_response(xai_client, prompt)
+            await process(chat, ctx, groq_client, openai_embedding_client, xai_client)
             logger.info(f"✅ Processed {source.get('name')} successfully.")
         except Exception as e:
             logger.error(f"❌ Error while processing {source.get('name')}: {str(e)}")
