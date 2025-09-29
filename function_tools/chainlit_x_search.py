@@ -1,6 +1,7 @@
 import chainlit as cl
 from .core_x_search import core_x_search
 from typing import Optional, List
+from chainlit_xai_util import count_usage
 
 async def x_search(
 	prompt: str, 
@@ -32,10 +33,10 @@ async def x_search(
 		logged_in_user = cl.user_session.get("user")
 		assert logged_in_user is not None, "No user found in user session"
 		output = await core_x_search(xai_client, logged_in_user.identifier, prompt, included_handles, last_24hrs, system_prompt)
-
-		step.output = output
+		await count_usage(output[1], output[2], output[3])
+		step.output = output[0]
 		debug = cl.user_session.get("debug_settings")
 		if not debug:
 			await step.remove()
-		return output
+		return output[0]
 		

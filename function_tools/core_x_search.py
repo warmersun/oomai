@@ -2,8 +2,7 @@ from datetime import datetime, timedelta
 from xai_sdk.chat import SearchParameters, system, user
 from xai_sdk.search import x_source, web_source
 from xai_sdk import AsyncClient
-from typing import Optional, List
-from chainlit_xai_util import count_usage
+from typing import Optional, List, Tuple
 
 async def core_x_search(
     xai_client: AsyncClient, 
@@ -12,7 +11,7 @@ async def core_x_search(
     included_handles: Optional[List[str]] = None,
     last_24hrs: Optional[bool] = False, 
     system_prompt:Optional[str] = None,
-) -> str:
+) -> Tuple[str, int, int, int]:
     """Search on X and return a detailed summary."""
 
     sources = [
@@ -52,5 +51,5 @@ async def core_x_search(
     )
 
     response = await chat.sample()
-    await count_usage(response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.num_sources_used)
-    return response.content
+    
+    return response.content, response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.num_sources_used    
