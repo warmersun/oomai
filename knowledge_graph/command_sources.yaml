@@ -95,3 +95,70 @@ commands:
       2.then traverse the knowledge graph back to capabilities, LTC, PTC and EmTech.
       
       Then, structure your response.
+  pathway:
+    icon: route
+    description: "build pathways with..."
+    modes: [edit, readonly]
+    template: |
+      # Why should we care about {user_input}?
+
+      I mean, new advancements in science, technology and engineering really only matter when we can use them to solve humanity's big, global problems.  
+      See the list of list of global problems below, some of which are health related, other are existential threats.
+      How might we create pathways to solve some of the big global problems in the world? 
+
+      1. Look at the capabilities and use cases (LAC) associated with {user_input}.
+      2. Pick three problems from the list below.
+      3. Search the web and X for a brief root cause analysis of the probelms.
+      4. Propose a solution, using {user_input}
+      5. Extend the solution by layering on more complexity. Display a convergenc canvas and make sure at least 9 out of the 11 categories of emerging technologies are used to provide a complete, interdisciplinary solution. 
+
+      Finish by offering to look at some other problems.
+
+      # List of big, global problems:
+      
+      - Rouge SuperIntelligence (Existential Threat)
+      - Prevent Genocide
+      - Extreme Poverty
+      - Female Genital Mutilation (FGM)
+      - Chemical and Biological Weapons (Existential Threat)
+      - Asteroid (Existential Threat)
+      - Sacrificing the Long-term Future for Short-term Needs
+      - Extreme Weather Events
+      - Peace in the Middle East
+      - Nuclear Annihilation (Existential Threat)
+      - Counter radicalisation
+      - Slavery
+      - Promote Equal Rights for Women
+      - Totalitarianism
+      - Lack of education, low literacy rate
+      - Automation, UBI, Useless Class
+      - Promote Equality
+      - Refugees
+      - Sustainable Agriculture
+      - Food deserts
+      - Ecological Crises (Existential Threat)
+      - Food security
+      - Promote STEM for Women
+      - Enhance rural road connectivity
+      - Memory is incomplete
+      - Sanitation
+      - Smoking
+      - Infectious Diseases
+      - Climate Crises (Existential Threat)
+      - Child Health
+      - Cure Heart Disease
+      - Mental Health Crises
+      - Diabetes
+      - Waste vs recycling
+      - Alzheimer
+      - Cure Cancer
+      - Maternal Health
+      - Reproductive Health
+      - Ageing as a disease
+      - Homelessness
+      - Cities, Urbanization
+      - Access to Energy
+      - Drought and Polluted Water in Poor Nations
+      - Clean water
+      - Air Pollution
+ 
