@@ -11,6 +11,8 @@ from .core_graph_ops import core_create_edge
 from .core_graph_ops import core_find_node
 from .chainlit_x_search import x_search
 from .core_x_search import core_x_search
+from .chainlit_perplexity_search import perplexity_search
+from .core_perplexity_search import core_perplexity_search
 from .task_ops import plan_tasks
 from .task_ops import get_tasks
 from .task_ops import mark_task_as_running

@@ -16,6 +16,7 @@ from function_tools import (
     core_create_edge,
     core_find_node,
     core_x_search,
+    core_perplexity_search,
     GraphOpsCtx,
     TOOLS_DEFINITIONS,
 )
@@ -41,6 +42,7 @@ TOOLS = [
     TOOLS_DEFINITIONS["create_edge"],
     TOOLS_DEFINITIONS["find_node"],
     TOOLS_DEFINITIONS["x_search"],
+    TOOLS_DEFINITIONS["perplexity_search"],
 ]
 
 AVAILABLE_FUNCTIONS = {
@@ -49,6 +51,7 @@ AVAILABLE_FUNCTIONS = {
     "create_edge": core_create_edge,
     "find_node": core_find_node,
     "x_search": core_x_search,
+    "perplexity_search": core_perplexity_search,
 }
 
 # Function to create the response, streaming

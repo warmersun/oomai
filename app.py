@@ -35,13 +35,14 @@ from function_tools import (
     display_convergence_canvas,
     visualize_oom,
     x_search,
+    perplexity_search,
     TOOLS_DEFINITIONS,
 )
 from chainlit_xai_util import process_stream
 from utils import Neo4jDateEncoder
 from descope import DescopeClient
 
-from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, BRAVE_SEARCH_API_KEY, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, DESCOPE_PROJECT_ID
+from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, DESCOPE_PROJECT_ID, PERPLEXITY_API_KEY
 
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
@@ -90,6 +91,7 @@ TOOLS_EDIT = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
+    TOOLS_DEFINITIONS["perplexity_search"],
 ]
 
 TOOLS_READONLY = [
@@ -103,6 +105,7 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
+    TOOLS_DEFINITIONS["perplexity_search"],
 ]
 
 AVAILABLE_FUNCTIONS_EDIT = {
@@ -118,6 +121,7 @@ AVAILABLE_FUNCTIONS_EDIT = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
+    "perplexity_search": perplexity_search,
 }
 
 AVAILABLE_FUNCTIONS_READONLY = {
@@ -131,6 +135,7 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
+    "perplexity_search": perplexity_search,
 }
 
 READ_ONLY_PROFILE = "Read-Only"

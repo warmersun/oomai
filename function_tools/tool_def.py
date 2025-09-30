@@ -328,4 +328,33 @@ TOOLS_DEFINITIONS = {
             "required": ["prompt"]
         }
     ),
+    "perplexity_search": tool(
+        name="perplexity_search",
+        description="""
+        Performs web search using Perplexity AI to get comprehensive, up-to-date information on any topic.
+        Execute multiple related queries in a single request for comprehensive research
+        Returns structured search results with titles, URLs, dates,and snippets for each query.
+        """,
+        parameters={
+            "type": "object",
+            "properties": {
+                "queries": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description": "A search query string."
+                    },
+                    "description": "List of up to 5 search queries to execute using Perplexity AI.",
+                    "maxItems": 5,
+                    "minItems": 1,
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of results to return per query.",
+                    "default": 5,
+                },
+            },
+            "required": ["queries"]
+        }
+    ),
 }

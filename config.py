@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import os
-# load_dotenv()
+load_dotenv()
 
 BRAVE_SEARCH_API_KEY = os.getenv("BRAVE_SEARCH_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -12,3 +12,4 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID")
 DESCOPE_PROJECT_ID = os.getenv("DESCOPE_PROJECT_ID")
+PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
