@@ -41,6 +41,12 @@ sources:
     - CoinDesk
     - CoinTelegraph
     - worldcoin
+    - ii_posts
+    - chia_project
+    - Bitcoin
+    - ethereum
+    - coinbase
+    - jack
 - name: synbio_news
   prompt: "List the latest development, research, new capabilities and milestones in synthetic biology, gene sequencing, gene editing, alternative proteins, longevity, digital health. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
   source_type: X
