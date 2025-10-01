@@ -75,3 +75,16 @@ sources:
     - CyberRobooo
     - adcock_brett
     - TheRundownAI
+- name: quantum_computing_news
+  prompt: "List the latest development, research, new capabilities and milestones in quantum computing. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
+  source_type: X
+  handles:
+    - DavidDeutschOfx
+    - PeterShor
+    - raykurzweil
+    - sethlloyd
+    - ilyaskhan
+    - MJBiercuk
+    - krystasvore
+    - chadrigetti
+    - preskill
