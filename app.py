@@ -208,7 +208,8 @@ async def ask_payment(user_identifier: str):
           element = cl.CustomElement(
               name="PricingPlans", 
               props={
-                  "payment_link_oom25": os.environ['PAYMENT_LINK_URL_25'],
+                  "payment_link_oom250": os.environ['PAYMENT_LINK_URL_250'],
+                  "payment_link_oom2500": os.environ['PAYMENT_LINK_URL_2500'],                  
                   "client_reference_id": client_reference_id, 
               })
           await cl.Message(content="💸 Payment", elements=[element]).send()

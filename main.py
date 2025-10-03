@@ -40,7 +40,9 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         client_reference_id = session.get('client_reference_id')
         payment_link_id = session.get('payment_link')
         amount = 0
-        if payment_link_id == os.environ['PAYMENT_LINK_ID_25']:
+        if payment_link_id == os.environ['PAYMENT_LINK_ID_250']:
+            amount = 250
+        elif payment_link_id == os.environ['PAYMENT_LINK_ID_2500']:
             amount = 2500
         if client_reference_id and amount:
             logger.info(f"Client reference ID: {client_reference_id}, Amount: {amount}")

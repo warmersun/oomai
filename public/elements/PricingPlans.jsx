@@ -7,7 +7,8 @@ export default function DirectPaymentPlans() {
   // Log all incoming props to see what the component receives
   
   const {
-    payment_link_oom25,
+    payment_link_oom250, 
+    payment_link_oom2500,
     client_reference_id
   } = props;
 
@@ -15,12 +16,20 @@ export default function DirectPaymentPlans() {
 
   const plans = [
     {
-      id: "25oom",
-      name: "25 OOM",
-      price: "$25",
-      description: "100 interactions",
-      features: ["100 interactions"],
-      payment_link: payment_link_oom25
+      id: "250oom",
+      name: "250 OOM",
+      price: "$2.50",
+      description: "5 interactions",
+      features: ["5 interactions", "Run a couple of comprehensive analysis with follow-up questions"],
+      payment_link: payment_link_oom250
+    },
+    {
+      id: "2500oom",
+      name: "2500 OOM",
+      price: "$2500",
+      description: "500 interactions",
+      features: ["500 interactions", "Suffient for regular use for about a month."],
+      payment_link: payment_link_oom2500
     },
   ];
   
