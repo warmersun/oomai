@@ -1,4 +1,4 @@
-run = "chainlit run app.py"
+run = "uvicorn main:app --host 0.0.0.0 --port 8000"
 entrypoint = "app.py"
 modules = ["nodejs-20", "python-3.11", "postgresql-16"]
 
@@ -13,7 +13,7 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["sh", "-c", "chainlit run app.py"]
+run = ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 8000"]
 deploymentTarget = "cloudrun"
 
 [[ports]]

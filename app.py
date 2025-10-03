@@ -41,6 +41,13 @@ from function_tools import (
 from chainlit_xai_util import process_stream
 from utils import Neo4jDateEncoder
 from descope import DescopeClient
+import uuid
+from license_management import (
+    use_up_paid_amount,
+    get_paid_amount_left,
+    upsert_client_reference_id,
+)
+
 
 from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, DESCOPE_PROJECT_ID, PERPLEXITY_API_KEY
 
@@ -188,7 +195,30 @@ async def _neo4j_disconnect():
         await neo4jdriver.close()
         cl.user_session.set("neo4jdriver", None)
     logger.info("Neo4j driver disconnected.")
-
+    
+async def ask_payment():
+  client_reference_id = str(uuid.uuid4())
+  user = cl.user_session.get("user")
+  assert user is not None, "User must be logged in to proceed with payment."
+  paid_amount = await get_paid_amount_left(user.identifier)
+  if paid_amount is None or paid_amount <= 0:
+      await cl.Message(content="💸 You need to pay to continue!").send()
+      new_user = await upsert_client_reference_id(client_reference_id, user.identifier)
+      if new_user:
+          await cl.Message(content="🎉 Welcome! We have set you up with a 🎫 free trial.").send()
+      else:
+          element = cl.CustomElement(
+              name="PricingPlans", 
+              props={
+                  "payment_link_oom25": os.environ['PAYMENT_LINK_URL_25'],
+                  "client_reference_id": client_reference_id, 
+              })
+          await cl.Message(content="💸 Payment", elements=[element]).send()
+          # poll for payment status
+          while paid_amount is None or paid_amount <= 0:
+              paid_amount = await get_paid_amount_left(user.identifier)
+              await cl.sleep(5)
+          await cl.Message(content="🎉 Payment received! Thank you for your purchase! 🙏").send()
 
 @cl.on_chat_start
 async def start():
@@ -260,6 +290,12 @@ async def end_chat():
 
 @cl.on_message
 async def on_message(message: cl.Message):
+    # charge usag
+    await ask_payment()
+    user = cl.user_session.get("user")
+    assert user is not None, "User must be logged in to proceed with payment."
+    await use_up_paid_amount(user.identifier)
+
     error_count = 0
     message_lock = cl.user_session.get("message_lock")
     assert message_lock is not None, "No message lock found in user session"

@@ -23,6 +23,7 @@ dependencies = [
     "boto3>=1.40.38",
     "descope>=1.7.10",
     "perplexityai>=0.12.0",
+    "stripe>=13.0.0",
 ]
 
 [build-system]
