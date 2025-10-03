@@ -48,16 +48,16 @@ async def get_paid_amount_left(user_identifier: str) -> Optional[int]:
     finally:
         await conn.close()
 
-async def use_up_paid_amount(user_identifier: str) -> bool:
+async def use_up_paid_amount(user_identifier: str, amount: int) -> bool:
     """decrement paid amount for a user."""
     conn = await asyncpg.connect(os.environ["PGDATABASE_URL"])
     try:
         await conn.execute(
             """
             UPDATE license_mgmt
-            SET paid_amount = paid_amount - 1000
+            SET paid_amount = paid_amount - $2
             WHERE username = $1
-            """, user_identifier)
+            """, user_identifier, amount)
         return True
     except Exception as e:
         print(f"Error decrementing paid amount: {str(e)}")

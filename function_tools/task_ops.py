@@ -12,7 +12,6 @@ async def plan_tasks(planned_tasks: list[str]) -> None:
     task_list = cl.user_session.get('task_list')
     if task_list is None:
         task_list = cl.TaskList()
-        task_list.status = "Planned"
         cl.user_session.set('task_list', task_list)
 
     tasks_dict = cl.user_session.get('tasks', {})
@@ -35,12 +34,6 @@ async def plan_tasks(planned_tasks: list[str]) -> None:
             new_tasks_dict[task_title].status = cl.TaskStatus.READY
 
     cl.user_session.set('tasks', new_tasks_dict)
-
-    # Update overall status if needed
-    if all(task.status == cl.TaskStatus.DONE for task in task_list.tasks):
-        task_list.status = "Completed"
-    else:
-        task_list.status = "Planned"
 
     await task_list.send()
 
@@ -71,10 +64,6 @@ async def mark_task_as_done(task_title: str) -> None:
         if task_list:
             # Check if all tasks are done and update overall status
             all_done = all(task.status == cl.TaskStatus.DONE for task in tasks_dict.values())
-            if all_done:
-                task_list.status = "Completed"
-            else:
-                task_list.status = "Running..."  # Or keep as is, but assume running when marking
             await task_list.send()
 
 async def mark_task_as_running(task_title: str) -> None:
@@ -88,6 +77,4 @@ async def mark_task_as_running(task_title: str) -> None:
         tasks_dict[task_title].status = cl.TaskStatus.RUNNING
         task_list = cl.user_session.get('task_list')
         if task_list:
-            # Update overall status to Running... since a task is now running
-            task_list.status = "Running..."
             await task_list.send()

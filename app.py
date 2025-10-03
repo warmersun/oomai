@@ -196,14 +196,12 @@ async def _neo4j_disconnect():
         cl.user_session.set("neo4jdriver", None)
     logger.info("Neo4j driver disconnected.")
     
-async def ask_payment():
+async def ask_payment(user_identifier: str):
   client_reference_id = str(uuid.uuid4())
-  user = cl.user_session.get("user")
-  assert user is not None, "User must be logged in to proceed with payment."
-  paid_amount = await get_paid_amount_left(user.identifier)
+  paid_amount = await get_paid_amount_left(user_identifier)
   if paid_amount is None or paid_amount <= 0:
       await cl.Message(content="💸 You need to pay to continue!").send()
-      new_user = await upsert_client_reference_id(client_reference_id, user.identifier)
+      new_user = await upsert_client_reference_id(client_reference_id, user_identifier)
       if new_user:
           await cl.Message(content="🎉 Welcome! We have set you up with a 🎫 free trial.").send()
       else:
@@ -216,9 +214,16 @@ async def ask_payment():
           await cl.Message(content="💸 Payment", elements=[element]).send()
           # poll for payment status
           while paid_amount is None or paid_amount <= 0:
-              paid_amount = await get_paid_amount_left(user.identifier)
+              paid_amount = await get_paid_amount_left(user_identifier)
               await cl.sleep(5)
           await cl.Message(content="🎉 Payment received! Thank you for your purchase! 🙏").send()
+
+async def show_credits(user_identifier: str):
+    paid_amount = await get_paid_amount_left(user_identifier)
+    task_list = cl.user_session.get("task_list")
+    if task_list:
+        task_list.status = f"{paid_amount} credits"
+        await task_list.send()
 
 @cl.on_chat_start
 async def start():
@@ -291,10 +296,11 @@ async def end_chat():
 @cl.on_message
 async def on_message(message: cl.Message):
     # charge usag
-    await ask_payment()
     user = cl.user_session.get("user")
     assert user is not None, "User must be logged in to proceed with payment."
-    await use_up_paid_amount(user.identifier)
+    await ask_payment(user.identifier)
+    await use_up_paid_amount(user.identifier, 50)
+    await show_credits(user.identifier)
 
     error_count = 0
     message_lock = cl.user_session.get("message_lock")
@@ -525,6 +531,13 @@ def text_to_speech(text: str):
 
 @cl.action_callback("tts")
 async def tts(action: cl.Action):
+    # charge usage
+    user = cl.user_session.get("user")
+    assert user is not None, "User must be logged in to proceed with payment."
+    await ask_payment(user.identifier)
+    await use_up_paid_amount(user.identifier, 150)
+    await show_credits(user.identifier)
+
     last_message = cl.user_session.get("last_message")
     if last_message is not None:
         if not isinstance(last_message, str):
