@@ -17,7 +17,7 @@ export default function DirectPaymentPlans() {
   const plans = [
     {
       id: "250oom",
-      name: "250 OOM",
+      name: "250 Credits",
       price: "$2.50",
       description: "5 interactions",
       features: ["5 interactions", "Run a couple of comprehensive analysis with follow-up questions", "One-time payment, not a subscription"],
@@ -25,7 +25,7 @@ export default function DirectPaymentPlans() {
     },
     {
       id: "2500oom",
-      name: "2500 OOM",
+      name: "2500 Credits",
       price: "$25",
       description: "500 interactions",
       features: ["500 interactions", "Suffient for regular use for about a month.", "One-time payment, not a subscription"],
