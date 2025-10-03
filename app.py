@@ -197,27 +197,34 @@ async def _neo4j_disconnect():
     logger.info("Neo4j driver disconnected.")
     
 async def ask_payment(user_identifier: str):
-  client_reference_id = str(uuid.uuid4())
-  paid_amount = await get_paid_amount_left(user_identifier)
-  if paid_amount is None or paid_amount <= 0:
-      await cl.Message(content="💸 You need to pay to continue!").send()
-      new_user = await upsert_client_reference_id(client_reference_id, user_identifier)
-      if new_user:
-          await cl.Message(content="🎉 Welcome! We have set you up with a 🎫 free trial.").send()
-      else:
-          element = cl.CustomElement(
-              name="PricingPlans", 
-              props={
-                  "payment_link_oom250": os.environ['PAYMENT_LINK_URL_250'],
-                  "payment_link_oom2500": os.environ['PAYMENT_LINK_URL_2500'],                  
-                  "client_reference_id": client_reference_id, 
-              })
-          await cl.Message(content="💸 Payment", elements=[element]).send()
-          # poll for payment status
-          while paid_amount is None or paid_amount <= 0:
-              paid_amount = await get_paid_amount_left(user_identifier)
-              await cl.sleep(5)
-          await cl.Message(content="🎉 Payment received! Thank you for your purchase! 🙏").send()
+    client_reference_id = str(uuid.uuid4())
+    paid_amount = await get_paid_amount_left(user_identifier)
+    if paid_amount is None or paid_amount <= 0:
+        await cl.Message(content="💸 You need to pay to continue!").send()
+        new_user = await upsert_client_reference_id(client_reference_id, user_identifier)
+        if new_user:
+            await cl.Message(content="""
+            **🎉 Welcome!**  
+            It's **Sic** here, I've built this app.  
+            Sorry, I am not able to offer a free trial.  
+            You can upgrade to a paid plan below. The cheapest plan is $2.50 for 5 interactions.  
+            Warmer Sun operates with the promise that if someone wants to learn with us and truly cannot afford it, we will make it work.  
+            You can email me at sic@warmersun.com if you need help.  
+            Thank you for your understanding. And now let's oom!  
+            """).send()
+        element = cl.CustomElement(
+            name="PricingPlans", 
+            props={
+                "payment_link_oom250": os.environ['PAYMENT_LINK_URL_250'],
+                "payment_link_oom2500": os.environ['PAYMENT_LINK_URL_2500'],                  
+                "client_reference_id": client_reference_id, 
+            })
+        await cl.Message(content="💸 Payment", elements=[element]).send()
+        # poll for payment status
+        while paid_amount is None or paid_amount <= 0:
+            paid_amount = await get_paid_amount_left(user_identifier)
+            await cl.sleep(5)
+        await cl.Message(content="🎉 Payment received! Thank you for your purchase! 🙏").send()
 
 async def show_credits(user_identifier: str):
     paid_amount = await get_paid_amount_left(user_identifier)
