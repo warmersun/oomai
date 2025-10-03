@@ -11,7 +11,7 @@ async def upsert_client_reference_id(client_reference_id: str, user_identifier: 
       row = await conn.fetchrow(
           """
           INSERT INTO license_mgmt (username, client_reference_id, paid_amount) 
-          VALUES ($1, $2, 1000)
+          VALUES ($1, $2, 250)
           ON CONFLICT (username)
           DO UPDATE SET client_reference_id = EXCLUDED.client_reference_id
           RETURNING (xmax =0) AS inserted;
