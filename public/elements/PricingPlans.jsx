@@ -20,15 +20,15 @@ export default function DirectPaymentPlans() {
       name: "250 OOM",
       price: "$2.50",
       description: "5 interactions",
-      features: ["5 interactions", "Run a couple of comprehensive analysis with follow-up questions"],
+      features: ["5 interactions", "Run a couple of comprehensive analysis with follow-up questions", "One-time payment, not a subscription"],
       payment_link: payment_link_oom250
     },
     {
       id: "2500oom",
       name: "2500 OOM",
-      price: "$2500",
+      price: "$25",
       description: "500 interactions",
-      features: ["500 interactions", "Suffient for regular use for about a month."],
+      features: ["500 interactions", "Suffient for regular use for about a month.", "One-time payment, not a subscription"],
       payment_link: payment_link_oom2500
     },
   ];
