@@ -9,6 +9,7 @@ export default function DirectPaymentPlans() {
   const {
     payment_link_oom250, 
     payment_link_oom2500,
+    payment_link_oom_pro_25000,
     client_reference_id
   } = props;
 
@@ -20,7 +21,7 @@ export default function DirectPaymentPlans() {
       name: "250 Credits",
       price: "$2.50",
       description: "5 interactions",
-      features: ["5 interactions", "Run a couple of comprehensive analysis with follow-up questions", "One-time payment, not a subscription"],
+      features: ["5 interactions", "Personal use only", "Run a couple of comprehensive analysis with follow-up questions", "One-time payment, not a subscription"],
       payment_link: payment_link_oom250
     },
     {
@@ -28,9 +29,16 @@ export default function DirectPaymentPlans() {
       name: "2500 Credits",
       price: "$25",
       description: "500 interactions",
-      features: ["500 interactions", "Suffient for regular use for about a month.", "One-time payment, not a subscription"],
+      features: ["500 interactions", "Personal use only", "Suffient for regular use for about a month.", "One-time payment, not a subscription"],
       payment_link: payment_link_oom2500
     },
+    {
+      id: "25000pro",
+      name: "25000 Pro Credits",
+      description: "500 interactions",
+      features: ["500 interactions", "Professional use", "Dor regular use", "One-time payment, not a subscription"],
+      payment_link: payment_link_oom_pro_25000
+    }
   ];
   
   const handlePayment = (planId, basePaymentLink) => {
