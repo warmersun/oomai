@@ -36,7 +36,7 @@ export default function DirectPaymentPlans() {
       id: "25000pro",
       name: "25000 Pro Credits",
       description: "500 interactions",
-      features: ["500 interactions", "Professional use", "Dor regular use", "One-time payment, not a subscription"],
+      features: ["500 interactions", "Professional use", "Use regulary", "One-time payment, not a subscription"],
       payment_link: payment_link_oom_pro_25000
     }
   ];
