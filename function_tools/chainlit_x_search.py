@@ -6,6 +6,7 @@ from chainlit_xai_util import count_usage
 async def x_search(
 	prompt: str, 
 	included_handles: Optional[List[str]] = None, 
+	rss_url: str = None,
 	last_24hrs: Optional[bool] = False, 
 	system_prompt:Optional[str] = None
 	) -> str:
@@ -15,12 +16,14 @@ async def x_search(
 	
 	async with cl.Step(name="Search X", type="tool") as step:
 		step.show_input = True
-		step.input = {"prompt": prompt, "included_handles": included_handles, "last_24hrs": last_24hrs, "system_prompt": system_prompt}
+		step.input = {"prompt": prompt, "included_handles": included_handles, "rss_url": rss_url, "last_24hrs": last_24hrs, "system_prompt": system_prompt}
 
 		message = f"Searching on X with prompt: `{prompt}`"
 		details = []
 		if included_handles:
 			details.append(f"including handles: {', '.join(included_handles)}")
+		if rss_url:
+			details.append(f"RSS feed: {rss_url}")
 		if last_24hrs:
 			details.append("limited to the last 24 hours")
 		if details:
@@ -37,6 +40,7 @@ async def x_search(
 			user_identifier=logged_in_user.identifier,
 			prompt=prompt,
 			included_handles=included_handles,
+			rss_url=rss_url,
 			last_24hrs=last_24hrs,
 			system_prompt=system_prompt,
 		)

@@ -314,6 +314,11 @@ TOOLS_DEFINITIONS = {
                     "description": "A list of Twitter/X handles (as strings) to search on X.",
                     "default": [],
                 },
+                "rss_url": {
+                    "type": "string",
+                    "description": "RSS feed URL",
+                    "default": None,
+                },
                 "last_24hrs": {
                     "type": "boolean",
                     "description": "Whether to search on X for the last 24 hours.",
