@@ -3,7 +3,7 @@ import chainlit as cl
 # note: visualizations don't create new clMessage because these functions get called while we're within a step and that step gets removed at the end.
 # Instead, they append to session variables and the main loop picks it up from there.
 
-async def display_mermaid_diagram(diagram_str: str):
+async def display_mermaid_diagram(diagram_str: str) -> None:
     diagrams = cl.user_session.get("diagrams")
     assert diagrams is not None, "No diagrams found in user session"
     diagrams.append(diagram_str)
