@@ -210,6 +210,7 @@ TOOLS_DEFINITIONS = {
         description="""
         Displays a MermaidJS diagram.  
         Use MermaidJS flowchart syntax to visualize nodes and edges in the knowledge graph, or use the timeline syntax to show milestones and their progression over time.
+        The function sends the rendered visualization to the UI and produces no direct return value.
         """,
         parameters={
             "type": "object",
@@ -240,6 +241,8 @@ TOOLS_DEFINITIONS = {
         - **Pathway**: A trajectory or approach (not just a solution) enabled by the convergence of emTechs.
 
         The Convergence Canvas provides a structured way to visualize and discuss these relationships, helping you design and communicate innovative Pathways that address real-world problems—most of which ultimately require solutions in the physical world.
+
+        The function sends the rendered visualization to the UI and produces no direct return value.
         """,
         parameters={
             "type": "object",
@@ -281,6 +284,7 @@ TOOLS_DEFINITIONS = {
         Displays a OOM Visualizer, an interactive tool to visualize exponential growth of a technology over time.
         It shows the number of doublings needed to reach different orders of magnitude (OOM) developments: 10X, 100X, 1000X 
         and, based on the compounding rate, calculates how long it will take to reach each OOM.
+        The function sends the rendered visualization to the UI and produces no direct return value.
         """,
         parameters={
             "type": "object",
