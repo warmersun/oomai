@@ -161,4 +161,81 @@ commands:
       - Drought and Polluted Water in Poor Nations
       - Clean water
       - Air Pollution
- 
+  strategy:
+    icon: notebook-text
+    description: "Read webpage and create AI strategy for:"
+    modes: [edit, readonly]
+    template: |
+      Act like an AI strategy consultant from a leading global consulting firm, specializing in emerging technologies and digital transformation.  
+      Your task is to develop a comprehensive AI strategy recommendation for a company based on its website. The input parameter is the company's website URL: {user_input}.
+
+      Step-by-step instructions:
+
+      1. **Analyze the Company Website:**
+        - Use your browsing capabilities (e.g., browse_page tool) to thoroughly read and summarize the content of the website at {user_input}.
+        - Extract key details: company name, industry/sector, core products/services, target markets, current challenges (if mentioned), existing technology stack (especially any AI or digital initiatives), mission/vision, leadership team, recent news or blog posts, and any financial or performance metrics available.
+        - Identify opportunities where AI could enhance operations, products, customer experience, or innovation.
+
+      2. **Leverage the Knowledge Graph:**
+        - Query the knowledge graph using the schema to identify relevant EmTechs (e.g., Artificial Intelligence, Robots), Capabilities (e.g., natural language processing), Milestones (e.g., achieving real-time personalization), LTCs/PTCs (e.g., Large Language Models like Grok-4), LACs/PACs (e.g., chatbots for customer service), Trends (e.g., accelerating AI adoption), Ideas, and Parties (e.g., competitors or partners).
+        - Map the company's profile to the graph: For example, if the company is in healthcare, connect to EmTechs like Synthetic Biology or AI, and explore ENABLES edges to Capabilities, HAS_MILESTONE to track progress, and USES edges for potential integrations.
+        - Use semantic searches on the graph's vector indices (e.g., for Convergence, Capability, etc.) to find similar patterns or predictions via PREDICTS or LOOKS_AT edges.
+
+      3. **Conduct External Research:**
+        - Use Perplexity for in-depth web searches on the company, its competitors, industry trends, and AI best practices.
+        - Use LiveSearch on web and X for real-time insights: Search for recent mentions of the company (e.g., using x_keyword_search with query like "company_name AI strategy" filter:news since:YYYY-MM-DD), sentiment analysis from posts, or emerging trends (e.g., x_semantic_search with query "AI applications in [industry]").
+        - Cross-reference with knowledge graph to validate or expand findings, e.g., if a Trend predicts a Milestone in AI, assess if the company has REACHES it.
+
+      4. **Construct the AI Strategy Recommendation:**
+        - Frame the response as a professional consulting report, emulating the style of firms like McKinsey, BCG, or Deloitte: Use formal language, data-driven insights, strategic frameworks (e.g., SWOT analysis, value chain mapping), and actionable recommendations.
+        - Ensure recommendations are tailored, feasible, and aligned with emerging tech convergences from the knowledge graph.
+        - Prioritize ethical AI, scalability, and ROI potential.
+
+      Output Structure:
+      The response must follow this exact structure. Use markdown for formatting, including headings, bullet points, tables, and bold/italics for emphasis. Do not add extra sections.
+
+      # [Company Name] AI Strategy Recommendation
+
+      ## Executive Summary
+      - Provide a 200-300 word overview: Summarize the company's current state, key AI opportunities, high-level recommendations, and expected impact (e.g., revenue growth, efficiency gains).
+      - Highlight 3-5 strategic imperatives drawn from analysis.
+
+      ## Company Overview
+      - **Business Profile:** Describe the company based on website analysis (e.g., industry, size, offerings).
+      - **Current Technology Landscape:** Detail existing AI/digital initiatives or gaps.
+      - **SWOT Analysis:** Use a table format:
+        | Strength | Weakness | Opportunity | Threat |
+        |----------|----------|-------------|--------|
+        | [Bullet] | [Bullet] | [Bullet]   | [Bullet] |
+
+      ## AI Opportunity Assessment
+      - **Industry Context:** Discuss relevant trends from knowledge graph (e.g., via Trends and Predictions) and external searches.
+      - **Capability Mapping:** Link company needs to graph Capabilities and Milestones. Use a table:
+        | Capability | Current Status | Recommended Milestone | Unlocked Applications |
+        |------------|----------------|-----------------------|-----------------------|
+        | [e.g., Predictive Analytics] | [Description] | [Milestone with date if applicable] | [LACs unlocked] |
+      - **Convergence Insights:** Explain how EmTechs accelerate each other (e.g., AI + IoT for the company).
+
+      ## Recommended AI Strategy
+      - **Vision and Objectives:** State a clear AI vision aligned with company mission.
+      - **Key Initiatives:** Detail 4-6 prioritized recommendations, each with:
+        - Description
+        - Required Components (e.g., LTCs/PTCs like LLMs, using USES edges)
+        - Implementation Roadmap (phased: Short-term 0-6 months, Medium 6-18, Long 18+)
+        - Metrics for Success (e.g., KPIs)
+        - Potential Partners (from Parties in graph or searches)
+      - **Risks and Mitigation:** Bullet list of ethical, technical, regulatory risks.
+
+      ## Implementation Framework
+      - **Governance and Organization:** Advise on AI teams, ethics boards.
+      - **Technology Stack:** Recommend integrations (e.g., PACs built on PTCs).
+      - **Budget and ROI Estimate:** High-level projections based on trends.
+
+      ## Conclusion
+      - Reiterate value proposition and call to action.
+
+      ## Appendix: Sources and Assumptions
+      - List key sources: Website sections browsed, knowledge graph queries (e.g., specific nodes/edges), search queries/results.
+      - Note any assumptions or data limitations.
+
+      Ensure the response is insightful, balanced, and approximately 1500-2500 words. Use tools only as needed during generation; do not mention tools in the output.
