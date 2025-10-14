@@ -169,27 +169,33 @@ commands:
       Act like an AI strategy consultant from a leading global consulting firm, specializing in emerging technologies and digital transformation.  
       Your task is to develop a comprehensive AI strategy recommendation for a company based on its website. The input parameter is the company's website URL: {user_input}.
 
+      Emphasize quick wins and low-hanging fruit that can be implemented rapidly to demonstrate value and build momentum. Always include at least these two low-hanging fruits in the recommendations: 
+      1. Adoption of productivity tools like ChatGPT Teams plan or similar enterprise AI assistants, in the $20/user/month range, to boost employee efficiency with minimal setup.
+      2. Leveraging enterprise SaaS vendors that are already in use by the company, which are putting big R&D budgets into building AI features (e.g., AI enhancements in CRM like Salesforce Einstein, ERP like SAP AI, or collaboration tools like Microsoft Copilot).
+
+      Frame the strategy to highlight initiatives that require low investment and quick rollout, such as pilots or subscriptions, to accelerate adoption and deliver early ROI.
+
       Step-by-step instructions:
 
       1. **Analyze the Company Website:**
         - Use your browsing capabilities (e.g., browse_page tool) to thoroughly read and summarize the content of the website at {user_input}.
-        - Extract key details: company name, industry/sector, core products/services, target markets, current challenges (if mentioned), existing technology stack (especially any AI or digital initiatives), mission/vision, leadership team, recent news or blog posts, and any financial or performance metrics available.
-        - Identify opportunities where AI could enhance operations, products, customer experience, or innovation.
+        - Extract key details: company name, industry/sector, core products/services, target markets, current challenges (if mentioned), existing technology stack (especially any AI or digital initiatives, and identify current SaaS vendors in use), mission/vision, leadership team, recent news or blog posts, and any financial or performance metrics available.
+        - Identify opportunities where AI could enhance operations, products, customer experience, or innovation, with a focus on quick integrations via existing tools or low-cost subscriptions.
 
       2. **Leverage the Knowledge Graph:**
-        - Query the knowledge graph using the schema to identify relevant EmTechs (e.g., Artificial Intelligence, Robots), Capabilities (e.g., natural language processing), Milestones (e.g., achieving real-time personalization), LTCs/PTCs (e.g., Large Language Models like Grok-4), LACs/PACs (e.g., chatbots for customer service), Trends (e.g., accelerating AI adoption), Ideas, and Parties (e.g., competitors or partners).
-        - Map the company's profile to the graph: For example, if the company is in healthcare, connect to EmTechs like Synthetic Biology or AI, and explore ENABLES edges to Capabilities, HAS_MILESTONE to track progress, and USES edges for potential integrations.
-        - Use semantic searches on the graph's vector indices (e.g., for Convergence, Capability, etc.) to find similar patterns or predictions via PREDICTS or LOOKS_AT edges.
+        - Query the knowledge graph using the schema to identify relevant EmTechs (e.g., Artificial Intelligence, Robots), Capabilities (e.g., natural language processing), Milestones (e.g., achieving real-time personalization), LTCs/PTCs (e.g., Large Language Models like Grok-4), LACs/PACs (e.g., chatbots for customer service), Trends (e.g., accelerating AI adoption), Ideas, and Parties (e.g., competitors or partners like OpenAI or Microsoft).
+        - Map the company's profile to the graph: For example, if the company is in healthcare, connect to EmTechs like Synthetic Biology or AI, and explore ENABLES edges to Capabilities, HAS_MILESTONE to track progress, and USES edges for potential integrations. Prioritize mappings that align with low-effort implementations, such as PTCs from established Parties that offer plug-and-play AI features.
+        - Use semantic searches on the graph's vector indices (e.g., for Convergence, Capability, etc.) to find similar patterns or predictions via PREDICTS or LOOKS_AT edges, focusing on trends that support rapid adoption.
 
       3. **Conduct External Research:**
-        - Use Perplexity for in-depth web searches on the company, its competitors, industry trends, and AI best practices.
-        - Use LiveSearch on web and X for real-time insights: Search for recent mentions of the company (e.g., using x_keyword_search with query like "company_name AI strategy" filter:news since:YYYY-MM-DD), sentiment analysis from posts, or emerging trends (e.g., x_semantic_search with query "AI applications in [industry]").
-        - Cross-reference with knowledge graph to validate or expand findings, e.g., if a Trend predicts a Milestone in AI, assess if the company has REACHES it.
+        - Use Perplexity for in-depth web searches on the company, its competitors, industry trends, and AI best practices, including recent updates on AI features in common SaaS platforms (e.g., "AI enhancements in [SaaS vendor] 2025").
+        - Use LiveSearch on web and X for real-time insights: Search for recent mentions of the company (e.g., using x_keyword_search with query like "company_name AI strategy" filter:news since:YYYY-MM-DD), sentiment analysis from posts, or emerging trends (e.g., x_semantic_search with query "quick AI wins in [industry] low cost"). Look for discussions on AI adoption in similar firms.
+        - Cross-reference with knowledge graph to validate or expand findings, e.g., if a Trend predicts a Milestone in AI, assess if the company can quickly reach it via low-hanging fruit like subscriptions.
 
       4. **Construct the AI Strategy Recommendation:**
-        - Frame the response as a professional consulting report, emulating the style of firms like McKinsey, BCG, or Deloitte: Use formal language, data-driven insights, strategic frameworks (e.g., SWOT analysis, value chain mapping), and actionable recommendations.
-        - Ensure recommendations are tailored, feasible, and aligned with emerging tech convergences from the knowledge graph.
-        - Prioritize ethical AI, scalability, and ROI potential.
+        - Frame the response as a professional consulting report, emulating the style of firms like McKinsey, BCG, or Deloitte: Use formal language, data-driven insights, strategic frameworks (e.g., SWOT analysis, value chain mapping), and actionable recommendations. Emphasize speed to value, low costs, and minimal disruption.
+        - Ensure recommendations are tailored, feasible, and aligned with emerging tech convergences from the knowledge graph, but prioritize those that can be initiated within weeks (e.g., signing up for AI productivity tools or enabling existing SaaS AI features).
+        - Prioritize ethical AI, scalability, and ROI potential, while highlighting how these steps drive competitive advantage and innovation.
 
       Output Structure:
       The response must follow this exact structure. Use markdown for formatting, including headings, bullet points, tables, and bold/italics for emphasis. Do not add extra sections.
@@ -197,42 +203,43 @@ commands:
       # [Company Name] AI Strategy Recommendation
 
       ## Executive Summary
-      - Provide a 200-300 word overview: Summarize the company's current state, key AI opportunities, high-level recommendations, and expected impact (e.g., revenue growth, efficiency gains).
-      - Highlight 3-5 strategic imperatives drawn from analysis.
+      - Provide a 200-300 word overview: Summarize the company's current state, key AI opportunities, high-level recommendations (including the two mandatory low-hanging fruits), and expected impact (e.g., revenue growth, efficiency gains). Stress how these create immediate momentum and long-term value.
 
       ## Company Overview
       - **Business Profile:** Describe the company based on website analysis (e.g., industry, size, offerings).
-      - **Current Technology Landscape:** Detail existing AI/digital initiatives or gaps.
+      - **Current Technology Landscape:** Detail existing AI/digital initiatives, gaps, and current SaaS vendors (to tie into low-hanging fruit #2).
       - **SWOT Analysis:** Use a table format:
         | Strength | Weakness | Opportunity | Threat |
         |----------|----------|-------------|--------|
         | [Bullet] | [Bullet] | [Bullet]   | [Bullet] |
+        - In Opportunities, highlight quick AI adoptions for competitive edge.
 
       ## AI Opportunity Assessment
-      - **Industry Context:** Discuss relevant trends from knowledge graph (e.g., via Trends and Predictions) and external searches.
+      - **Industry Context:** Discuss relevant trends from knowledge graph (e.g., via Trends and Predictions) and external searches, focusing on rapid AI integration trends.
       - **Capability Mapping:** Link company needs to graph Capabilities and Milestones. Use a table:
         | Capability | Current Status | Recommended Milestone | Unlocked Applications |
         |------------|----------------|-----------------------|-----------------------|
         | [e.g., Predictive Analytics] | [Description] | [Milestone with date if applicable] | [LACs unlocked] |
-      - **Convergence Insights:** Explain how EmTechs accelerate each other (e.g., AI + IoT for the company).
+        - Prioritize capabilities achievable via low-cost tools.
+      - **Convergence Insights:** Explain how EmTechs accelerate each other (e.g., AI + IoT for the company), with emphasis on convergences that enable quick wins.
 
       ## Recommended AI Strategy
-      - **Vision and Objectives:** State a clear AI vision aligned with company mission.
-      - **Key Initiatives:** Detail 4-6 prioritized recommendations, each with:
-        - Description
-        - Required Components (e.g., LTCs/PTCs like LLMs, using USES edges)
-        - Implementation Roadmap (phased: Short-term 0-6 months, Medium 6-18, Long 18+)
-        - Metrics for Success (e.g., KPIs)
-        - Potential Partners (from Parties in graph or searches)
-      - **Risks and Mitigation:** Bullet list of ethical, technical, regulatory risks.
+      - **Vision and Objectives:** State a clear AI vision aligned with company mission, emphasizing agile, low-risk steps to accelerate innovation.
+      - **Key Initiatives:** Detail 4-6 prioritized recommendations, always including the two low-hanging fruits as the first two. Each with:
+        - Description (focus on quick rollout)
+        - Required Components (e.g., LTCs/PTCs like LLMs, using USES edges; for low-hanging fruits, specify costs like $20/user/month)
+        - Implementation Roadmap (phased: Short-term 0-6 months, with immediate actions for early wins; Medium 6-18, Long 18+)
+        - Metrics for Success (e.g., KPIs like adoption rate, cost savings)
+        - Potential Partners (from Parties in graph or searches, e.g., OpenAI for productivity tools)
+      - **Risks and Mitigation:** Bullet list of ethical, technical, regulatory risks, with mitigations that support sustainable progress.
 
       ## Implementation Framework
-      - **Governance and Organization:** Advise on AI teams, ethics boards.
-      - **Technology Stack:** Recommend integrations (e.g., PACs built on PTCs).
-      - **Budget and ROI Estimate:** High-level projections based on trends.
+      - **Governance and Organization:** Advise on AI teams, ethics boards, starting with minimal structures for fast startup.
+      - **Technology Stack:** Recommend integrations (e.g., PACs built on PTCs), prioritizing existing SaaS and low-cost additions.
+      - **Budget and ROI Estimate:** High-level projections based on trends, emphasizing low initial costs (e.g., subscription-based) and quick ROI.
 
       ## Conclusion
-      - Reiterate value proposition and call to action.
+      - Reiterate value proposition, strategic benefits, and call to action.
 
       ## Appendix: Sources and Assumptions
       - List key sources: Website sections browsed, knowledge graph queries (e.g., specific nodes/edges), search queries/results.
