@@ -259,7 +259,7 @@ async def start():
             label="Debug",
             initial_value=False,
             tooltip="Debug on or off",
-            description="See knowledge graph and LiveSearch usage details",
+            description="See knowledge graph, web and X search.",
         ),
     ]).send()
     cl.user_session.set("debug_settings", settings["debug"])
@@ -286,9 +286,6 @@ async def start():
         "create_node", "create_edge", "find_node", "execute_cypher_query"
     ]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
-    cl.user_session.set("prompt_tokens", 0)
-    cl.user_session.set("completion_tokens", 0)
-    cl.user_session.set("num_sources_used", 0)
 
 
 @cl.on_settings_update
@@ -393,15 +390,6 @@ async def on_message(message: cl.Message):
         debug = cl.user_session.get("debug_settings")
         if not debug:
             await step.remove()
-        else:
-            prompt_tokens = cl.user_session.get("prompt_tokens")
-            completion_tokens = cl.user_session.get("completion_tokens")
-            num_sources_used = cl.user_session.get("num_sources_used")
-            await cl.Message(content=(
-                f"Prompt tokens: {prompt_tokens}\n"
-                f"Completion tokens: {completion_tokens}\n"
-                f"LiveSearch number of sources used: {num_sources_used}"),
-                             type="system_message").send()
 
         cl.user_session.set("last_message", output_message.content)
 
@@ -687,7 +675,7 @@ async def on_chat_resume(thread: ThreadDict):
             label="Debug",
             initial_value=False,
             tooltip="Debug on or off",
-            description="See knowledge graph and LiveSearch usage details",
+            description="See knowledge graph, web and X search.",
         ),
     ]).send()
     cl.user_session.set("debug_settings", settings["debug"])
@@ -716,6 +704,3 @@ async def on_chat_resume(thread: ThreadDict):
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
     cl.user_session.set("task_list", None)
     cl.user_session.set("tasks", {})
-    cl.user_session.set("prompt_tokens", 0)
-    cl.user_session.set("completion_tokens", 0)
-    cl.user_session.set("num_sources_used", 0)

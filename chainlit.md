@@ -81,13 +81,9 @@ The app includes several built-in commands to help you interact more efficiently
   - Use "Map" with "quantum computing" → maps quantum computing ideas and predictions
   - Click "Check" with "battery breakthrough prediction" → validates the prediction against existing data
 
-## Live Search
+## Search
 
-The app includes live search capabilities that can be enabled when needed:
-- **Status**: Live search is available but **disabled by default** to optimize performance
-- **Activation**: Can be toggled on for real-time data updates during your session
-- **Use Case**: Enable when you need the most current information from external sources
-- **Performance**: When enabled, responses may take slightly longer but include the latest data
+The app includes search capabilities on both the web and on X.
 
 ## Text-to-Speech (TTS)
 

@@ -1,7 +1,6 @@
 import chainlit as cl
 from .core_x_search import core_x_search
 from typing import Optional, List
-from chainlit_xai_util import count_usage
 
 async def x_search(
 	prompt: str, 
@@ -40,8 +39,7 @@ async def x_search(
 			last_24hrs=last_24hrs,
 			system_prompt=system_prompt,
 		)
-		await count_usage(output[1], output[2], output[3])
-		step.output = output[0]
+		step.output = output
 		debug = cl.user_session.get("debug_settings")
 		if not debug:
 			await step.remove()

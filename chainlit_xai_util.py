@@ -52,7 +52,6 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
 
         # After streaming, append the full assistant content
         user_and_assistant_messages.append(assistant(response.content))
-        await count_usage(response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.num_sources_used)
     
         # Check if there are tool calls in the final response
         if not hasattr(response, "tool_calls") or not response.tool_calls:
@@ -91,17 +90,3 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
                 # else - if we didn't return
                 chat.append(tool_result(json.dumps({"error": str(e)})))
                 break
-
-async def count_usage(prompt_tokens: int, completion_tokens: int, num_sources_used: int) -> None:
-    prompt_tokens_session = cl.user_session.get("prompt_tokens")
-    assert prompt_tokens_session is not None, "No prompt tokens found in user session"
-    completion_tokens_session = cl.user_session.get("completion_tokens")
-    assert completion_tokens_session is not None, "No completion tokens found in user session"
-    num_sources_used_session = cl.user_session.get("num_sources_used")
-    assert num_sources_used_session is not None, "No num sources used found in user session"
-    prompt_tokens_session += prompt_tokens
-    completion_tokens_session += completion_tokens
-    num_sources_used_session += num_sources_used
-    cl.user_session.set("prompt_tokens", prompt_tokens_session)
-    cl.user_session.set("completion_tokens", completion_tokens_session)
-    cl.user_session.set("num_sources_used", num_sources_used_session)

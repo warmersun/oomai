@@ -12,7 +12,7 @@ async def core_x_search(
     included_handles: Optional[List[str]] = None,
     last_24hrs: Optional[bool] = False, 
     system_prompt:Optional[str] = None,
-) -> Tuple[str, int, int, int]:
+) -> str:
     """Agentic search on X and web."""
     logging.info(f"""
 [X_SEARCH]: {prompt}
@@ -53,4 +53,6 @@ input parameters:
 
     response = await chat.sample()
     logging.info(f"[X_SEARCH_RESPONSE]:\n{response.content}")
-    return response.content, response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.num_sources_used    
+    logging.info(f"[USAGE]:\n{response.usage}")
+    logging.info(f"[SERVER_SIDE_TOOL_USAGE]:\n{response.server_side_tool_usage}")
+    return response.content
