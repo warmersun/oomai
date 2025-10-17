@@ -300,7 +300,7 @@ TOOLS_DEFINITIONS = {
     "x_search": tool(
         name="x_search",
         description="""
-        Searches on X and on the web.
+        Performs an agentic search on X and on the web, including image understanding.
         """,
         parameters={
             "type": "object",
@@ -317,11 +317,6 @@ TOOLS_DEFINITIONS = {
                     },
                     "description": "A list of Twitter/X handles (as strings) to search on X.",
                     "default": [],
-                },
-                "rss_url": {
-                    "type": "string",
-                    "description": "RSS feed URL",
-                    "default": None,
                 },
                 "last_24hrs": {
                     "type": "boolean",

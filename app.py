@@ -17,7 +17,6 @@ from groq import AsyncGroq
 from openai import AsyncOpenAI
 from xai_sdk import AsyncClient
 from xai_sdk.chat import user, system, assistant, tool_result
-from xai_sdk.search import SearchParameters
 from elevenlabs.client import ElevenLabs
 from elevenlabs.types import VoiceSettings
 # function tools

@@ -8,7 +8,6 @@ from openai import AsyncOpenAI
 from groq import AsyncGroq
 from xai_sdk import AsyncClient
 from xai_sdk.chat import user, system, assistant, tool_result
-from xai_sdk.search import SearchParameters, x_source, rss_source
 # tools
 from function_tools import (
     core_execute_cypher_query,
@@ -62,7 +61,6 @@ def create_response(xai_client, prompt: str):
 
     chat = xai_client.chat.create(
         model="grok-4-fast",
-        search_parameters=SearchParameters(mode="off"),
         tools=TOOLS,
         tool_choice="auto"
     )
@@ -151,9 +149,7 @@ async def main() -> None:
         logger.info(f"\n\nProcessing {source.get('name')}")
 
         # Append source info to the prompt instead of building search_parameters
-        if source.get("source_type") == "RSS" and "url" in source:
-            prompt += f"\n\n[Source: RSS feed at {source.get('url')}, last 24 hours]"
-        elif source.get("source_type") == "X" and "handles" in source:
+        if source.get("source_type") == "X" and "handles" in source:
             handles_str = ", ".join(source.get("handles", []))
             prompt += f"\n\n[Source: X handles {handles_str}, last 24 hours]"
         else:

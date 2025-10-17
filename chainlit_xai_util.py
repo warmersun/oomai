@@ -1,7 +1,6 @@
 import json
 import chainlit as cl
 from chainlit.logger import logger
-from xai_sdk.search import SearchParameters, web_source, news_source, x_source
 from xai_sdk.chat import tool_result, user, assistant, tool
 from typing import Any  # For GraphOpsCtx, assume it's defined elsewhere
 import asyncio
@@ -32,7 +31,6 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
     # Create chat session
     chat = xai_client.chat.create(
         model="grok-4-fast",
-        search_parameters=SearchParameters(mode="off"),
         tools=tools,
         tool_choice="auto",
         user=logged_in_user.identifier,

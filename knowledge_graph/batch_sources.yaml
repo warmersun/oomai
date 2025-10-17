@@ -1,44 +1,9 @@
 sources:
-- name: sciencedaily_all
-  prompt: |
-    Focus on emerging technologies (emTechs):
-    - computing
-    - energy
-    - crypto-currency
-    - artificial intelligence
-    - robots
-    - networks
-    - transportation
-    - 3D printing
-    - internet of things
-    - virtual reality
-    - synthetic biology
-    - quantum computing
-    - geothermal power
-    - tidal power
-    - self-driving cars
-    - drones
-    - brain-computer interface
-    - quantum internet
-    - solar power
-    - wind power
-    - wave power
-    - nuclear power
-    - battery technology
-    - space exploration
-    - material science
-    - nano-technology
-    - genetic engineering
-    - gene sequencing
-    - alternative proteins
-    Find new product launches, research breakthroughs, new capabilities and the use cases these unlock, new milstones, trends, ideas, application.
-    For each one list name, description, attribution to the party behind it (person, company, research lab, etc.), date, and related information.
-  source_type: RSS
-  url: "https://www.sciencedaily.com/rss/all.xml"
 - name: ai_news
-  prompt: "Summarize the latest AI news from this RSS feed, process it and capture it in the knowledge graph."
-  source_type: RSS
-  url: "https://news.smol.ai/rss.xml"
+  prompt: "Retrieve the latest daily news summary from news.smol.ai. Process it and capture it in the knowledge graph."
+  source_type: X
+  handles:
+    - smol_ai
 - name: thought_leaders
   prompt: "Capture ideas from thought leaders in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
   source_type: X

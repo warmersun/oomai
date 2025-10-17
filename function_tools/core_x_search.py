@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
-from xai_sdk.chat import SearchParameters, system, user
-from xai_sdk.search import x_source, web_source, rss_source
+from xai_sdk.chat import system, user
+from xai_sdk.tools import web_search, x_search
 from xai_sdk import AsyncClient
 from typing import Optional, List, Tuple
 import logging
@@ -10,54 +10,40 @@ async def core_x_search(
     prompt: str, 
     user_identifier: str = None,
     included_handles: Optional[List[str]] = None,
-    rss_url: str = None,
     last_24hrs: Optional[bool] = False, 
     system_prompt:Optional[str] = None,
 ) -> Tuple[str, int, int, int]:
-    """Search on X and return a detailed summary."""
+    """Agentic search on X and web."""
     logging.info(f"""
 [X_SEARCH]: {prompt}
 input parameters:
   user_identifier={user_identifier}
   included_handles={included_handles}
-  rss_url={rss_url}
   last_24hrs={last_24hrs}
   system_prompt={system_prompt}
 """
     )
-    sources = [
-        web_source(excluded_websites=["wikipedia.org", "gartner.com", "weforum.com", "forbes.com", "accenture.com"])
+    tools = [
+        web_search(excluded_domains=["wikipedia.org", "gartner.com", "weforum.com", "forbes.com", "accenture.com"], enable_image_understanding=True), 
     ]
-
-    if included_handles:
-        sources.append(x_source(included_x_handles=included_handles))
-    else:
-        sources.append(x_source())
+    x_search_params = {'enable_image_understanding': True, 'enable_video_understanding': False}
 
     if last_24hrs:
         now = datetime.now()
         from_date = now - timedelta(hours=24)
         to_date = now
-        search_parameters = SearchParameters(
-            mode="on",
-            sources=sources,
-            from_date=from_date,
-            to_date=to_date,
-            return_citations=False,
-        )
-    else:
-        search_parameters = SearchParameters(
-            mode="on",
-            sources=sources,
-            return_citations=False,
-        )
+        x_search_params['from_date'] = from_date
+        x_search_params['to_date'] = to_date
+    if included_handles:
+        x_search_params['allowed_x_handles'] = included_handles
 
-    if rss_url:
-        search_parameters.sources.append(rss_source([rss_url]))
+    logging.info(f"x_search parameters: {x_search_params}")
+
+    tools.append(x_search(**x_search_params))
 
     chat = xai_client.chat.create(
         model="grok-4-fast",
-        search_parameters=search_parameters,
+        tools=tools,
         messages=[
             system(system_prompt) if system_prompt else system("Search on X and return a detailed summary.") ,
             user(prompt),
