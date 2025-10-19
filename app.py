@@ -509,41 +509,42 @@ def clean_text_for_tts(text: str) -> str:
         return text.strip()
 
 
-# def text_to_speech(text: str):
-#     elevenlabs_client = cl.user_session.get("elevenlabs_client")
-#     assert elevenlabs_client is not None, "No ElevenLabs client found in user session"
-#     text = clean_text_for_tts(text)
-#     audio = elevenlabs_client.text_to_speech.convert(
-#         model_id="eleven_flash_v2_5",
-#         text=text,
-#         voice_id=ELEVENLABS_VOICE_ID,
-#         output_format="mp3_44100_128",
-#         voice_settings=VoiceSettings(stability=0.4,
-#                                      similarity_boost=0.75,
-#                                      use_speaker_boost=True,
-#                                      speed=1.0))
-#     return audio
-
-async def text_to_speech(text: str):
-    groq_client = cl.user_session.get("groq_client")
-    assert groq_client is not None, "No Groq client found in user session"
+def text_to_speech(text: str):
+    elevenlabs_client = cl.user_session.get("elevenlabs_client")
+    assert elevenlabs_client is not None, "No ElevenLabs client found in user session"
     text = clean_text_for_tts(text)
+    audio_generator = elevenlabs_client.text_to_speech.convert(
+        model_id="eleven_flash_v2_5",
+        text=text,
+        voice_id=ELEVENLABS_VOICE_ID,
+        output_format="mp3_44100_128",
+        voice_settings=VoiceSettings(stability=0.4,
+                                     similarity_boost=0.75,
+                                     use_speaker_boost=True,
+                                     speed=1.0))
+    audio = b"".join(audio_generator)
+    return audio
 
-    model = "playai-tts"
-    voice = "Cheyenne-PlayAI"
-    response_format = "mp3"
-    sample_rate = 44100
+# async def text_to_speech(text: str):
+#     groq_client = cl.user_session.get("groq_client")
+#     assert groq_client is not None, "No Groq client found in user session"
+#     text = clean_text_for_tts(text)
 
-    response = await groq_client.audio.speech.create(
-        model=model,
-        voice=voice,
-        input=text,
-        response_format=response_format, 
-        sample_rate = sample_rate
-    )
+#     model = "playai-tts"
+#     voice = "Cheyenne-PlayAI"
+#     response_format = "mp3"
+#     sample_rate = 44100
 
-    audio_bytes = await response.read()
-    return audio_bytes
+#     response = await groq_client.audio.speech.create(
+#         model=model,
+#         voice=voice,
+#         input=text,
+#         response_format=response_format, 
+#         sample_rate = sample_rate
+#     )
+
+#     audio_bytes = await response.read()
+#     return audio_bytes
 
 
 @cl.action_callback("tts")
@@ -559,7 +560,7 @@ async def tts(action: cl.Action):
     if last_message is not None:
         if not isinstance(last_message, str):
             last_message = getattr(last_message, "response", str(last_message))
-        audio_bytes = await text_to_speech(last_message)
+        audio_bytes = text_to_speech(last_message)
 
         output_audio_el = cl.Audio(
             auto_play=True,
