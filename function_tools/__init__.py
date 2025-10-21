@@ -4,11 +4,13 @@ from .chainlit_graph_ops import execute_cypher_query
 from .chainlit_graph_ops import create_node
 from .chainlit_graph_ops import create_edge
 from .chainlit_graph_ops import find_node
+from .chainlit_graph_ops import dfs
 from .core_graph_ops import GraphOpsCtx
 from .core_graph_ops import core_execute_cypher_query
 from .core_graph_ops import core_create_node
 from .core_graph_ops import core_create_edge
 from .core_graph_ops import core_find_node
+from .core_graph_ops import core_dfs
 from .chainlit_x_search import x_search
 from .core_x_search import core_x_search
 from .chainlit_perplexity_search import perplexity_search

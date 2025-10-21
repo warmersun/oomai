@@ -4,6 +4,7 @@ from .core_graph_ops import core_execute_cypher_query
 from .core_graph_ops import core_create_node
 from .core_graph_ops import core_create_edge
 from .core_graph_ops import core_find_node
+from .core_graph_ops import core_dfs
 from typing import List, Optional, Literal, Dict, Union
 
 
@@ -92,4 +93,22 @@ async def find_node(
             await step.remove()
         return output
 
+async def dfs(
+    ctx: GraphOpsCtx,
+    node_name: str,
+    depth: int = 3
+) -> list:
+    async with cl.Step(name="Depth-First_Search", type="retrieval") as step:
+        step.show_input = True
+        step.input = {"node_name": node_name, "depth": depth}
 
+        step_message = cl.Message(content=f"Performing depth-dirst search on `{node_name}`, with depth of {depth}")
+        await step_message.send()
+
+        output = await core_dfs(ctx, node_name, depth)
+
+        step.output = output
+        debug = cl.user_session.get("debug_settings")
+        if not debug:
+            await step.remove()
+        return output

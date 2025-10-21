@@ -139,6 +139,43 @@ TOOLS_DEFINITIONS = {
             "required": ["query_text", "node_type"],
         },
     ),
+    "dfs": tool(
+        name="dfs",
+        description="""
+        Perform a depth-first search, starting with the node identified by node_name, depth level deep.
+        Returns a single row with two columns:
+            nodes with a list of nodes with name and description
+            edges with a list of source nodes, relationship and end nodes, identified by name
+
+            {
+                "nodes": [
+                    { "name": "NodeA", "description": "Description of NodeA" },
+                    { "name": "NodeB", "description": "Description of NodeB" },
+                    ...
+                ],
+                "edges": [
+                    { "source_node_name": "NodeA", "relationship": "REL_TYPE", "end_node_name": "NodeB" },
+                    { "source_node_name": "NodeB", "relationship": "REL_TYPE", "end_node_name": "NodeC" },
+                    ...
+                ]
+            }
+        """,
+        parameters={
+            "type": "object",
+            "properties": {
+                "node_name": {
+                    "type": "string",
+                    "description": "The starting node."
+                },
+                "depth": {
+                    "type": "integer",
+                    "description": "How many levels deep the search should go.",
+                    "default": 3,
+                },
+            },
+            "required": ["node_name"],
+        },
+    ),
     "plan_tasks": tool(
         name="plan_tasks",
         description="""

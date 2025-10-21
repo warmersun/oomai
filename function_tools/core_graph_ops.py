@@ -1,7 +1,7 @@
 from neo4j import AsyncDriver, AsyncTransaction
 from neo4j.exceptions import ClientError, CypherSyntaxError
 import json
-from typing import List, Dict, Optional, Union, Tuple
+from typing import List, Dict, Optional, Union, Tuple, Any
 from pydantic import BaseModel
 
 from neo4j.time import Date, DateTime
@@ -11,6 +11,7 @@ from asyncio import Lock
 import logging
 from neo4j.exceptions import ServiceUnavailable
 from lark import Lark, ParseError, UnexpectedCharacters, UnexpectedToken
+
 
 # Load the Cypher grammar
 with open("knowledge_graph/cypher.cfg", "r") as f:
@@ -525,3 +526,72 @@ async def core_find_node(
             except Exception as e:
                 logging.error(f"Error in find_node: {str(e)}")
                 raise RuntimeError(f"Failed to find nodes: {str(e)}")
+
+async def core_dfs(
+    ctx: GraphOpsCtx,
+    node_name: str,
+    depth: int = 3
+) -> List[Dict[str, Any]]:
+    """
+    Performs a depth-first search (DFS) on a Neo4j graph starting from a node
+    identified by its name, up to a specified depth.
+
+    Args:
+        ctx (GraphOpsCtx): Context object containing Neo4j driver and lock.
+        node_name (str): Name of the starting node.
+        depth (int, optional): Maximum depth for DFS traversal. Defaults to 3.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries, each containing:
+            - nodes: List of node dictionaries with 'name' and 'description'.
+            - edges: List of edge dictionaries with 'source_node_name',
+                    'relationship', and 'end_node_name'.
+
+    Raises:
+        ValueError: If node_name is empty or depth is negative.
+        RuntimeError: If the query fails due to database or other errors.
+    """
+    if not node_name or not isinstance(node_name, str):
+        raise ValueError("node_name must be a non-empty string")
+    if not isinstance(depth, int) or depth < 0:
+        raise ValueError("depth must be a non-negative integer")
+
+    logging.info(f"[DFS]:\nNODE_NAME: {node_name}\nDEPTH:\n{depth}")
+
+    cypher_query = """
+    // Collect nodes in DFS up to specified depth
+    MATCH (startNode {name: $node_name})
+    CALL apoc.path.subgraphNodes(startNode, {
+        maxLevel: $depth,
+        bfs: false
+    }) YIELD node
+    WITH startNode, collect({ name: node.name, description: node.description }) AS nodes
+    // Collect edges in DFS up to specified depth
+    CALL apoc.path.expandConfig(startNode, {
+        maxLevel: $depth,
+        bfs: false
+    }) YIELD path
+    UNWIND relationships(path) AS rel
+    WITH nodes, collect({
+        source_node_name: startNode(rel).name,
+        relationship: type(rel),
+        end_node_name: endNode(rel).name
+    }) AS edges
+    RETURN nodes, edges
+    """
+
+    async with ctx.neo4jdriver.session() as session:
+        async def read_work(tx: AsyncTransaction):
+            result = await tx.run(cypher_query, {"node_name": node_name, "depth": depth})
+            records = []
+            async for record in result:
+                records.append(record.data())
+            return records if records else []
+
+        async with ctx.lock:
+            try:
+                results = await session.execute_read(read_work)
+                return results
+            except Exception as e:
+                logging.error(f"Error in dfs: {str(e)}")
+                raise RuntimeError(f"Failed dfs(): {str(e)}")

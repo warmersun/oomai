@@ -27,7 +27,10 @@ The `milestone_reached_date` is a date type property to track when the milestone
 A Logical Technology Component (LTC) is a product class—an abstract product category (e.g., Large Language Model).
 
 ### PTC
-A Physical Technology Component (PTC) is a specific product by a given vendor. It can be unreleased research (e.g., OpenAI's o3-mini LLM).
+A Physical Technology Component (PTC) is a specific product by a given vendor. It can be unreleased research (e.g., X.ai's Grok-4-Fast AI model).
+
+So "Large Language Model" is the abstract product category, the "bucket"L an LTC
+and "Grok-4-Fast" is a specific instance in that product category, a PTC.
 
 ### LAC
 A Logical Application Component (LAC) is an abstract group of similar applications. Use it to capture different use cases.
