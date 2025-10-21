@@ -19,8 +19,8 @@ async def plan_tasks(planned_tasks: list[str]) -> None:
     # Preserve done tasks
     done_tasks = {title: task for title, task in tasks_dict.items() if task.status == cl.TaskStatus.DONE}
 
-    # Clear planned tasks by recreating the task list with only done tasks initially
-    task_list.tasks = [task for task in task_list.tasks if task.status == cl.TaskStatus.DONE]
+    # Clear task ist
+    task_list.tasks = []
 
     # Add new planned tasks
     new_tasks_dict = done_tasks.copy()
