@@ -37,16 +37,17 @@ Follow these steps:
 - Continue searching or querying as needed until enough context is available to address the user's query.
 - Traverse the graph, perform a depth-frist search 3 levels down using `execute_cypher_query`. This will greatly improve the context you receive.
 - The priority of your sources is to 
-  - first search the knowledge graph 
-  - then search on the web using `perplexity_search`
-  - then search on X and the web usgin `x_search`
+  1. first search the knowledge graph 
+  2. then traverse the knowledge graph along the edges, perform Depth-First Search
+  3. then search on the web using `perplexity_search`, do this multiple times with follow-up inqueries
+  4. then search on X and the web using `x_search`
 
 ### Typical Query Themes
 
 - Track emTech advancements and the emergence of new capabilities and use cases (LAC).
 - Examine how capabilities meet new milestones to identify trends.
 - Compare parties and their offerings (PTC), aided by categorization with LTC.
-- Explore predictions and ideas attributed to parties, including thought leaders.
+- Explore predictions, warnings, spotted trends, and ideas attributed to parties, including thought leaders.
 
 # Context
 
