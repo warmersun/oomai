@@ -563,13 +563,15 @@ async def core_dfs(
     MATCH (startNode {name: $node_name})
     CALL apoc.path.subgraphNodes(startNode, {
         maxLevel: $depth,
-        bfs: false
+        bfs: false,
+        labelFilter: '/EmTech'
     }) YIELD node
     WITH startNode, collect({ name: node.name, description: node.description }) AS nodes
     // Collect edges in DFS up to specified depth
     CALL apoc.path.expandConfig(startNode, {
         maxLevel: $depth,
-        bfs: false
+        bfs: false,
+        labelFilter: '/EmTech'
     }) YIELD path
     UNWIND relationships(path) AS rel
     WITH nodes, collect({
