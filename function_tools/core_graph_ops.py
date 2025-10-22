@@ -527,6 +527,7 @@ async def core_find_node(
                 logging.error(f"Error in find_node: {str(e)}")
                 raise RuntimeError(f"Failed to find nodes: {str(e)}")
 
+
 async def core_dfs(
     ctx: GraphOpsCtx,
     node_name: str,
@@ -534,7 +535,7 @@ async def core_dfs(
 ) -> List[Dict[str, Any]]:
     """
     Performs a depth-first search (DFS) on a Neo4j graph starting from a node
-    identified by its name, up to a specified depth.
+    identified by its name, up to a specified depth, stopping at EmTech nodes.
 
     Args:
         ctx (GraphOpsCtx): Context object containing Neo4j driver and lock.
@@ -556,44 +557,54 @@ async def core_dfs(
     if not isinstance(depth, int) or depth < 0:
         raise ValueError("depth must be a non-negative integer")
 
-    logging.info(f"[DFS]:\nNODE_NAME: {node_name}\nDEPTH:\n{depth}")
+    logging.info(f"[DFS]:\nNODE_NAME: {node_name}\nDEPTH: {depth}")
 
-    cypher_query = """
-    // Collect nodes in DFS up to specified depth
+    # Query 1: Collect nodes in DFS up to specified depth, stopping at EmTech nodes
+    nodes_query = """
     MATCH (startNode {name: $node_name})
+    WITH startNode
     CALL apoc.path.subgraphNodes(startNode, {
         maxLevel: $depth,
         bfs: false,
-        labelFilter: '/EmTech'
+        labelFilter: '-EmTech'
     }) YIELD node
-    WITH startNode, collect({ name: node.name, description: node.description }) AS nodes
-    // Collect edges in DFS up to specified depth
+    RETURN collect({ name: node.name, description: node.description }) AS nodes
+    """
+
+    # Query 2: Collect edges in DFS up to specified depth, stopping at EmTech nodes
+    edges_query = """
+    MATCH (startNode {name: $node_name})
+    WITH startNode
     CALL apoc.path.expandConfig(startNode, {
         maxLevel: $depth,
         bfs: false,
-        labelFilter: '/EmTech'
+        labelFilter: '-EmTech'
     }) YIELD path
+    WHERE size(relationships(path)) > 0
     UNWIND relationships(path) AS rel
-    WITH nodes, collect({
+    RETURN collect({
         source_node_name: startNode(rel).name,
         relationship: type(rel),
         end_node_name: endNode(rel).name
     }) AS edges
-    RETURN nodes, edges
     """
 
     async with ctx.neo4jdriver.session() as session:
-        async def read_work(tx: AsyncTransaction):
-            result = await tx.run(cypher_query, {"node_name": node_name, "depth": depth})
-            records = []
-            async for record in result:
-                records.append(record.data())
-            return records if records else []
+        async def read_nodes(tx: AsyncTransaction):
+            result = await tx.run(nodes_query, {"node_name": node_name, "depth": depth})
+            record = await result.single()
+            return record["nodes"] if record else []
+
+        async def read_edges(tx: AsyncTransaction):
+            result = await tx.run(edges_query, {"node_name": node_name, "depth": depth})
+            record = await result.single()
+            return record["edges"] if record else []
 
         async with ctx.lock:
             try:
-                results = await session.execute_read(read_work)
-                return results
+                nodes = await session.execute_read(read_nodes)
+                edges = await session.execute_read(read_edges)
+                return [{"nodes": nodes, "edges": edges}]
             except Exception as e:
                 logging.error(f"Error in dfs: {str(e)}")
                 raise RuntimeError(f"Failed dfs(): {str(e)}")
