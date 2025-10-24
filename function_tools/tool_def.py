@@ -167,6 +167,11 @@ TOOLS_DEFINITIONS = {
                     "type": "string",
                     "description": "The starting node."
                 },
+                "node_type": {
+                    "type": "string",
+                    "description": "The type of node to search for.",
+                    "enum": ["EmTech", "Convergence", "Capability", "Milestone", "LTC", "PTC", "LAC", "PAC", "Trend", "Idea", "Party"],
+                },
                 "depth": {
                     "type": "integer",
                     "description": "How many levels deep the search should go.",

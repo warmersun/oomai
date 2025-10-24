@@ -96,16 +96,19 @@ async def find_node(
 async def dfs(
     ctx: GraphOpsCtx,
     node_name: str,
+    node_type: Literal[
+        "EmTech", "Convergence", "Capability", "Milestone", "LTC", "PTC", "LAC", "PAC", "Trend", "Idea", "Party"
+    ],
     depth: int = 3
 ) -> list:
     async with cl.Step(name="Depth-First_Search", type="retrieval") as step:
         step.show_input = True
-        step.input = {"node_name": node_name, "depth": depth}
+        step.input = {"node_name": node_name, "node_type": node_type, "depth": depth}
 
         step_message = cl.Message(content=f"Performing depth-dirst search on `{node_name}`, with depth of {depth}")
         await step_message.send()
 
-        output = await core_dfs(ctx, node_name, depth)
+        output = await core_dfs(ctx, node_name, node_type, depth)
 
         step.output = output
         debug = cl.user_session.get("debug_settings")

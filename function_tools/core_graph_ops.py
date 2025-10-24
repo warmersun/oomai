@@ -531,6 +531,9 @@ async def core_find_node(
 async def core_dfs(
     ctx: GraphOpsCtx,
     node_name: str,
+    node_type: Literal[
+        "EmTech", "Convergence", "Capability", "Milestone", "LTC", "PTC", "LAC", "PAC", "Trend", "Idea", "Party"
+    ],
     depth: int = 3
 ) -> List[Dict[str, Any]]:
     """
@@ -540,6 +543,7 @@ async def core_dfs(
     Args:
         ctx (GraphOpsCtx): Context object containing Neo4j driver and lock.
         node_name (str): Name of the starting node.
+        node_type (Literal): the type ("Label") of the node
         depth (int, optional): Maximum depth for DFS traversal. Defaults to 3.
 
     Returns:
@@ -560,33 +564,33 @@ async def core_dfs(
     logging.info(f"[DFS]:\nNODE_NAME: {node_name}\nDEPTH: {depth}")
 
     # Query 1: Collect nodes in DFS up to specified depth, stopping at EmTech nodes
-    nodes_query = """
-    MATCH (startNode {name: $node_name})
+    nodes_query = f"""
+    MATCH (startNode:{node_type} {{name: $node_name}})
     WITH startNode
-    CALL apoc.path.subgraphNodes(startNode, {
+    CALL apoc.path.subgraphNodes(startNode, {{
         maxLevel: $depth,
         bfs: false,
         labelFilter: '-EmTech'
-    }) YIELD node
-    RETURN collect({ name: node.name, description: node.description }) AS nodes
+    }}) YIELD node
+    RETURN collect({{ name: node.name, description: node.description }}) AS nodes
     """
 
     # Query 2: Collect edges in DFS up to specified depth, stopping at EmTech nodes
-    edges_query = """
-    MATCH (startNode {name: $node_name})
+    edges_query = f"""
+    MATCH (startNode:{node_type} {{name: $node_name}})
     WITH startNode
-    CALL apoc.path.expandConfig(startNode, {
+    CALL apoc.path.expandConfig(startNode, {{
         maxLevel: $depth,
         bfs: false,
         labelFilter: '-EmTech'
-    }) YIELD path
+    }}) YIELD path
     WHERE size(relationships(path)) > 0
     UNWIND relationships(path) AS rel
-    RETURN collect({
+    RETURN collect({{
         source_node_name: startNode(rel).name,
         relationship: type(rel),
         end_node_name: endNode(rel).name
-    }) AS edges
+    }}) AS edges
     """
 
     async with ctx.neo4jdriver.session() as session:
