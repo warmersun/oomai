@@ -23,6 +23,42 @@ sources:
     - ChatGPTapp
     - sama
     - gdb
+- name: xai_updates
+  prompt: "List the latest product launches, research, ideas, new capabilities, and milestones by xAI. Capture these in the knowledge graph. If no new and worthwhile updates are found, just say 'No new updates found'."
+  source_type: X
+  handles:
+    - xai
+    - elonmusk
+    - Grok
+- name: anthropic_updates
+  prompt: "List the latest product launches, research, ideas, new capabilities, and milestones by Anthropic. Capture these in the knowledge graph. If no new and worthwhile updates are found, just say 'No new updates found'."
+  source_type: X
+  handles:
+    - claudeai
+    - anthropicAI
+    - DarioAmodei
+- name: meta_ai_updates
+  prompt: "List the latest product launches, research, ideas, new capabilities, and milestones by Meta AI. Capture these in the knowledge graph. If no new and worthwhile updates are found, just say 'No new updates found'."
+  source_type: X
+  handles:
+    - meta
+    - ylecun
+    - alexandr_wang
+- name: google_research_updates
+  prompt: "List the latest product launches, research, ideas, new capabilities, and milestones by Google Research or Google AI. Capture these in the knowledge graph. If no new and worthwhile updates are found, just say 'No new updates found'."
+  source_type: X
+  handles:
+    - GoogleAI
+    - GoogleResearch
+    - JeffDean
+    - GoogleDeepMind
+    - demishassabis
+- name: nvidia_ai_updates
+  prompt: "List the latest product launches, research, ideas, new capabilities, and milestones by NVIDIA AI. Capture these in the knowledge graph. If no new and worthwhile updates are found, just say 'No new updates found'."
+  source_type: X
+  handles:
+    - nvidia
+    - NVIDIAAI
 - name: energy_news
   prompt: "List the latest development, research, new capabilities and milestones in energy production, smart grid, energy storage, battery technology. Capture these in the knowledge graph."
   source_type: X
@@ -73,6 +109,8 @@ sources:
     - PeterDiamandis
     - gunsnrosesgirl3
     - kimmonismus
+    - ScienceAdvances
+    - NatureComms
 - name: robot_news
   prompt: "List the latest development, research, new capabilities and milestones related to robots. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
   source_type: X
