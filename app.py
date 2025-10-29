@@ -654,7 +654,7 @@ async def on_chat_resume(thread: ThreadDict):
         logger.error(
             f"Thread structure: {json.dumps(thread, indent=2, default=str)}")
         # Fallback to empty message list
-        user_messathreadges = []
+        thread_messages = []
 
     logger.info(f"Processed {len(thread_messages)} messages for chat resume")
     cl.user_session.set("user_and_assistant_messages", thread_messages)
