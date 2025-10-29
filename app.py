@@ -603,7 +603,7 @@ async def shared_thread_view(thread, viewer):
 
 @cl.on_chat_resume
 async def on_chat_resume(thread: ThreadDict):
-    user_messages = []
+    thread_messages = []
 
     try:
         # Debug: Log thread structure for troubleshooting
@@ -626,38 +626,38 @@ async def on_chat_resume(thread: ThreadDict):
                 continue
 
             if message_type == "user_message":
-                user_messages.append(user(message_content))
+                thread_messages.append(user(message_content))
             elif message_type == "assistant_message":
-                user_messages.append(assistant(message_content))
+                thread_messages.append(assistant(message_content))
             elif message_type == "tool_call":
                 # Handle tool calls - reconstruct them for xai_sdk
                 # Tool calls might need special handling depending on xai_sdk format
                 logger.info(f"Found tool call: {message_content}")
                 # For now, treat as assistant message to preserve context
-                user_messages.append(
+                thread_messages.append(
                     assistant(f"[Tool call: {message_content}]"))
             elif message_type == "tool_result":
                 # Handle tool results
                 logger.info(f"Found tool result: {message_content}")
                 # For now, treat as assistant message to preserve context
-                user_messages.append(
+                thread_messages.append(
                     assistant(f"[Tool result: {message_content}]"))
             else:
                 # For any other message type, treat as assistant message
                 logger.info(
                     f"Found message type '{message_type}': {message_content[:100]}..."
                 )
-                user_messages.append(assistant(message_content))
+                thread_messages.append(assistant(message_content))
 
     except Exception as e:
         logger.error(f"Error processing thread messages: {e}")
         logger.error(
             f"Thread structure: {json.dumps(thread, indent=2, default=str)}")
         # Fallback to empty message list
-        user_messages = []
+        user_messathreadges = []
 
-    logger.info(f"Processed {len(user_messages)} messages for chat resume")
-    cl.user_session.set("user_and_assistant_messages", user_messages)
+    logger.info(f"Processed {len(thread_messages)} messages for chat resume")
+    cl.user_session.set("user_and_assistant_messages", thread_messages)
     await _neo4j_connect()
     groq_client = AsyncGroq(api_key=GROQ_API_KEY, )
     cl.user_session.set("groq_client", groq_client)

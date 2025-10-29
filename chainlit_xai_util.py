@@ -90,3 +90,6 @@ async def process_stream(user_input: str, ctx: Any, output_message: cl.Message) 
                 # else - if we didn't return
                 chat.append(tool_result(json.dumps({"error": str(e)})))
                 break
+
+    # update session variable
+    cl.user_session.set("user_and_assistant_messages", user_and_assistant_messages)
