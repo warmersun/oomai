@@ -3,9 +3,9 @@ from xai_sdk.chat import tool
 with open("knowledge_graph/cypher.cfg", "r") as f:
     CYPHER_CFG = f.read()
 
-
 TOOLS_DEFINITIONS = {
-    "execute_cypher_query": tool(
+    "execute_cypher_query":
+    tool(
         name="execute_cypher_query",
         description="""
         Executes a read-only Cypher query against a Neo4j database.
@@ -39,18 +39,20 @@ TOOLS_DEFINITIONS = {
         2. Disallowed operation: CREATE (e:EmTech {name: 'New Tech'}) (error: mutation not allowed; EmTechs are fixed).
         3. Unsafe function: CALL apoc.do.it() (error: not allow-listed).
         """,
-        parameters= {
+        parameters={
             "type": "object",
             "properties": {
                 "query": {
-                    "type": "string",
-                    "description": "A read-only Cypher query string to execute against the Neo4j database, following the allowed subset and guidelines."
+                    "type":
+                    "string",
+                    "description":
+                    "A read-only Cypher query string to execute against the Neo4j database, following the allowed subset and guidelines."
                 }
             },
             "required": ["query"]
-        }
-    ),
-    "create_node": tool(
+        }),
+    "create_node":
+    tool(
         name="create_node",
         description="""
         Creates or updates a node in the Neo4j knowledge graph, ensuring no duplicates by checking for similar nodes based on their descriptions.
@@ -63,22 +65,28 @@ TOOLS_DEFINITIONS = {
             "type": "object",
             "properties": {
                 "node_type": {
-                    "type": "string",
-                    "description": "The type of node (e.g., 'EmTech', 'Capability', 'Party').",
+                    "type":
+                    "string",
+                    "description":
+                    "The type of node (e.g., 'EmTech', 'Capability', 'Party').",
                 },
                 "name": {
-                    "type": "string",
-                    "description": "A short, unique name for the node (e.g., 'AI', 'OpenAI').",
+                    "type":
+                    "string",
+                    "description":
+                    "A short, unique name for the node (e.g., 'AI', 'OpenAI').",
                 },
                 "description": {
-                    "type": "string",
-                    "description": "A detailed description of the node for similarity checks and updates.",
+                    "type":
+                    "string",
+                    "description":
+                    "A detailed description of the node for similarity checks and updates.",
                 },
             },
             "required": ["node_type", "name", "description"],
-        }
-    ),
-    "create_edge": tool(
+        }),
+    "create_edge":
+    tool(
         name="create_edge",
         description="""
         Creates or merges a directed relationship (edge) between two existing nodes in the Neo4j knowledge graph.
@@ -99,19 +107,23 @@ TOOLS_DEFINITIONS = {
                     "description": "The name of the target node.",
                 },
                 "relationship_type": {
-                    "type": "string",
-                    "description": "The type of relationship (e.g., 'ENABLES', 'USES', 'RELATES_TO').",
+                    "type":
+                    "string",
+                    "description":
+                    "The type of relationship (e.g., 'ENABLES', 'USES', 'RELATES_TO').",
                 },
                 "properties": {
                     "type": "object",
-                    "description": "Optional additional properties for the relationship (e.g., {'explanation': 'details'}).",
+                    "description":
+                    "Optional additional properties for the relationship (e.g., {'explanation': 'details'}).",
                     "additionalProperties": True,
                 },
             },
             "required": ["source_name", "target_name", "relationship_type"],
         },
     ),
-    "find_node": tool(
+    "find_node":
+    tool(
         name="find_node",
         description="""
         Finds nodes in knowledge graph that are similar to a given query text.
@@ -126,20 +138,27 @@ TOOLS_DEFINITIONS = {
                     "description": "The text to search for similar nodes.",
                 },
                 "node_type": {
-                    "type": "string",
-                    "description": "The type of node to search for.",
-                    "enum": ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"],
+                    "type":
+                    "string",
+                    "description":
+                    "The type of node to search for.",
+                    "enum": [
+                        "Convergence", "Capability", "Milestone", "Trend",
+                        "Idea", "LTC", "LAC"
+                    ],
                 },
                 "top_k": {
                     "type": "integer",
-                    "description": "The number of top results to return (default is 25).",
+                    "description":
+                    "The number of top results to return (default is 25).",
                     "default": 25,
                 },
             },
             "required": ["query_text", "node_type"],
         },
     ),
-    "dfs": tool(
+    "dfs":
+    tool(
         name="dfs",
         description="""
         Perform a depth-first search, starting with the node identified by node_name, depth level deep.
@@ -168,54 +187,59 @@ TOOLS_DEFINITIONS = {
                     "description": "The starting node."
                 },
                 "node_type": {
-                    "type": "string",
-                    "description": "The type of node to search for.",
-                    "enum": ["EmTech", "Convergence", "Capability", "Milestone", "LTC", "PTC", "LAC", "PAC", "Trend", "Idea", "Party"],
+                    "type":
+                    "string",
+                    "description":
+                    "The type of node to search for.",
+                    "enum": [
+                        "Convergence", "Capability", "Milestone", "LTC", "PTC",
+                        "LAC", "PAC", "Trend", "Idea", "Party"
+                    ],
                 },
                 "depth": {
                     "type": "integer",
-                    "description": "How many levels deep the search should go.",
+                    "description":
+                    "How many levels deep the search should go.",
                     "default": 3,
                 },
             },
             "required": ["node_name"],
         },
     ),
-    "plan_tasks": tool(
-        name="plan_tasks",
-        description="""
+    "plan_tasks":
+    tool(name="plan_tasks",
+         description="""
         Completely rewrites the list of planned tasks, preserving done tasks.
         Done tasks remain unchanged and are not altered.
         The TaskList will show both DONE and planned tasks.
         """,
-        parameters={
-            "type": "object",
-            "properties": {
-                "planned_tasks": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                    },
-                    "description": "The list of planned tasks.",
-                },
-            },
-            "required": ["planned_tasks"]
-        }
-    ),
-    "get_tasks": tool(
-        name="get_tasks",
-        description="""
+         parameters={
+             "type": "object",
+             "properties": {
+                 "planned_tasks": {
+                     "type": "array",
+                     "items": {
+                         "type": "string",
+                     },
+                     "description": "The list of planned tasks.",
+                 },
+             },
+             "required": ["planned_tasks"]
+         }),
+    "get_tasks":
+    tool(name="get_tasks",
+         description="""
          Returns a dictionary with two lists: tasks that are done and planned tasks.
         Planned tasks include those in READY, RUNNING, FAILED, etc., but not DONE.
         This function takes no input parameter.
         """,
-        parameters={
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
-    ),
-    "mark_task_as_running": tool(
+         parameters={
+             "type": "object",
+             "properties": {},
+             "required": []
+         }),
+    "mark_task_as_running":
+    tool(
         name="mark_task_as_running",
         description="""
         Marks a task as done by updating its status to DONE, only if it's not already done.
@@ -231,41 +255,40 @@ TOOLS_DEFINITIONS = {
             "required": ["task_title"]
         },
     ),
-    "mark_task_as_done": tool(
-        name="mark_task_as_done",
-        description="""
+    "mark_task_as_done":
+    tool(name="mark_task_as_done",
+         description="""
         Marks a task as running by updating its status to RUNNING, only if it's not done.
         Does not affect done tasks. Refreshes the TaskList, which shows both DONE and planned tasks.
         """,
-        parameters={
-            "type": "object",
-            "properties": {
-                "task_title": {
-                    "type": "string",
-                },
-            },
-            "required": ["task_title"]
-        }
-    ),
-    "display_mermaid_diagram": tool(
-        name="display_mermaid_diagram",
-        description="""
+         parameters={
+             "type": "object",
+             "properties": {
+                 "task_title": {
+                     "type": "string",
+                 },
+             },
+             "required": ["task_title"]
+         }),
+    "display_mermaid_diagram":
+    tool(name="display_mermaid_diagram",
+         description="""
         Displays a MermaidJS diagram.  
         Use MermaidJS flowchart syntax to visualize nodes and edges in the knowledge graph, or use the timeline syntax to show milestones and their progression over time.
         The function sends the rendered visualization to the UI and produces no direct return value.
         """,
-        parameters={
-            "type": "object",
-            "properties": {
-                "diagram_str": {
-                    "type": "string",
-                    "description": "The Mermaid diagram string to display.",
-                },
-            },
-            "required": ["diagram_str"]
-        }
-    ),
-    "display_convergence_canvas": tool(
+         parameters={
+             "type": "object",
+             "properties": {
+                 "diagram_str": {
+                     "type": "string",
+                     "description": "The Mermaid diagram string to display.",
+                 },
+             },
+             "required": ["diagram_str"]
+         }),
+    "display_convergence_canvas":
+    tool(
         name="display_convergence_canvas",
         description="""
         Displays a Convergence Canvas visualization—a visual tool to describe, assess, and create Pathways that build off the *convergence* of multiple emerging technologies.
@@ -290,8 +313,10 @@ TOOLS_DEFINITIONS = {
             "type": "object",
             "properties": {
                 "json_str": {
-                    "type": "string",
-                    "description": """
+                    "type":
+                    "string",
+                    "description":
+                    """
                     JSON-encoded string that must represent a single JSON object.
                     - Keys: Emerging-technology identifiers from the allowed list:
                     - "ai"
@@ -318,89 +343,91 @@ TOOLS_DEFINITIONS = {
             },
             "required": ["json_str"]
         },
-
     ),
-    "visualize_oom": tool(
-        name="visualize_oom",
-        description="""
+    "visualize_oom":
+    tool(name="visualize_oom",
+         description="""
         Displays a OOM Visualizer, an interactive tool to visualize exponential growth of a technology over time.
         It shows the number of doublings needed to reach different orders of magnitude (OOM) developments: 10X, 100X, 1000X 
         and, based on the compounding rate, calculates how long it will take to reach each OOM.
         The function sends the rendered visualization to the UI and produces no direct return value.
         """,
-        parameters={
-            "type": "object",
-            "properties": {
-                "months_per_doubling": {
-                    "type": "integer",
-                    "description": "The number of months per doubling.",
-                },
-            },
-            "required": ["months_per_doubling"]
-        }
-    ),
-    "x_search": tool(
-        name="x_search",
-        description="""
+         parameters={
+             "type": "object",
+             "properties": {
+                 "months_per_doubling": {
+                     "type": "integer",
+                     "description": "The number of months per doubling.",
+                 },
+             },
+             "required": ["months_per_doubling"]
+         }),
+    "x_search":
+    tool(name="x_search",
+         description="""
         Performs an agentic search on X and on the web, including image understanding.
         """,
-        parameters={
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "The prompt to search on X.",
-                },
-                "included_handles": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "description": "A Twitter/X handle to include in the search."
-                    },
-                    "description": "A list of Twitter/X handles (as strings) to search on X.",
-                    "default": [],
-                },
-                "last_24hrs": {
-                    "type": "boolean",
-                    "description": "Whether to search on X for the last 24 hours.",
-                    "default": False,
-                },
-                "system_prompt": {
-                    "type": "string",
-                    "description": "The system prompt to use for the search.",
-                    "default": "Search on X and return a detailed summary.",
-                },
-            },
-            "required": ["prompt"]
-        }
-    ),
-    "perplexity_search": tool(
-        name="perplexity_search",
-        description="""
+         parameters={
+             "type": "object",
+             "properties": {
+                 "prompt": {
+                     "type": "string",
+                     "description": "The prompt to search on X.",
+                 },
+                 "included_handles": {
+                     "type": "array",
+                     "items": {
+                         "type":
+                         "string",
+                         "description":
+                         "A Twitter/X handle to include in the search."
+                     },
+                     "description":
+                     "A list of Twitter/X handles (as strings) to search on X.",
+                     "default": [],
+                 },
+                 "last_24hrs": {
+                     "type": "boolean",
+                     "description":
+                     "Whether to search on X for the last 24 hours.",
+                     "default": False,
+                 },
+                 "system_prompt": {
+                     "type": "string",
+                     "description": "The system prompt to use for the search.",
+                     "default": "Search on X and return a detailed summary.",
+                 },
+             },
+             "required": ["prompt"]
+         }),
+    "perplexity_search":
+    tool(name="perplexity_search",
+         description="""
         Performs web search using Perplexity AI to get comprehensive, up-to-date information on any topic.
         Execute multiple related queries in a single request for comprehensive research
         Returns structured search results with titles, URLs, dates,and snippets for each query.
         """,
-        parameters={
-            "type": "object",
-            "properties": {
-                "queries": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "description": "A search query string."
-                    },
-                    "description": "List of up to 5 search queries to execute using Perplexity AI.",
-                    "maxItems": 5,
-                    "minItems": 1,
-                },
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return per query.",
-                    "default": 5,
-                },
-            },
-            "required": ["queries"]
-        }
-    ),
+         parameters={
+             "type": "object",
+             "properties": {
+                 "queries": {
+                     "type": "array",
+                     "items": {
+                         "type": "string",
+                         "description": "A search query string."
+                     },
+                     "description":
+                     "List of up to 5 search queries to execute using Perplexity AI.",
+                     "maxItems": 5,
+                     "minItems": 1,
+                 },
+                 "max_results": {
+                     "type": "integer",
+                     "description":
+                     "Maximum number of results to return per query.",
+                     "default": 5,
+                 },
+             },
+             "required": ["queries"]
+         }),
 }

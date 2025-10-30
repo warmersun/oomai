@@ -12,7 +12,6 @@ import logging
 from neo4j.exceptions import ServiceUnavailable
 from lark import Lark, ParseError, UnexpectedCharacters, UnexpectedToken
 
-
 # Load the Cypher grammar
 with open("knowledge_graph/cypher.cfg", "r") as f:
     CYPHER_GRAMMAR = f.read()
@@ -31,12 +30,12 @@ def validate_cypher_query(query: str) -> Tuple[bool, Optional[str]]:
     try:
         # Create Lark parser with the grammar
         parser = Lark(CYPHER_GRAMMAR, start='start', parser='earley')
-        
+
         # Parse the query - this will raise an exception if invalid
         parser.parse(query.strip())
-        
+
         return True, None  # Valid query
-        
+
     except ParseError as e:
         return False, f"Parse error: {str(e)}"
     except UnexpectedCharacters as e:
@@ -48,24 +47,29 @@ def validate_cypher_query(query: str) -> Tuple[bool, Optional[str]]:
 
 
 class Neo4jDateEncoder(json.JSONEncoder):
+
     def default(self, o):
         if isinstance(o, Date):
-            return o.to_native().isoformat()          # e.g. "2025-07-30"
+            return o.to_native().isoformat()  # e.g. "2025-07-30"
         if isinstance(o, DateTime):
-            return o.to_native().date().isoformat()   # e.g. "2025-07-30"
+            return o.to_native().date().isoformat()  # e.g. "2025-07-30"
         return super().default(o)
 
+
 EMBEDDING_MODEL = "text-embedding-3-large"
+
 
 @dataclass
 class GraphOpsCtx:
     neo4jdriver: AsyncDriver
     lock: Lock
-    node_name_mapping: Dict[str, str] = None  # Maps old node names to actual node names
-    
+    node_name_mapping: Dict[
+        str, str] = None  # Maps old node names to actual node names
+
     def __post_init__(self):
         if self.node_name_mapping is None:
             self.node_name_mapping = {}
+
 
 async def run_transaction(tx: AsyncTransaction, query, params=None):
     # If params is None, default to empty dict for safety
@@ -78,7 +82,9 @@ async def run_transaction(tx: AsyncTransaction, query, params=None):
 
 # Core logic functions, independent of Chainlit
 
-async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
+
+async def core_execute_cypher_query(ctx: GraphOpsCtx,
+                                    query: str) -> List[dict]:
     """
     Executes the provided Cypher query against the Neo4j database and returns the results.
     Robust error handling is implemented to catch exceptions from invalid queries or empty result sets.
@@ -95,25 +101,32 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
         Recursively removes the 'embedding' key and converts Neo4j Date/DateTime to strings.
         """
         if isinstance(obj, dict):
-            return {k: filter_embedding(v) for k, v in obj.items() if k != 'embedding'}
+            return {
+                k: filter_embedding(v)
+                for k, v in obj.items() if k != 'embedding'
+            }
         elif isinstance(obj, list):
             return [filter_embedding(item) for item in obj]
         elif isinstance(obj, Date):
-            return obj.iso_format()  # Convert Neo4j Date to ISO 8601 string (e.g., "2025-07-28")
+            return obj.iso_format(
+            )  # Convert Neo4j Date to ISO 8601 string (e.g., "2025-07-28")
         elif isinstance(obj, DateTime):
-            return obj.iso_format()  # Convert Neo4j DateTime to ISO 8601 string (e.g., "2025-07-28T10:55:00+00:00")
+            return obj.iso_format(
+            )  # Convert Neo4j DateTime to ISO 8601 string (e.g., "2025-07-28T10:55:00+00:00")
         return obj
 
     logging.info(f"[CYPHER_QUERY]:\n{query}")
-    
+
     # Validate the query before execution
     is_valid, validation_error = validate_cypher_query(query)
     if not is_valid:
-        logging.error(f"validate_cypher_query caught and reported an Invalid Cypher query: {validation_error}")
+        logging.error(
+            f"validate_cypher_query caught and reported an Invalid Cypher query: {validation_error}"
+        )
         raise RuntimeError(f"Invalid Cypher query: {validation_error}")
 
     async with ctx.neo4jdriver.session() as session:
-        
+
         async def read_work(tx: AsyncTransaction):
             result = await tx.run(query)
             records = await result.data()
@@ -127,25 +140,43 @@ async def core_execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
                 return await session.execute_read(read_work)
             except (ClientError, CypherSyntaxError, ServiceUnavailable) as e:
                 raise RuntimeError(f"Error executing Cypher query: {str(e)}")
-                
-async def core_create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str, groq_client=None, openai_embedding_client=None) -> str:
-    logging.info(f"[CREATE_NODE] TYPE: {node_type}\nNAME: {name}\n DESCRIPTION: {description}")
 
-    if node_type in ["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"]:
+
+async def core_create_node(ctx: GraphOpsCtx,
+                           node_type: str,
+                           name: str,
+                           description: str,
+                           groq_client=None,
+                           openai_embedding_client=None) -> str:
+    logging.info(
+        f"[CREATE_NODE] TYPE: {node_type}\nNAME: {name}\n DESCRIPTION: {description}"
+    )
+
+    if node_type in [
+            "Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC",
+            "LAC"
+    ]:
         if groq_client is None or openai_embedding_client is None:
-            raise ValueError("groq_client and openai_embedding_client are required for smart_upsert node types")
-        return await core_smart_upsert(ctx, node_type, name, description, groq_client, openai_embedding_client)
+            raise ValueError(
+                "groq_client and openai_embedding_client are required for smart_upsert node types"
+            )
+        return await core_smart_upsert(ctx, node_type, name, description,
+                                       groq_client, openai_embedding_client)
     elif node_type == "EmTech":
         return "Do not create new EmTech type nodes. EmTechs are reference data, use existing ones."
     else:
         return await core_merge_node(ctx, node_type, name, description)
+
 
 class CompareResult(BaseModel):
     different: bool
     name: Optional[str] = None
     description: Optional[str] = None
 
-async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, description: str, groq_client, openai_embedding_client) -> str:
+
+async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str,
+                            description: str, groq_client,
+                            openai_embedding_client) -> str:
     """
     Performs a smart UPSERT for a node in Neo4j.
     - Queries for similar nodes based on description embedding similarity >= 0.8 (top 100 candidates, filtered).
@@ -161,9 +192,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
     try:
         # Generate embedding for the new description
         emb_response = await openai_embedding_client.embeddings.create(
-            model=EMBEDDING_MODEL,
-            input=description
-        )
+            model=EMBEDDING_MODEL, input=description)
         new_embedding = emb_response.data[0].embedding
 
         # Query for similar nodes
@@ -178,7 +207,7 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
         params = {"index_name": index_name, "vector": new_embedding}
 
         async with ctx.neo4jdriver.session() as session:
-            
+
             async def read_similar(tx: AsyncTransaction):
                 result = await tx.run(similar_query, params)
                 return await result.data()
@@ -209,16 +238,18 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                             "content": compare_prompt,
                         },
                         {
-                            "role": "user",
-                            "content": f"Node A name: {old_name}\nNode A description: {old_desc}\n\n"
-                                       f"Node B name: {name}\nNode B description: {description}"
-                        },                    
+                            "role":
+                            "user",
+                            "content":
+                            f"Node A name: {old_name}\nNode A description: {old_desc}\n\n"
+                            f"Node B name: {name}\nNode B description: {description}"
+                        },
                     ],
                     stream=False,
                     reasoning_effort="low",
                     # reasoning_format="hidden",
                     temperature=0.2,
-                    response_format = {
+                    response_format={
                         "type": "json_schema",
                         "json_schema": {
                             "name": "compare_result",
@@ -229,7 +260,8 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                 )
 
                 try:
-                    result = CompareResult.model_validate_json(completion.choices[0].message.content)
+                    result = CompareResult.model_validate_json(
+                        completion.choices[0].message.content)
 
                     if not result.different:
                         found_same_name = old_name
@@ -239,20 +271,19 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
 
                 except Exception as e:
                     logging.error(f"Failed to parse LLM response: {e}")
-                    logging.error(f"LLM response: {completion.choices[0].message.content}")
+                    logging.error(
+                        f"LLM response: {completion.choices[0].message.content}"
+                    )
 
             if found_same_name:
                 logging.info(
                     f"[CREATE_NODE] Found semantically equivalent node to: {name}; "
-                    f"updating the node with name: {updated_name} " 
-                    f"and description: {updated_description}"
-                )
+                    f"updating the node with name: {updated_name} "
+                    f"and description: {updated_description}")
 
                 # Generate new embedding for the updated description
                 updated_emb_response = await openai_embedding_client.embeddings.create(
-                    model=EMBEDDING_MODEL,
-                    input=updated_description
-                )
+                    model=EMBEDDING_MODEL, input=updated_description)
                 updated_embedding = updated_emb_response.data[0].embedding
 
                 # Update the existing node with new name, description and embedding
@@ -261,13 +292,20 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                 SET n.name = $name, n.description = $description, n.embedding = $embedding
                 RETURN n.name AS name
                 """
-                update_params = {"node_name": found_same_name, "name": updated_name, "description": updated_description, "embedding": updated_embedding}
+                update_params = {
+                    "node_name": found_same_name,
+                    "name": updated_name,
+                    "description": updated_description,
+                    "embedding": updated_embedding
+                }
 
                 async def write_update(tx: AsyncTransaction):
                     result = await tx.run(update_query, update_params)
                     records = await result.data()
                     if not records:
-                        raise RuntimeError(f"Failed to update node with name: {found_same_name}")
+                        raise RuntimeError(
+                            f"Failed to update node with name: {found_same_name}"
+                        )
                     return records[0]['name']
 
                 async with ctx.lock:
@@ -287,7 +325,11 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
                 CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
                 RETURN n.name AS name
                 """
-                create_params = {"name": name, "description": description, "embedding": new_embedding}
+                create_params = {
+                    "name": name,
+                    "description": description,
+                    "embedding": new_embedding
+                }
 
                 async def write_create(tx: AsyncTransaction):
                     result = await tx.run(create_query, create_params)
@@ -305,7 +347,9 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str, descrip
         logging.error(f"Error in smart_upsert: {str(e)}")
         raise
 
-async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str) -> str:
+
+async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str,
+                          description: str) -> str:
     """
     Performs a simple MERGE operation to create or match a node in Neo4j with the given type, name, and description.
     If a node with the same name and type exists, it updates the description; otherwise, it creates a new node.
@@ -330,9 +374,12 @@ async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str, descripti
     """
 
     async with ctx.neo4jdriver.session() as session:
-        
+
         async def write_work(tx: AsyncTransaction):
-            result = await tx.run(query, {"name": name, "description": description})
+            result = await tx.run(query, {
+                "name": name,
+                "description": description
+            })
             records = await result.data()
             if not records:
                 raise RuntimeError("Failed to merge node")
@@ -341,13 +388,16 @@ async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str, descripti
         async with ctx.lock:
             try:
                 node_name = await session.execute_write(write_work)
-                logging.info(f"[CREATE_NODE] merged: type: {node_type}\nname: {name}\n description: {description}")
+                logging.info(
+                    f"[CREATE_NODE] merged: type: {node_type}\nname: {name}\n description: {description}"
+                )
                 # Store the mapping from original name to actual name
                 ctx.node_name_mapping[name] = node_name
                 return node_name
             except Exception as e:
                 logging.error(f"Error in merge_node: {str(e)}")
                 raise RuntimeError(f"Failed to merge node: {str(e)}")
+
 
 async def core_create_edge(
     ctx: GraphOpsCtx,
@@ -365,8 +415,10 @@ async def core_create_edge(
     # Check if we have mapped names for the source and target
     actual_source_name = ctx.node_name_mapping.get(source_name, source_name)
     actual_target_name = ctx.node_name_mapping.get(target_name, target_name)
-    
-    logging.info(f"[CREATE_EDGE]\nSOURCE: {source_name} -> {actual_source_name}\n->\nTARGET:{target_name} -> {actual_target_name}\nWITH TYPE:{relationship_type} AND PROPERTIES: {properties}")
+
+    logging.info(
+        f"[CREATE_EDGE]\nSOURCE: {source_name} -> {actual_source_name}\n->\nTARGET:{target_name} -> {actual_target_name}\nWITH TYPE:{relationship_type} AND PROPERTIES: {properties}"
+    )
 
     # Use the properties dict directly
     props_dict = properties or {}
@@ -380,42 +432,55 @@ async def core_create_edge(
     MATCH (target) WHERE target.name = $target_name 
     RETURN source.name as source_name, target.name as target_name
     """
-    
+
     async with ctx.neo4jdriver.session() as session:
+
         async def check_nodes(tx: AsyncTransaction):
-            result = await tx.run(check_nodes_query, {"source_name": actual_source_name, "target_name": actual_target_name})
+            result = await tx.run(
+                check_nodes_query, {
+                    "source_name": actual_source_name,
+                    "target_name": actual_target_name
+                })
             records = await result.data()
             return records
 
         try:
             async with ctx.lock:
                 node_check = await session.execute_read(check_nodes)
-                
+
             if not node_check:
                 missing_nodes = []
                 # Check which specific nodes are missing
                 check_source_query = "MATCH (n) WHERE n.name = $source_name RETURN n.name as name"
                 check_target_query = "MATCH (n) WHERE n.name = $target_name RETURN n.name as name"
-                
+
                 async def check_source(tx: AsyncTransaction):
-                    result = await tx.run(check_source_query, {"source_name": actual_source_name})
+                    result = await tx.run(check_source_query,
+                                          {"source_name": actual_source_name})
                     return await result.data()
-                
+
                 async def check_target(tx: AsyncTransaction):
-                    result = await tx.run(check_target_query, {"target_name": actual_target_name})
+                    result = await tx.run(check_target_query,
+                                          {"target_name": actual_target_name})
                     return await result.data()
-                
+
                 async with ctx.lock:
                     source_exists = await session.execute_read(check_source)
                     target_exists = await session.execute_read(check_target)
-                
+
                 if not source_exists:
-                    missing_nodes.append(f"source node '{actual_source_name}' (original: '{source_name}')")
+                    missing_nodes.append(
+                        f"source node '{actual_source_name}' (original: '{source_name}')"
+                    )
                 if not target_exists:
-                    missing_nodes.append(f"target node '{actual_target_name}' (original: '{target_name}')")
-                
-                raise RuntimeError(f"Cannot create edge: {', '.join(missing_nodes)} not found in database")
-                
+                    missing_nodes.append(
+                        f"target node '{actual_target_name}' (original: '{target_name}')"
+                    )
+
+                raise RuntimeError(
+                    f"Cannot create edge: {', '.join(missing_nodes)} not found in database"
+                )
+
         except RuntimeError:
             raise  # Re-raise our custom error
         except Exception as e:
@@ -427,9 +492,12 @@ async def core_create_edge(
             "MATCH (source) WHERE source.name = $source_name "
             "MATCH (target) WHERE target.name = $target_name "
             f"MERGE (source)-[r:{relationship_type} {prop_str}]->(target) "
-            "RETURN r"
-        )
-        params = {"source_name": actual_source_name, "target_name": actual_target_name, **props_dict}
+            "RETURN r")
+        params = {
+            "source_name": actual_source_name,
+            "target_name": actual_target_name,
+            **props_dict
+        }
 
         logging.info(f"[CREATE_EDGE] Executing query: {query}")
         logging.info(f"[CREATE_EDGE] With params: {params}")
@@ -439,13 +507,17 @@ async def core_create_edge(
             record_list = await result.data()
             record = record_list[0] if record_list else None
             if not record:
-                raise RuntimeError("Failed to create edge - no relationship returned from query")
+                raise RuntimeError(
+                    "Failed to create edge - no relationship returned from query"
+                )
             return record
 
         try:
             async with ctx.lock:
                 edge = await session.execute_write(write_work)
-                logging.info(f"Successfully created edge: {actual_source_name} -> {actual_target_name} with type: {relationship_type} and properties: {properties}")
+                logging.info(
+                    f"Successfully created edge: {actual_source_name} -> {actual_target_name} with type: {relationship_type} and properties: {properties}"
+                )
                 return edge
         except Exception as e:
             logging.error(f"Error in create_edge: {str(e)}")
@@ -453,15 +525,14 @@ async def core_create_edge(
             logging.error(f"Params were: {params}")
             raise RuntimeError(f"Failed to create edge: {str(e)}")
 
-async def core_find_node(
-    ctx: GraphOpsCtx,
-    query_text: str,
-    node_type: Literal[
-        "Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"
-    ],
-    top_k: int = 25,
-    openai_embedding_client=None
-) -> list:
+
+async def core_find_node(ctx: GraphOpsCtx,
+                         query_text: str,
+                         node_type: Literal["Convergence", "Capability",
+                                            "Milestone", "Trend", "Idea",
+                                            "LTC", "LAC"],
+                         top_k: int = 25,
+                         openai_embedding_client=None) -> list:
     """
     Finds nodes in knowledge graph that are similar to a given query text.
     Uses vector similarity search based on node descriptions.
@@ -469,16 +540,15 @@ async def core_find_node(
     Allowed node_type values: Convergence, Capability, Milestone, Trend, Idea, LTC, LAC
     """
 
-    logging.info(f"[FIND_NODE] SIMILAR TO:\n{query_text}\nOF TYPE:\n{node_type}")
+    logging.info(
+        f"[FIND_NODE] SIMILAR TO:\n{query_text}\nOF TYPE:\n{node_type}")
 
     if openai_embedding_client is None:
         raise ValueError("openai_embedding_client is required for find_node")
 
     # calculate embedding for the query text
     emb_response = await openai_embedding_client.embeddings.create(
-        model=EMBEDDING_MODEL,
-        input=query_text
-    )
+        model=EMBEDDING_MODEL, input=query_text)
     query_embedding = emb_response.data[0].embedding
 
     cypher_query = """
@@ -499,19 +569,30 @@ async def core_find_node(
         Recursively removes the 'embedding' key and converts Neo4j Date/DateTime to strings.
         """
         if isinstance(obj, dict):
-            return {k: filter_embedding(v) for k, v in obj.items() if k != 'embedding'}
+            return {
+                k: filter_embedding(v)
+                for k, v in obj.items() if k != 'embedding'
+            }
         elif isinstance(obj, list):
             return [filter_embedding(item) for item in obj]
         elif isinstance(obj, Date):
-            return obj.iso_format()  # Convert Neo4j Date to ISO 8601 string (e.g., "2025-07-28")
+            return obj.iso_format(
+            )  # Convert Neo4j Date to ISO 8601 string (e.g., "2025-07-28")
         elif isinstance(obj, DateTime):
-            return obj.iso_format()  # Convert Neo4j DateTime to ISO 8601 string (e.g., "2025-07-28T10:55:00+00:00")
+            return obj.iso_format(
+            )  # Convert Neo4j DateTime to ISO 8601 string (e.g., "2025-07-28T10:55:00+00:00")
         return obj
 
     async with ctx.neo4jdriver.session() as session:
-        
+
         async def read_work(tx: AsyncTransaction):
-            result = await tx.run(cypher_query, {"index_name": f"{node_type.lower()}_description_embeddings", "top_k": top_k, "embedding": query_embedding})
+            result = await tx.run(
+                cypher_query, {
+                    "index_name":
+                    f"{node_type.lower()}_description_embeddings",
+                    "top_k": top_k,
+                    "embedding": query_embedding
+                })
             records = await result.data()
             if not records:
                 return []
@@ -521,21 +602,20 @@ async def core_find_node(
         async with ctx.lock:
             try:
                 results = await session.execute_read(read_work)
-                logging.info(f"Found {len(results)} nodes similar to {query_text}")
+                logging.info(
+                    f"Found {len(results)} nodes similar to {query_text}")
                 return results
             except Exception as e:
                 logging.error(f"Error in find_node: {str(e)}")
                 raise RuntimeError(f"Failed to find nodes: {str(e)}")
 
 
-async def core_dfs(
-    ctx: GraphOpsCtx,
-    node_name: str,
-    node_type: Literal[
-        "EmTech", "Convergence", "Capability", "Milestone", "LTC", "PTC", "LAC", "PAC", "Trend", "Idea", "Party"
-    ],
-    depth: int = 3
-) -> List[Dict[str, Any]]:
+async def core_dfs(ctx: GraphOpsCtx,
+                   node_name: str,
+                   node_type: Literal["Convergence", "Capability", "Milestone",
+                                      "LTC", "PTC", "LAC", "PAC", "Trend",
+                                      "Idea", "Party"],
+                   depth: int = 3) -> List[Dict[str, Any]]:
     """
     Performs a depth-first search (DFS) on a Neo4j graph starting from a node
     identified by its name, up to a specified depth, stopping at EmTech nodes.
@@ -594,13 +674,20 @@ async def core_dfs(
     """
 
     async with ctx.neo4jdriver.session() as session:
+
         async def read_nodes(tx: AsyncTransaction):
-            result = await tx.run(nodes_query, {"node_name": node_name, "depth": depth})
+            result = await tx.run(nodes_query, {
+                "node_name": node_name,
+                "depth": depth
+            })
             record = await result.single()
             return record["nodes"] if record else []
 
         async def read_edges(tx: AsyncTransaction):
-            result = await tx.run(edges_query, {"node_name": node_name, "depth": depth})
+            result = await tx.run(edges_query, {
+                "node_name": node_name,
+                "depth": depth
+            })
             record = await result.single()
             return record["edges"] if record else []
 

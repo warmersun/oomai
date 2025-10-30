@@ -97,7 +97,7 @@ async def dfs(
     ctx: GraphOpsCtx,
     node_name: str,
     node_type: Literal[
-        "EmTech", "Convergence", "Capability", "Milestone", "LTC", "PTC", "LAC", "PAC", "Trend", "Idea", "Party"
+        "Convergence", "Capability", "Milestone", "LTC", "PTC", "LAC", "PAC", "Trend", "Idea", "Party"
     ],
     depth: int = 3
 ) -> list:
