@@ -42,7 +42,7 @@ input parameters:
     tools.append(x_search(**x_search_params))
 
     chat = xai_client.chat.create(
-        model="grok-4-fast",
+        model="grok-4-1-fast",
         tools=tools,
         messages=[
             system(system_prompt) if system_prompt else system("Search on X and return a detailed summary.") ,

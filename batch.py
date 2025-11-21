@@ -63,7 +63,7 @@ def create_response(xai_client, prompt: str):
     system_prompt = system_prompt_template.format(schema=schema)
 
     chat = xai_client.chat.create(
-        model="grok-4-fast",
+        model="grok-4-1-fast",
         tools=TOOLS,
         tool_choice="auto"
     )
