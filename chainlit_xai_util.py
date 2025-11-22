@@ -2,6 +2,7 @@ import json
 import chainlit as cl
 from chainlit.logger import logger
 from xai_sdk.chat import tool_result, user, assistant, tool
+from xai_sdk.tools import x_search, web_search
 from typing import Any  # For GraphOpsCtx, assume it's defined elsewhere
 import asyncio
 
@@ -30,10 +31,14 @@ async def process_stream(user_input: str, ctx: Any,
 
     error_count = 0
 
+    client_and_server_side_tools = tools.copy()
+    client_and_server_side_tools.append(web_search(excluded_domains=["wikipedia.org", "gartner.com", "weforum.com", "forbes.com", "accenture.com"], enable_image_understanding=True))
+    client_and_server_side_tools.append(x_search(enable_image_understanding=True, enable_video_understanding=False))
+
     # Create chat session
     chat = xai_client.chat.create(
         model="grok-4-1-fast",
-        tools=tools,
+        tools=client_and_server_side_tools,
         tool_choice="auto",
         user=logged_in_user.identifier,
     )
@@ -45,13 +50,9 @@ async def process_stream(user_input: str, ctx: Any,
     counter = 0
     while counter < 100:
         counter += 1
-        logger.warning(f"Counter: {counter}")
+        logger.warning(f"Parallel tool call counter: {counter}")
         # Stream the response
-        async for response, chunk in chat.stream():
-            if chunk.content:  # Assuming chunk has content for text deltas
-                text_chunk = chunk.content
-                await output_message.stream_token(text_chunk
-                                                  )  # Stream to output
+        response = await chat.sample()
 
         # After streaming, append the full assistant content
         user_and_assistant_messages.append(assistant(response.content))
@@ -60,6 +61,12 @@ async def process_stream(user_input: str, ctx: Any,
         if not hasattr(response, "tool_calls") or not response.tool_calls:
             # No tool calls, done
             assert response.finish_reason == "REASON_STOP", "Expected finish reason to be REASON_STOP"
+            output_message.content = response.content
+            await output_message.update()
+            # update session variable
+            cl.user_session.set("user_and_assistant_messages", user_and_assistant_messages)
+            logger.info(f"Usage: {response.usage}")
+            logger.info(f"Server side tool usage: {response.server_side_tool_usage}")
             return True
 
         assert response.finish_reason == "REASON_TOOL_CALLS", "Expected finish reason to be REASON_TOOL_CALLS"
@@ -102,6 +109,3 @@ async def process_stream(user_input: str, ctx: Any,
                 chat.append(tool_result(json.dumps({"error": str(e)})))
                 break
 
-    # update session variable
-    cl.user_session.set("user_and_assistant_messages",
-                        user_and_assistant_messages)

@@ -430,4 +430,26 @@ TOOLS_DEFINITIONS = {
              },
              "required": ["queries"]
          }),
+    "display_predefined_answers_as_buttons":
+    tool(name="display_predefined_answers_as_buttons",
+        description="""
+        Displays a list of predefined answers as buttons.
+        """,
+        parameters={
+            "type": "object",
+            "properties": {
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description": "A message to display as a button."
+                    },
+                    "description": "List of messages to display as buttons.",
+                    "maxItems": 5,
+                    "minItems": 1,
+                },
+            },
+            "required": ["messages"]
+        },
+    ),
 }

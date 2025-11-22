@@ -34,8 +34,7 @@ from function_tools import (
     display_mermaid_diagram,
     display_convergence_canvas,
     visualize_oom,
-    x_search,
-    perplexity_search,
+    display_predefined_answers_as_buttons,
     TOOLS_DEFINITIONS,
 )
 from chainlit_xai_util import process_stream
@@ -49,7 +48,7 @@ from license_management import (
 )
 
 
-from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, DESCOPE_PROJECT_ID, PERPLEXITY_API_KEY
+from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, DESCOPE_PROJECT_ID 
 
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
@@ -64,6 +63,10 @@ SYSTEM_PROMPT_EDIT = system_prompt_edit_template.format(schema=schema)
 SYSTEM_PROMPT_READONLY = system_prompt_readonly_template.format(schema=schema)
 SYSTEM_PROMPT_READONLY_UNHINGED = system_prompt_readonly_unhinged_template.format(
     schema=schema)
+
+with open("knowledge_graph/system_prompt_grok4_learning.md", "r") as f:
+    system_prompt_learning_template = f.read()
+SYSTEM_PROMPT_LEARNING = system_prompt_learning_template.format(schema=schema)
 
 with open("knowledge_graph/command_sources.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -84,6 +87,13 @@ commands_readonly = [{
 } for command_id, data in COMMAND_DATA.items()
                      if 'readonly' in data.get('modes', [])]
 
+commands_learning = [{
+    "id": command_id,
+    "icon": data['icon'],
+    "description": data['description']
+} for command_id, data in COMMAND_DATA.items()
+                     if 'learning' in data.get('modes', [])]
+
 # Define the tools (functions) - flattened structure for Responses API
 TOOLS_EDIT = [
     TOOLS_DEFINITIONS["execute_cypher_query"],
@@ -98,8 +108,6 @@ TOOLS_EDIT = [
     TOOLS_DEFINITIONS["display_mermaid_diagram"],
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
-    TOOLS_DEFINITIONS["x_search"],
-    TOOLS_DEFINITIONS["perplexity_search"],
 ]
 
 TOOLS_READONLY = [
@@ -113,8 +121,20 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["display_mermaid_diagram"],
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
-    TOOLS_DEFINITIONS["x_search"],
-    TOOLS_DEFINITIONS["perplexity_search"],
+]
+
+TOOLS_LEARNING = [
+    TOOLS_DEFINITIONS["execute_cypher_query"],
+    TOOLS_DEFINITIONS["find_node"],
+    TOOLS_DEFINITIONS["dfs"],
+    TOOLS_DEFINITIONS["plan_tasks"],
+    TOOLS_DEFINITIONS["get_tasks"],
+    TOOLS_DEFINITIONS["mark_task_as_running"],
+    TOOLS_DEFINITIONS["mark_task_as_done"],
+    TOOLS_DEFINITIONS["display_mermaid_diagram"],
+    TOOLS_DEFINITIONS["display_convergence_canvas"],
+    TOOLS_DEFINITIONS["visualize_oom"],
+    TOOLS_DEFINITIONS["display_predefined_answers_as_buttons"],
 ]
 
 AVAILABLE_FUNCTIONS_EDIT = {
@@ -130,8 +150,6 @@ AVAILABLE_FUNCTIONS_EDIT = {
     "display_mermaid_diagram": display_mermaid_diagram,
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
-    "x_search": x_search,
-    "perplexity_search": perplexity_search,
 }
 
 AVAILABLE_FUNCTIONS_READONLY = {
@@ -145,13 +163,26 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "display_mermaid_diagram": display_mermaid_diagram,
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
-    "x_search": x_search,
-    "perplexity_search": perplexity_search,
+}
+
+AVAILABLE_FUNCTIONS_LEARNING = {
+    "execute_cypher_query": execute_cypher_query,
+    "find_node": find_node,
+    "dfs": dfs,
+    "plan_tasks": plan_tasks,
+    "get_tasks": get_tasks,
+    "mark_task_as_running": mark_task_as_running,
+    "mark_task_as_done": mark_task_as_done,
+    "display_mermaid_diagram": display_mermaid_diagram,
+    "display_convergence_canvas": display_convergence_canvas,
+    "visualize_oom": visualize_oom,
+    "display_predefined_answers_as_buttons": display_predefined_answers_as_buttons,
 }
 
 READ_ONLY_PROFILE = "Read-Only"
 READ_EDIT_PROFILE = "Read/Edit"
 READ_ONLY_UNHINGED_PROFILE = "Read-Only Unhinged"
+LEARNING_PROFILE = "Learning"
 
 
 @cl.set_chat_profiles
@@ -165,6 +196,10 @@ async def set_chat_profile(current_user: cl.User):
             name=READ_ONLY_UNHINGED_PROFILE,
             markdown_description=
             "Query the knowledge graph and get unhinged answers.",
+        ),
+        cl.ChatProfile(
+            name=LEARNING_PROFILE,
+            markdown_description="Learn concepts with an AI tutor.",
         )
     ]
     logger.info(f"Current user metadata: {current_user.metadata}")
@@ -262,7 +297,7 @@ async def start():
         Switch(
             id="debug",
             label="Debug",
-            initial_value=False,
+            initial=True,
             tooltip="Debug on or off",
             description="See knowledge graph, web and X search.",
         ),
@@ -281,6 +316,12 @@ async def start():
         cl.user_session.set("tools", TOOLS_READONLY)
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
         await cl.context.emitter.set_commands(commands_readonly)
+    elif chat_profile == LEARNING_PROFILE:
+        cl.user_session.set("system_messages",
+                            [system(SYSTEM_PROMPT_LEARNING)])
+        cl.user_session.set("tools", TOOLS_LEARNING)
+        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_LEARNING)
+        await cl.context.emitter.set_commands(commands_learning)
     else:
         cl.user_session.set("system_messages",
                             [system(SYSTEM_PROMPT_READONLY)])
@@ -339,8 +380,12 @@ async def on_message(message: cl.Message):
         # setup context: begin Neo4j transation and create lock
         lock = asyncio.Lock()
         ctx = GraphOpsCtx(neo4jdriver, lock)
+        # predefined answers
+        canned_responses = cl.CustomElement(name="CannedMessages", props={"messages": []}, display="inline")
+        cl.user_session.set("canned_responses", canned_responses)
         # setup outlook message
-        output_message = cl.Message(content="", actions=[tts_action])
+        output_message = cl.Message(content="💭🤔💭", actions=[tts_action], elements=[canned_responses])
+
         diagram_message = cl.Message(content="")
         cl.user_session.set("diagram_message", diagram_message)
 
@@ -351,9 +396,9 @@ async def on_message(message: cl.Message):
         async with cl.Step(name="the Knowledge Graph",
                            type="tool",
                            default_open=True) as step:
+            await output_message.send()
             success = await process_stream(processed_message, ctx,
                                            output_message)
-            step.output = success
 
         if success:
             # process visualizations
@@ -399,31 +444,31 @@ async def on_message(message: cl.Message):
         cl.user_session.set("last_message", output_message.content)
 
 
-# @cl.password_auth_callback
-# def auth_callback(username: str, password: str) -> Optional[cl.User]:
-#     if (username, password) == ("Sic", "kadima"):
-#         return cl.User(identifier="Sic",
-#                        metadata={
-#                            "role": "admin",
-#                            "provider": "credentials"
-#                        })
-#     elif (username, password) == ("User", "oom.today"):
-#         return cl.User(identifier=username,
-#                        metadata={
-#                            "role": "user",
-#                            "provider": "credentials"
-#                        })
-#     else:
-#         return None
+@cl.password_auth_callback
+def auth_callback(username: str, password: str) -> Optional[cl.User]:
+    if (username, password) == ("Sic", "kadima"):
+        return cl.User(identifier="Sic",
+                       metadata={
+                           "role": "admin",
+                           "provider": "credentials"
+                       })
+    elif (username, password) == ("User", "oom.today"):
+        return cl.User(identifier=username,
+                       metadata={
+                           "role": "user",
+                           "provider": "credentials"
+                       })
+    else:
+        return None
 
 
-@cl.oauth_callback
-def oauth_callback(
-    provider_id: str,
-    token: str,
-    raw_user_data: Dict[str, str],
-    default_user: cl.User,
-) -> Optional[cl.User]:
+# @cl.oauth_callback
+# def oauth_callback(
+#     provider_id: str,
+#     token: str,
+#     raw_user_data: Dict[str, str],
+#     default_user: cl.User,
+# ) -> Optional[cl.User]:
     logger.info(f"OAuth callback: {provider_id}, {token}, {raw_user_data}")
     assert DESCOPE_PROJECT_ID is not None, "DESCOPE_PROJECT_ID is not set"
     descope_client = DescopeClient(project_id=DESCOPE_PROJECT_ID)
@@ -679,7 +724,7 @@ async def on_chat_resume(thread: ThreadDict):
         Switch(
             id="debug",
             label="Debug",
-            initial_value=False,
+            initial=True,
             tooltip="Debug on or off",
             description="See knowledge graph, web and X search.",
         ),
@@ -695,6 +740,12 @@ async def on_chat_resume(thread: ThreadDict):
     elif chat_profile == READ_ONLY_UNHINGED_PROFILE:
         cl.user_session.set("system_messages",
                             [system(SYSTEM_PROMPT_READONLY_UNHINGED)])
+        cl.user_session.set("tools", TOOLS_READONLY)
+        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
+        await cl.context.emitter.set_commands(commands_readonly)
+    elif chat_profile == LEARNING_PROFILE:
+        cl.user_session.set("system_messages",
+                            [system(SYSTEM_PROMPT_LEARNING)])
         cl.user_session.set("tools", TOOLS_READONLY)
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
         await cl.context.emitter.set_commands(commands_readonly)

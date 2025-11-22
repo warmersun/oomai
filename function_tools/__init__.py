@@ -11,10 +11,6 @@ from .core_graph_ops import core_create_node
 from .core_graph_ops import core_create_edge
 from .core_graph_ops import core_find_node
 from .core_graph_ops import core_dfs
-from .chainlit_x_search import x_search
-from .core_x_search import core_x_search
-from .chainlit_perplexity_search import perplexity_search
-from .core_perplexity_search import core_perplexity_search
 from .task_ops import plan_tasks
 from .task_ops import get_tasks
 from .task_ops import mark_task_as_running
@@ -22,4 +18,5 @@ from .task_ops import mark_task_as_done
 from .visual_ops import display_convergence_canvas
 from .visual_ops import visualize_oom
 from .visual_ops import display_mermaid_diagram
+from .visual_ops import display_predefined_answers_as_buttons
 from .tool_def import TOOLS_DEFINITIONS

@@ -33,7 +33,7 @@ commands:
   trend:
     icon: trending-up
     description: "Spot a trend related to..."
-    modes: [edit, readonly]
+    modes: [edit, readonly, learning]
     template: |
       Query the knowledge graph for capabilities and milestones related to {user_input}. 
       Look at milestones over time. Look at new capabilities emerging and the use cases they unlock. 
@@ -54,7 +54,7 @@ commands:
   check:
     icon: check-check
     description: "Check if the prediction is valid:"
-    modes: [edit, readonly]
+    modes: [edit, readonly, learning]
     template: |
       start by gathering data:
       1. Search the knowledge graph for an idea or trend related to {user_input}
@@ -67,7 +67,7 @@ commands:
   map:
     icon: map
     description: "Map ideas, and predictions to..."
-    modes: [edit, readonly]
+    modes: [edit, readonly, learning]
     template: |
       Find ideas and trends related to {user_input}
       Start by gathering data:
@@ -87,7 +87,7 @@ commands:
   tool:
     icon: wrench
     description: "find toolset for:"
-    modes: [edit, readonly]
+    modes: [edit, readonly, learning]
     template: |
       Find toolset for {user_input}
       Work backwards. Start by gathering data:
@@ -98,7 +98,7 @@ commands:
   pathway:
     icon: route
     description: "build pathways with..."
-    modes: [edit, readonly]
+    modes: [edit, readonly, learning]
     template: |
       # Why should we care about {user_input}?
 
@@ -188,8 +188,6 @@ commands:
         - Use semantic searches on the graph's vector indices (e.g., for Convergence, Capability, etc.) to find similar patterns or predictions via PREDICTS or LOOKS_AT edges, focusing on trends that support rapid adoption.
 
       3. **Conduct External Research:**
-        - Use Perplexity for in-depth web searches on the company, its competitors, industry trends, and AI best practices, including recent updates on AI features in common SaaS platforms (e.g., "AI enhancements in [SaaS vendor] 2025").
-        - Use LiveSearch on web and X for real-time insights: Search for recent mentions of the company (e.g., using x_keyword_search with query like "company_name AI strategy" filter:news since:YYYY-MM-DD), sentiment analysis from posts, or emerging trends (e.g., x_semantic_search with query "quick AI wins in [industry] low cost"). Look for discussions on AI adoption in similar firms.
         - Cross-reference with knowledge graph to validate or expand findings, e.g., if a Trend predicts a Milestone in AI, assess if the company can quickly reach it via low-hanging fruit like subscriptions.
 
       4. **Construct the AI Strategy Recommendation:**
