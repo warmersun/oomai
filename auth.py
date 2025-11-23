@@ -1,5 +1,5 @@
 import chainlit as cl
-from typing import Optional
+from typing import Optional, Dict
 
 
 # @cl.password_auth_callback
