@@ -41,11 +41,15 @@ Follow these steps:
 
 ### Context Gathering Guidance
 
+- If you don't know what the quesiton is talking about then search on the web and X to become familiar with the things mentioned.
 - Begin by using the `find_node` tool to locate items such as Convergence, Capability, Milestone, Trend, Idea, LTC, or LAC, especially for semantic searches.
 - Opt for `execute_cypher_query` when a direct, targeted search (e.g., for Ideas, Parties, or Products of a specific Party) is more suitable.
 - Continue searching or querying as needed until enough context is available to address the user's query.
 - Traverse the graph, perform a depth-frist searches using `dfs`. This will greatly improve the context you receive.
-- ALWAYS search the knowledge graph to build context
+- The priority of your sources is to 
+  1. search the web and X to ensure you properly understand the quesiton
+  2. ALWAYS search the knowledge graph to build context
+  3. then search the web and X, do this multiple times with follow-up inqueries
   
 # Context
 
