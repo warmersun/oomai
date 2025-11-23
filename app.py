@@ -46,9 +46,7 @@ from license_management import (
     get_paid_amount_left,
     upsert_client_reference_id,
 )
-import auth
-
-from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, DESCOPE_PROJECT_ID 
+from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, DESCOPE_PROJECT_ID
 
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
@@ -176,7 +174,8 @@ AVAILABLE_FUNCTIONS_LEARNING = {
     "display_mermaid_diagram": display_mermaid_diagram,
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
-    "display_predefined_answers_as_buttons": display_predefined_answers_as_buttons,
+    "display_predefined_answers_as_buttons":
+    display_predefined_answers_as_buttons,
 }
 
 READ_ONLY_PROFILE = "Read-Only"
@@ -234,13 +233,15 @@ async def _neo4j_disconnect():
         await neo4jdriver.close()
         cl.user_session.set("neo4jdriver", None)
     logger.info("Neo4j driver disconnected.")
-    
+
+
 async def ask_payment(user_identifier: str):
     client_reference_id = str(uuid.uuid4())
     paid_amount = await get_paid_amount_left(user_identifier)
     if paid_amount is None or paid_amount <= 0:
         await cl.Message(content="💸 You need to pay to continue!").send()
-        new_user = await upsert_client_reference_id(client_reference_id, user_identifier)
+        new_user = await upsert_client_reference_id(client_reference_id,
+                                                    user_identifier)
         if new_user:
             await cl.Message(content="""
             **🎉 Welcome!**  
@@ -252,19 +253,26 @@ async def ask_payment(user_identifier: str):
             Thank you for your understanding. And now let's oom!  
             """).send()
         element = cl.CustomElement(
-            name="PricingPlans", 
+            name="PricingPlans",
             props={
-                "payment_link_oom250": os.environ['PAYMENT_LINK_URL_250'],
-                "payment_link_oom2500": os.environ['PAYMENT_LINK_URL_2500'],
-                "payment_link_oom_pro_25000": os.environ['PAYMENT_LINK_URL_PRO_25000'],
-                "client_reference_id": client_reference_id, 
+                "payment_link_oom250":
+                os.environ['PAYMENT_LINK_URL_250'],
+                "payment_link_oom2500":
+                os.environ['PAYMENT_LINK_URL_2500'],
+                "payment_link_oom_pro_25000":
+                os.environ['PAYMENT_LINK_URL_PRO_25000'],
+                "client_reference_id":
+                client_reference_id,
             })
         await cl.Message(content="💸 Payment", elements=[element]).send()
         # poll for payment status
         while paid_amount is None or paid_amount <= 0:
             paid_amount = await get_paid_amount_left(user_identifier)
             await cl.sleep(5)
-        await cl.Message(content="🎉 Payment received! Thank you for your purchase! 🙏").send()
+        await cl.Message(
+            content="🎉 Payment received! Thank you for your purchase! 🙏"
+        ).send()
+
 
 async def show_credits(user_identifier: str):
     paid_amount = await get_paid_amount_left(user_identifier)
@@ -272,6 +280,7 @@ async def show_credits(user_identifier: str):
     if task_list:
         task_list.status = f"{paid_amount} credits"
         await task_list.send()
+
 
 @cl.on_chat_start
 async def start():
@@ -329,7 +338,8 @@ async def start():
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
         await cl.context.emitter.set_commands(commands_readonly)
     functions_with_ctx = [
-        "create_node", "create_edge", "find_node", "dfs", "execute_cypher_query"
+        "create_node", "create_edge", "find_node", "dfs",
+        "execute_cypher_query"
     ]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
 
@@ -381,10 +391,14 @@ async def on_message(message: cl.Message):
         lock = asyncio.Lock()
         ctx = GraphOpsCtx(neo4jdriver, lock)
         # predefined answers
-        canned_responses = cl.CustomElement(name="CannedMessages", props={"messages": []}, display="inline")
+        canned_responses = cl.CustomElement(name="CannedMessages",
+                                            props={"messages": []},
+                                            display="inline")
         cl.user_session.set("canned_responses", canned_responses)
         # setup outlook message
-        output_message = cl.Message(content="💭🤔💭", actions=[tts_action], elements=[canned_responses])
+        output_message = cl.Message(content="💭🤔💭",
+                                    actions=[tts_action],
+                                    elements=[canned_responses])
 
         diagram_message = cl.Message(content="")
         cl.user_session.set("diagram_message", diagram_message)
@@ -442,6 +456,7 @@ async def on_message(message: cl.Message):
             await step.remove()
 
         cl.user_session.set("last_message", output_message.content)
+
 
 # Text to Speech
 
@@ -530,6 +545,7 @@ def text_to_speech(text: str):
     audio = b"".join(audio_generator)
     return audio
 
+
 # async def text_to_speech(text: str):
 #     groq_client = cl.user_session.get("groq_client")
 #     assert groq_client is not None, "No Groq client found in user session"
@@ -544,7 +560,7 @@ def text_to_speech(text: str):
 #         model=model,
 #         voice=voice,
 #         input=text,
-#         response_format=response_format, 
+#         response_format=response_format,
 #         sample_rate = sample_rate
 #     )
 
@@ -711,8 +727,38 @@ async def on_chat_resume(thread: ThreadDict):
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
         await cl.context.emitter.set_commands(commands_readonly)
     functions_with_ctx = [
-        "create_node", "create_edge", "find_node", "dfs", "execute_cypher_query"
+        "create_node", "create_edge", "find_node", "dfs",
+        "execute_cypher_query"
     ]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
     cl.user_session.set("task_list", None)
     cl.user_session.set("tasks", {})
+
+
+# Auth
+
+
+@cl.oauth_callback
+def oauth_callback(
+    provider_id: str,
+    token: str,
+    raw_user_data: Dict[str, str],
+    default_user: cl.User,
+) -> Optional[cl.User]:
+    logger.info(f"OAuth callback: {provider_id}, {token}, {raw_user_data}")
+    assert DESCOPE_PROJECT_ID is not None, "DESCOPE_PROJECT_ID is not set"
+    descope_client = DescopeClient(project_id=DESCOPE_PROJECT_ID)
+    roles = [
+        "admin",
+    ]
+    try:
+        jwt_response = descope_client.validate_session(
+            session_token=token, audience=DESCOPE_PROJECT_ID)
+        is_admin_role = descope_client.validate_roles(jwt_response, roles)
+        logger.info(f"Is admin role?: {is_admin_role}")
+        if is_admin_role:
+            default_user.metadata["role"] = "admin"
+    except Exception as error:
+        logger.error(f"Error getting matched roles: {error}")
+    finally:
+        return default_user
