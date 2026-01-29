@@ -23,9 +23,7 @@ async def process_stream(user_input: str, ctx: Any,
     assert function_map is not None, "No function_map found in user session"
     functions_with_ctx = cl.user_session.get("functions_with_ctx")
     assert functions_with_ctx is not None, "No functions_with_ctx found in user session"
-    logged_in_user = cl.user_session.get("user")
-    assert logged_in_user is not None, "No user found in user session"
-
+    
     # Append the new user input as a proper message object
     user_and_assistant_messages.append(user(user_input))
 
@@ -33,14 +31,13 @@ async def process_stream(user_input: str, ctx: Any,
 
     client_and_server_side_tools = tools.copy()
     client_and_server_side_tools.append(web_search(excluded_domains=["wikipedia.org", "gartner.com", "weforum.com", "forbes.com", "accenture.com"], enable_image_understanding=True))
-    client_and_server_side_tools.append(x_search(enable_image_understanding=True, enable_video_understanding=False))
 
     # Create chat session
     chat = xai_client.chat.create(
         model="grok-4-1-fast",
         tools=client_and_server_side_tools,
         tool_choice="auto",
-        user=logged_in_user.identifier,
+        user="tamas.simon@warmersun.com",
     )
     for message in system_messages:
         chat.append(message)

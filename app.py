@@ -36,17 +36,11 @@ from function_tools import (
     visualize_oom,
     display_predefined_answers_as_buttons,
     TOOLS_DEFINITIONS,
+    core_x_search,
 )
 from chainlit_xai_util import process_stream
 from utils import Neo4jDateEncoder
-from descope import DescopeClient
-import uuid
-from license_management import (
-    use_up_paid_amount,
-    get_paid_amount_left,
-    upsert_client_reference_id,
-)
-from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, DESCOPE_PROJECT_ID
+from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
 
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
@@ -106,6 +100,7 @@ TOOLS_EDIT = [
     TOOLS_DEFINITIONS["display_mermaid_diagram"],
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
+    TOOLS_DEFINITIONS["x_search"],
 ]
 
 TOOLS_READONLY = [
@@ -119,6 +114,7 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["display_mermaid_diagram"],
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
+    TOOLS_DEFINITIONS["x_search"],
 ]
 
 TOOLS_LEARNING = [
@@ -148,6 +144,11 @@ AVAILABLE_FUNCTIONS_EDIT = {
     "display_mermaid_diagram": display_mermaid_diagram,
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
+    "x_search": lambda **kwargs: core_x_search(
+        cl.user_session.get("xai_client"),
+        user_identifier=cl.user_session.get("user").identifier if cl.user_session.get("user") else None,
+        **kwargs
+    ),
 }
 
 AVAILABLE_FUNCTIONS_READONLY = {
@@ -161,6 +162,11 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "display_mermaid_diagram": display_mermaid_diagram,
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
+    "x_search": lambda **kwargs: core_x_search(
+        cl.user_session.get("xai_client"),
+        user_identifier=cl.user_session.get("user").identifier if cl.user_session.get("user") else None,
+        **kwargs
+    ),
 }
 
 AVAILABLE_FUNCTIONS_LEARNING = {
@@ -188,6 +194,10 @@ LEARNING_PROFILE = "Learning"
 async def set_chat_profile(current_user: cl.User):
     profiles = [
         cl.ChatProfile(
+            name=READ_EDIT_PROFILE,
+            markdown_description="Query and update the knowledge graph.",
+        ),
+        cl.ChatProfile(
             name=READ_ONLY_PROFILE,
             markdown_description="Query the knowledge graph in read-only mode.",
         ),
@@ -201,13 +211,6 @@ async def set_chat_profile(current_user: cl.User):
             markdown_description="Learn concepts with an AI tutor.",
         )
     ]
-    logger.info(f"Current user metadata: {current_user.metadata}")
-    if current_user.metadata.get("role") == "admin":
-        profiles.append(
-            cl.ChatProfile(
-                name=READ_EDIT_PROFILE,
-                markdown_description="Query and update the knowledge graph.",
-            ))
     return profiles
 
 
@@ -235,51 +238,6 @@ async def _neo4j_disconnect():
     logger.info("Neo4j driver disconnected.")
 
 
-async def ask_payment(user_identifier: str):
-    client_reference_id = str(uuid.uuid4())
-    paid_amount = await get_paid_amount_left(user_identifier)
-    if paid_amount is None or paid_amount <= 0:
-        await cl.Message(content="💸 You need to pay to continue!").send()
-        new_user = await upsert_client_reference_id(client_reference_id,
-                                                    user_identifier)
-        if new_user:
-            await cl.Message(content="""
-            **🎉 Welcome!**  
-            It's **Sic** here, I've built this app.  
-            Sorry, I am not able to offer a free trial.  
-            You can upgrade to a paid plan below. The cheapest plan is $2.50 for 5 interactions.  
-            Warmer Sun operates with the promise that if someone wants to learn with us and truly cannot afford it, we will make it work.  
-            You can email me at sic@warmersun.com if you need help.  
-            Thank you for your understanding. And now let's oom!  
-            """).send()
-        element = cl.CustomElement(
-            name="PricingPlans",
-            props={
-                "payment_link_oom250":
-                os.environ['PAYMENT_LINK_URL_250'],
-                "payment_link_oom2500":
-                os.environ['PAYMENT_LINK_URL_2500'],
-                "payment_link_oom_pro_25000":
-                os.environ['PAYMENT_LINK_URL_PRO_25000'],
-                "client_reference_id":
-                client_reference_id,
-            })
-        await cl.Message(content="💸 Payment", elements=[element]).send()
-        # poll for payment status
-        while paid_amount is None or paid_amount <= 0:
-            paid_amount = await get_paid_amount_left(user_identifier)
-            await cl.sleep(5)
-        await cl.Message(
-            content="🎉 Payment received! Thank you for your purchase! 🙏"
-        ).send()
-
-
-async def show_credits(user_identifier: str):
-    paid_amount = await get_paid_amount_left(user_identifier)
-    task_list = cl.user_session.get("task_list")
-    if task_list:
-        task_list.status = f"{paid_amount} credits"
-        await task_list.send()
 
 
 @cl.on_chat_start
@@ -356,12 +314,7 @@ async def end_chat():
 
 @cl.on_message
 async def on_message(message: cl.Message):
-    # charge usag
-    user = cl.user_session.get("user")
-    assert user is not None, "User must be logged in to proceed with payment."
-    await ask_payment(user.identifier)
-    await use_up_paid_amount(user.identifier, 50)
-    await show_credits(user.identifier)
+    # usage logic removed
 
     error_count = 0
     message_lock = cl.user_session.get("message_lock")
@@ -570,12 +523,7 @@ def text_to_speech(text: str):
 
 @cl.action_callback("tts")
 async def tts(action: cl.Action):
-    # charge usage
-    user = cl.user_session.get("user")
-    assert user is not None, "User must be logged in to proceed with payment."
-    await ask_payment(user.identifier)
-    await use_up_paid_amount(user.identifier, 150)
-    await show_credits(user.identifier)
+    # usage logic removed
 
     last_message = cl.user_session.get("last_message")
     if last_message is not None:
@@ -609,12 +557,7 @@ def _process_command(message: cl.Message) -> str:
 @cl.on_shared_thread_view
 async def shared_thread_view(thread, viewer):
     # Allow anonymous access to shared threads
-    metadata = thread.get("metadata", {})
-    if metadata.get("is_shared"):
-        return True
-
-    # Require authentication for non-shared threads
-    return viewer is not None
+    return True
 
 
 @cl.on_chat_resume
@@ -738,27 +681,3 @@ async def on_chat_resume(thread: ThreadDict):
 # Auth
 
 
-@cl.oauth_callback
-def oauth_callback(
-    provider_id: str,
-    token: str,
-    raw_user_data: Dict[str, str],
-    default_user: cl.User,
-) -> Optional[cl.User]:
-    logger.info(f"OAuth callback: {provider_id}, {token}, {raw_user_data}")
-    assert DESCOPE_PROJECT_ID is not None, "DESCOPE_PROJECT_ID is not set"
-    descope_client = DescopeClient(project_id=DESCOPE_PROJECT_ID)
-    roles = [
-        "admin",
-    ]
-    try:
-        jwt_response = descope_client.validate_session(
-            session_token=token, audience=DESCOPE_PROJECT_ID)
-        is_admin_role = descope_client.validate_roles(jwt_response, roles)
-        logger.info(f"Is admin role?: {is_admin_role}")
-        if is_admin_role:
-            default_user.metadata["role"] = "admin"
-    except Exception as error:
-        logger.error(f"Error getting matched roles: {error}")
-    finally:
-        return default_user
