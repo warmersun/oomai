@@ -2,7 +2,7 @@ import json
 import chainlit as cl
 from chainlit.logger import logger
 from xai_sdk.chat import tool_result, user, assistant, tool
-from xai_sdk.tools import x_search, web_search
+# Note: web_search removed - all searches go through x_search tool (core_x_search)
 from typing import Any  # For GraphOpsCtx, assume it's defined elsewhere
 import asyncio
 
@@ -29,13 +29,10 @@ async def process_stream(user_input: str, ctx: Any,
 
     error_count = 0
 
-    client_and_server_side_tools = tools.copy()
-    client_and_server_side_tools.append(web_search(excluded_domains=["wikipedia.org", "gartner.com", "weforum.com", "forbes.com", "accenture.com"], enable_image_understanding=True))
-
     # Create chat session
     chat = xai_client.chat.create(
         model="grok-4-1-fast",
-        tools=client_and_server_side_tools,
+        tools=tools,
         tool_choice="auto",
         user="tamas.simon@warmersun.com",
     )

@@ -55,8 +55,10 @@ Convergence, Capability. Milestone, Trend, Idea, LTC, LAC has `embedding` proper
 
 ### DECOMPOSES
 (:EmTech)-[:DECOMPOSES]->(:EmTech)
+(:LTC)-[:DECOMPOSES]->(:LTC)
 
 An emerging technology category is further decomposed into subcategories (e.g., Synthetic Biology encompasses gene sequencing and gene editing).
+A product category is further decomposed into subcategories (e.g., Large Language Models has subcategories like multi-modal LLMs, coding models, etc.)
 
 ### ACCELERATES
 (:EmTech)-[:ACCELERATES]->(:Convergence)

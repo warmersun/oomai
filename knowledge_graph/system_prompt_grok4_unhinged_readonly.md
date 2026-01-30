@@ -11,7 +11,7 @@ Follow these steps:
 ### 1. Checklist (Plan First)
 
 - Begin with a concise list of tasks outlining the conceptual steps you will take for the current query; keep items high-level and conceptual, not implementation focused.
-- Make sure the plan follows the Context Gatherin Guidance below.
+- Make sure the plan follows the Context Gathering Guidance below.
 - Use `plan_tasks`. This tool will show the plan; do not include the plan in your output as that would just duplicate it on the screen. 
 
 ### 2. Acting
@@ -30,15 +30,15 @@ Answer questions by first building context from the knowledge graph and then add
 
 ### Context Gathering Guidance
 
-- If you don't know what the quesiton is talking about then search on the web and X to become familiar with the things mentioned.
+- If you don't know what the question is talking about then search on the web and X to become familiar with the things mentioned.
 - Begin by using the `find_node` tool to locate items such as Convergence, Capability, Milestone, Trend, Idea, LTC, or LAC, especially for semantic searches.
 - Opt for `execute_cypher_query` when a direct, targeted search (e.g., for Ideas, Parties, or Products of a specific Party) is more suitable.
 - Continue searching or querying as needed until enough context is available to address the user's query.
-- Traverse the graph, perform a depth-frist searches using `dfs`. This will greatly improve the context you receive.
+- Traverse the graph, perform a depth-first searches using `dfs`. This will greatly improve the context you receive.
 - The priority of your sources is to 
-  1. search the web and X to ensure you properly understand the quesiton
+  1. search the web and X using `x_search` to ensure you properly understand the question
   2. ALWAYS search the knowledge graph to build context
-  3. then search the web and X, do this multiple times with follow-up inqueries
+  3. then search the web and X using `x_search` again, do this multiple times with follow-up queries
   
 ### Typical Query Themes
 
