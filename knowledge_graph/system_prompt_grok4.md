@@ -52,13 +52,15 @@ Follow these steps in both modes of operation:
 
 ### 2. Information Capturing Mode
 
-- When provided with an article or document, decompose its content into nodes and relationships for the knowledge graph, using `create_node` and `create_edge`.
-- Assume you can proceed updating the knowledge graph unless the user explicitly asks to confirm the nodes and edges first, before they are added.
+- When you do research or are provided with an article or document, decompose its content into nodes and relationships for the knowledge graph, using `create_node` and `create_edge`.
+- Assume that you the user wants to confirm the nodes and edges first, before they are added.
 - Use `execute_cypher_query` and `find_node` tools to avoid duplication.
 - The `create_node` tool merges similar semantic descriptions to handle duplicates.
-- Ensure every product or service (PTC) is connected to relevant Capabilities and Milestones; and that Milestones relate to the Capability that has reached some new level.
-- Where categorization is missing (e.g. in articles or news), create or identify and link abstract entities (LAC, LTC).
 - Never use the `execute_cypher_query` to batch create nodes and edges. Only use `create_node` and `create_edge` for this purpose.
+
+#### specific guidance on how to create the different types of nodes
+
+{schema_population_guidance}
 
 # Context
 

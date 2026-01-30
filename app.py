@@ -44,17 +44,17 @@ from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY
 
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
+with open("knowledge_graph/schema_population_guidance.md", "r") as f:
+    schema_population_guidance = f.read()
 with open("knowledge_graph/system_prompt_grok4.md", "r") as f:
     system_prompt_edit_template = f.read()
 with open("knowledge_graph/system_prompt_grok4_readonly.md", "r") as f:
     system_prompt_readonly_template = f.read()
-with open("knowledge_graph/system_prompt_grok4_unhinged_readonly.md",
-          "r") as f:
+with open("knowledge_graph/system_prompt_grok4_unhinged_readonly.md", "r") as f:
     system_prompt_readonly_unhinged_template = f.read()
-SYSTEM_PROMPT_EDIT = system_prompt_edit_template.format(schema=schema)
+SYSTEM_PROMPT_EDIT = system_prompt_edit_template.format(schema=schema, schema_population_guidance=schema_population_guidance)
 SYSTEM_PROMPT_READONLY = system_prompt_readonly_template.format(schema=schema)
-SYSTEM_PROMPT_READONLY_UNHINGED = system_prompt_readonly_unhinged_template.format(
-    schema=schema)
+SYSTEM_PROMPT_READONLY_UNHINGED = system_prompt_readonly_unhinged_template.format(schema=schema)
 
 with open("knowledge_graph/system_prompt_grok4_learning.md", "r") as f:
     system_prompt_learning_template = f.read()
