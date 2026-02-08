@@ -1,29 +1,24 @@
 [project]
-name = "python-template"
-version = "0.1.0"
-description = ""
+name = "knowledge-graph-mcp"
+version = "1.0.0"
+description = "MCP server for Neo4j knowledge graph of emerging technologies"
 authors = [
     {name = "Tamas Simon", email = "tamas.simon@warmersun.com"}
 ]
+readme = "SKILL.md"
 requires-python = ">=3.11"
+license = "MIT"
 dependencies = [
-    "chainlit>=2.9.2",
+    "mcp[cli]>=1.9.0",
     "neo4j>=5.28.1",
     "openai>=1.97.0",
     "pydantic>=2.11.7",
-    "pyyaml>=6.0.2",
-    "xai-sdk>=1.4.0",
-    "groq>=0.30.0",
-    "elevenlabs>=2.9.1",
     "lark>=1.2.2",
-    "mdclense>=0.1.0",
-    "literalai>=0.1.201",
     "python-dotenv>=1.1.1",
-    "asyncpg>=0.30.0",
-    "boto3>=1.40.38",
-    "perplexityai>=0.12.0",
-    "mcp[cli]>=1.9.0",
 ]
+
+[project.scripts]
+knowledge-graph-mcp = "mcp_server:mcp.run"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
@@ -31,3 +26,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["function_tools*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.md", "*.cfg", "*.cypher", "*.yaml"]

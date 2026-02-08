@@ -1,0 +1,11 @@
+
+- EmTech: do not create new emTechs, use the ones in the taxonomy
+- Convergence: always associate with at least two EmTechs
+- Capability, Milestone: carefully check if the capability already exists, and if so, use it. Think of capabilities as a spectrum, as a grey scale; and milestones as black or white. A capability advances and this can be measured with some unit of measure e.g. context window size for LLMs is measured in tokens. A milestone is reached when the capability reaches a certain threshold in that unit of measure and this can be used to unlock new applications.
+- LTC: carefully check if the LTC already exists, and if so, use it. you will only rarely need to create a new LTC. 
+- PTC: make sure you identify the right LTC for the PTC. LTCs can be nested, make sure you create the LTC at the right level of abstraction, the lower in the hierarchy, the more specific the LTC is the better.
+- LAC: when you identify a new use case carefully pick the right LTC for it by lookin at the capabilities of interest. Also identify the milestones that enable this use case i.e. how mature does the capability need to be for this use case to be possible. 
+- PAC: you will rarely need to create a PAC. A PAC is a specific application, implementation, or solution built that is of interest e.g. a success story, case study or a remarkable project.
+- Trend: includes both looking back at how a capability has evolved through milestones and making predictions about where it is headed.
+- Idea: use to describe ideas, policies, warnings, predictions, etc. 
+- Party: you will rarely need to create a new party. 

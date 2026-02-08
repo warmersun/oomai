@@ -1,0 +1,135 @@
+sources:
+- name: ai_news
+  prompt: "Retrieve the latest daily news summary from news.smol.ai. Process it and capture it in the knowledge graph."
+  source_type: X
+  handles:
+    - smol_ai
+- name: thought_leaders
+  prompt: "Capture ideas from thought leaders in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
+  source_type: X
+  handles:
+    - EMostaque
+    - elonmusk
+    - EpochAIResearch
+    - DavidSacks
+    - BasedBeffJezos
+- name: openai_announcements
+  prompt: "List the latest product launches, research, ideas, new capabilities and milestones by OpenAI Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
+  source_type: X
+  handles:
+    - OpenAI
+    - OpenAINewsroom
+    - OpenAIDevs
+    - ChatGPTapp
+    - sama
+    - gdb
+- name: xai_updates
+  prompt: "List the latest product launches, research, ideas, new capabilities, and milestones by xAI. Capture these in the knowledge graph. If no new and worthwhile updates are found, just say 'No new updates found'."
+  source_type: X
+  handles:
+    - xai
+    - elonmusk
+    - Grok
+- name: anthropic_updates
+  prompt: "List the latest product launches, research, ideas, new capabilities, and milestones by Anthropic. Capture these in the knowledge graph. If no new and worthwhile updates are found, just say 'No new updates found'."
+  source_type: X
+  handles:
+    - claudeai
+    - anthropicAI
+    - DarioAmodei
+- name: meta_ai_updates
+  prompt: "List the latest product launches, research, ideas, new capabilities, and milestones by Meta AI. Capture these in the knowledge graph. If no new and worthwhile updates are found, just say 'No new updates found'."
+  source_type: X
+  handles:
+    - meta
+    - ylecun
+    - alexandr_wang
+- name: google_research_updates
+  prompt: "List the latest product launches, research, ideas, new capabilities, and milestones by Google Research or Google AI. Capture these in the knowledge graph. If no new and worthwhile updates are found, just say 'No new updates found'."
+  source_type: X
+  handles:
+    - GoogleAI
+    - GoogleResearch
+    - JeffDean
+    - GoogleDeepMind
+    - demishassabis
+- name: nvidia_ai_updates
+  prompt: "List the latest product launches, research, ideas, new capabilities, and milestones by NVIDIA AI. Capture these in the knowledge graph. If no new and worthwhile updates are found, just say 'No new updates found'."
+  source_type: X
+  handles:
+    - nvidia
+    - NVIDIAAI
+- name: energy_news
+  prompt: "List the latest development, research, new capabilities and milestones in energy production, smart grid, energy storage, battery technology. Capture these in the knowledge graph."
+  source_type: X
+  handles:
+    - BESTmag_news
+    - EnergyStorageN
+    - REWorld
+    - PVTech
+    - BatteryPowerMag
+    - GreentechMedia
+    - AltEnergyMag
+- name: crypto_news
+  prompt: "List the latest development, research, new capabilities and milestones in crypto, blockchain, web3, decentralized finance. Capture these in the knowledge graph."
+  source_type: X
+  handles:
+    - CoinMarketCap
+    - CoinDesk
+    - CoinTelegraph
+    - worldcoin
+    - ii_posts
+    - chia_project
+    - Bitcoin
+    - ethereum
+    - coinbase
+    - jack
+- name: synbio_news
+  prompt: "List the latest development, research, new capabilities and milestones in synthetic biology, gene sequencing, gene editing, alternative proteins, longevity, digital health. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
+  source_type: X
+  handles:
+    - nextmedhealth
+    - GoodFoodInst
+    - davidasinclair
+    - colossal
+- name: arvr_news
+  prompt: "List the latest products (PTC) and their vendors (Party), new capabilities and milestones, use cases (LAC) in augmented and virtual reality. Capture these in the knowledge graph. If you don't find anything worthwhile, just say 'Nothing noteworthy today'."
+  source_type: X
+  handles:
+    - RtoVR
+    - UploadVR
+    - philiprosedale
+- name: use_cases
+  prompt: "Collect use cases, applications (LAC) of emerging technologies. What product categories (LTC), what capabilities or new milestones have unlocked these use cases? Capture these along with the specifics (PTC, PAC, Party) in the knowledge graph. If you don't find anything noteworthy, just say 'Nothing noteworthy today.'"
+  source_type: X
+  handles:
+    - IntEngineering
+    - Dr_Singularity
+    - dreamingtulpa
+    - PeterDiamandis
+    - gunsnrosesgirl3
+    - kimmonismus
+    - ScienceAdvances
+    - NatureComms
+- name: robot_news
+  prompt: "List the latest development, research, new capabilities and milestones related to robots. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
+  source_type: X
+  handles:
+    - SawyerMerritt
+    - TheHumanoidHub
+    - CyberRobooo
+    - adcock_brett
+    - TheRundownAI
+- name: quantum_computing_news
+  prompt: "List the latest development, research, new capabilities and milestones in quantum computing. Capture these in the knowledge graph. If you don't find anything new and worthwhile, just say 'No new ideas found'."
+  source_type: X
+  handles:
+    - DavidDeutschOfx
+    - PeterShor
+    - raykurzweil
+    - sethlloyd
+    - ilyaskhan
+    - MJBiercuk
+    - krystasvore
+    - chadrigetti
+    - preskill
