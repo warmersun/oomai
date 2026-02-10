@@ -38,7 +38,9 @@ async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: 
         output = await core_create_node(ctx, node_type, name, description, groq_client, openai_embedding_client)
 
         step.output = output
-        await step.remove()
+        debug = cl.user_session.get("debug_settings")
+        if not debug:
+            await step.remove()
         return output
 
 async def create_edge(

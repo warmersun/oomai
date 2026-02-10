@@ -31,17 +31,73 @@ Or use the provided script:
 ./scripts/start-server.sh
 ```
 
+## Modes of Operation
+
+### 1. Question Answering Mode
+
+Use the knowledge graph to build context and answer questions.
+
+**Tools**: `execute_cypher_query`, `find_node`, `dfs`
+
+**How to gather context:**
+1. Start with `find_node` for semantic search - locate relevant concepts by meaning, not exact names
+2. Use `execute_cypher_query` for targeted lookups - when you know what you're looking for
+3. Traverse with `dfs` - explore connections from a node to discover related knowledge
+4. Iterate until you have enough context to answer thoroughly
+
+### 2. Information Capturing Mode
+
+When provided with research, articles, or documents, decompose content into nodes and relationships.
+
+**Tools**: `create_node`, `create_edge`
+
+**Important rules:**
+- **Never use Cypher to create nodes or edges** - Always use `create_node` and `create_edge`
+- **Safe to call `create_node` directly** - It automatically detects semantically similar nodes and merges descriptions, so no need to check for duplicates first
+
+Before capturing information, read the `schema://population_guidance` resource for best practices on how to create different types of nodes.
+
+## Output Guidelines
+
+When responding to users:
+
+- **Use natural language** - Respond conversationally, avoid graph terminology like "nodes" or "edges"
+- **Avoid abbreviations** - Don't say "LAC", "PAC", "LTC", or "PTC". Use plain terms like "use case", "application", "product", or "service"
+- **Markdown only** - No JSON, CSV, or tabular output unless specifically requested
+
 ## Available Tools
 
 ### execute_cypher_query
-Execute read-only Cypher queries against the graph.
+Execute **read-only** Cypher queries against the graph. Use for targeted searches and complex relationship patterns.
+
+**Best practices:**
+- Always use explicit node labels and relationship types
+- Always limit results (e.g., `LIMIT 10`)
 
 ```
 Query: MATCH (e:EmTech)-[:ENABLES]->(c:Capability) RETURN e.name, c.name LIMIT 10
 ```
 
+### find_node
+Semantic search using embeddings - finds nodes by meaning, not just exact text match.
+
+```
+query_text: language models understanding context
+node_type: Capability
+top_k: 10
+```
+
+### dfs
+Depth-first traversal from a starting node. Great for exploring connections and building context.
+
+```
+node_name: Context Retention in Dialogs
+node_type: Capability
+depth: 2
+```
+
 ### create_node
-Create or update nodes with smart deduplication.
+Create nodes with smart deduplication. The system will merge if a semantically similar node exists.
 
 ```
 node_type: Capability
@@ -53,30 +109,14 @@ description: The ability of LLMs to maintain context across long conversations
 Create relationships between existing nodes.
 
 ```
-source_name: artificial intelligence
+source_name: Artificial Intelligence
 target_name: Context Retention in Dialogs
 relationship_type: ENABLES
 ```
 
-### find_node
-Semantic search for similar nodes using embeddings.
-
-```
-query_text: language models understanding context
-node_type: Capability
-top_k: 10
-```
-
-### dfs
-Depth-first traversal from a starting node.
-
-```
-node_name: artificial intelligence
-node_type: Capability
-depth: 2
-```
-
 ## Available Resources
+
+Read these resources to understand the graph structure:
 
 | URI | Description |
 |-----|-------------|
@@ -84,35 +124,7 @@ depth: 2
 | `schema://node_types` | Node type definitions |
 | `schema://edge_types` | Relationship type definitions |
 | `schema://taxonomy` | EmTech reference taxonomy |
-| `schema://population_guidance` | Best practices for populating the graph |
-
-## Schema Overview
-
-### Node Types
-- **EmTech** - Emerging technologies (fixed taxonomy, do not create)
-- **Capability** - What technology enables
-- **Milestone** - Measurable achievements in capability
-- **Convergence** - How EmTechs accelerate each other
-- **LTC/PTC** - Logical/Physical Technology Components
-- **LAC/PAC** - Logical/Physical Application Components
-- **Trend** - Predictions about capability progression
-- **Idea** - Ideas, policies, predictions
-- **Party** - Organizations or people
-
-### Key Relationships
-- `(:EmTech)-[:ENABLES]->(:Capability)`
-- `(:Capability)-[:HAS_MILESTONE]->(:Milestone)`
-- `(:Milestone)-[:UNLOCKS]->(:LAC)`
-- `(:LTC)-[:IS_REALIZED_BY]->(:PTC)`
-- `(:Party)-[:MAKES]->(:PTC)`
-
-## Example Workflow
-
-1. **Read the schema**: Access `schema://graph` resource
-2. **Find existing nodes**: Use `find_node` to search semantically
-3. **Query relationships**: Use `execute_cypher_query` for complex patterns
-4. **Add new knowledge**: Use `create_node` then `create_edge`
-5. **Explore connections**: Use `dfs` to traverse from a node
+| `schema://population_guidance` | **Read this in Information Capturing mode** - best practices for creating nodes and edges |
 
 ## MCP Client Configuration
 

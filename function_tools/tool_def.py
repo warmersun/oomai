@@ -144,7 +144,7 @@ TOOLS_DEFINITIONS = {
                     "The type of node to search for.",
                     "enum": [
                         "Convergence", "Capability", "Milestone", "Trend",
-                        "Idea", "LTC", "LAC"
+                        "Idea", "Bet", "LTC", "LAC"
                     ],
                 },
                 "top_k": {
@@ -193,7 +193,7 @@ TOOLS_DEFINITIONS = {
                     "The type of node to search for.",
                     "enum": [
                         "Convergence", "Capability", "Milestone", "LTC", "PTC",
-                        "LAC", "PAC", "Trend", "Idea", "Party"
+                        "LAC", "PAC", "Trend", "Idea", "Bet", "Party"
                     ],
                 },
                 "depth": {

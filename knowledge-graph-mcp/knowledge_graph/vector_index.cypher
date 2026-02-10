@@ -69,3 +69,13 @@ OPTIONS {
   }
 }
 ;
+CREATE VECTOR INDEX bet_description_embeddings IF NOT EXISTS
+FOR (n:Bet)
+ON n.embedding
+OPTIONS {
+  indexConfig: {
+    `vector.dimensions`: 3072,
+    `vector.similarity_function`: 'cosine'
+  }
+}
+;

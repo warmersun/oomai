@@ -153,7 +153,7 @@ async def core_create_node(ctx: GraphOpsCtx,
     )
 
     if node_type in [
-            "Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC",
+            "Convergence", "Capability", "Milestone", "Trend", "Idea", "Bet", "LTC",
             "LAC"
     ]:
         if groq_client is None or openai_embedding_client is None:
@@ -337,7 +337,6 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str,
                     if not records:
                         raise RuntimeError("Failed to create new node")
                     return records[0]['name']
-
                 async with ctx.lock:
                     actual_name = await session.execute_write(write_create)
                     # Store the mapping from original name to actual name (in case of future updates)
@@ -530,7 +529,7 @@ async def core_find_node(ctx: GraphOpsCtx,
                          query_text: str,
                          node_type: Literal["Convergence", "Capability",
                                             "Milestone", "Trend", "Idea",
-                                            "LTC", "LAC"],
+                                            "Bet", "LTC", "LAC"],
                          top_k: int = 25,
                          openai_embedding_client=None) -> list:
     """
@@ -614,7 +613,7 @@ async def core_dfs(ctx: GraphOpsCtx,
                    node_name: str,
                    node_type: Literal["Convergence", "Capability", "Milestone",
                                       "LTC", "PTC", "LAC", "PAC", "Trend",
-                                      "Idea", "Party"],
+                                      "Idea", "Bet", "Party"],
                    depth: int = 3) -> List[Dict[str, Any]]:
     """
     Performs a depth-first search (DFS) on a Neo4j graph starting from a node

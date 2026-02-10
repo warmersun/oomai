@@ -1,0 +1,52 @@
+flowchart TB
+    subgraph Neo4jDB["Graph Database"]
+        Neo4j[(Neo4j Graph Database<br>Schema: Nodes & Edges Pluggable & Schema-Agnostic)]
+    end
+
+    subgraph ServerCode
+        Functions["Functions:<br>- create_node (Uses LLM for deduplication & Embedding API for vector embeddings)<br>- create_edge<br>- find_node<br>- execute_query (Read-only)<br>- depth_first_search"]
+    end
+
+    ServerCode --> Neo4jDB
+
+    subgraph ExternalServices["AI inference services"]
+    subgraph ExternalAPIs["used by the core"]
+        GroqLLM(["Groq LLM<br>(Deduplication)"])
+        OpenAIEmbed(["OpenAI Embedding API<br>(text-embedding-3-large)"])
+    end
+    subgraph LLMs["used by the AI apps"]
+        XaiGrok(["x.ai Grok LLM"])
+    end
+    end
+
+    Functions --> GroqLLM
+    Functions --> OpenAIEmbed
+
+    subgraph apps["Apps"]
+        subgraph AIApps["AI Apps provided by me"]
+            ChatBot["AI Chat Bot<br>Uses LLMs<br>Queries the graph (e.g., execute_query, find_node)"]
+            BatchProcess["Batch Process<br>Uses LLMs<br>Populates the graph (e.g., create_node, create_edge)"]
+        end
+        subgraph OtherAIApps["Other AI Apps"]
+            OtherAI[Other AI Apps<br>Can query via MCP]
+    end
+    end
+
+    ChatBot ---> ServerCode
+    BatchProcess ---> ServerCode
+    ChatBot ----> XaiGrok
+    BatchProcess ----> XaiGrok
+
+    subgraph MCPServer
+        MCP[MCP Server<br>Encapsulates functions<br>Plug & play like USB for querying]
+    end
+
+
+    OtherAI --> MCPServer
+    MCPServer --> ServerCode
+
+    Note1[/Note: execute_query is read-only<br>and create_node ensures no duplicates/]
+    Note1 -.-> Functions
+
+    Note2[/ote: Solution is agnostic to the schema/]
+    Note2 -.-> Neo4j

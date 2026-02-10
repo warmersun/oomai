@@ -1,0 +1,25 @@
+[project]
+name = "x-search-mcp"
+version = "1.0.0"
+description = "MCP server for searching X (Twitter) and web via xAI Grok"
+authors = [
+    {name = "Tamas Simon", email = "tamas.simon@warmersun.com"}
+]
+readme = "SKILL.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "mcp[cli]>=1.9.0",
+    "xai-sdk>=0.1.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+x-search-mcp = "mcp_server:mcp.run"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["mcp_server"]

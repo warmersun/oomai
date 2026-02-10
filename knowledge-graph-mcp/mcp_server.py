@@ -181,7 +181,7 @@ async def create_edge(
 @mcp.tool()
 async def find_node(
     query_text: str,
-    node_type: Literal["Convergence", "Capability", "Milestone", "Trend", "Idea", "LTC", "LAC"],
+    node_type: Literal["Convergence", "Capability", "Milestone", "Trend", "Idea", "Bet", "LTC", "LAC"],
     top_k: int = 25,
 ) -> str:
     """
@@ -212,7 +212,7 @@ async def find_node(
 @mcp.tool()
 async def dfs(
     node_name: str,
-    node_type: Literal["Convergence", "Capability", "Milestone", "LTC", "PTC", "LAC", "PAC", "Trend", "Idea", "Party"],
+    node_type: Literal["Convergence", "Capability", "Milestone", "LTC", "PTC", "LAC", "PAC", "Trend", "Idea", "Bet", "Party"],
     depth: int = 3,
 ) -> str:
     """
@@ -268,29 +268,6 @@ def get_full_schema() -> str:
     vector indices, and EmTech taxonomy.
     """
     return SCHEMA_CONTENT
-
-
-@mcp.resource("schema://node_types")
-def get_node_types() -> str:
-    """
-    Node type definitions for the knowledge graph.
-    
-    Includes: EmTech, Convergence, Capability, Milestone, LTC, PTC, LAC, PAC,
-    Trend, Idea, Party - each with name and description properties.
-    """
-    return extract_section(SCHEMA_CONTENT, "## node types:", "## vector indices")
-
-
-@mcp.resource("schema://edge_types")
-def get_edge_types() -> str:
-    """
-    Edge (relationship) type definitions for the knowledge graph.
-    
-    Includes: DECOMPOSES, ACCELERATES, IS_ACCELERATED_BY, ENABLES, HAS_MILESTONE,
-    UNLOCKS, REACHES, PREDICTS, LOOKS_AT, PROVIDES, IS_REALIZED_BY, MAKES, USES,
-    RELATES_TO
-    """
-    return extract_section(SCHEMA_CONTENT, "## edge types:", "## taxonomy")
 
 
 @mcp.resource("schema://taxonomy")

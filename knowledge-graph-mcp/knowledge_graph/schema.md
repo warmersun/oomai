@@ -42,14 +42,25 @@ A Physical Application Component (PAC) is a specific application, implementation
 A trend examines how some capability is progressing and makes predictions about where it is headed.
 
 ### Idea
-Describes an idea.
+Describes an idea, assessment, evaluation, or strategic position.
+Optional properties beyond `name` and `description`:
+- `argument` — the reasoning chain supporting this idea
+- `assumptions` — underlying assumptions that, if wrong, change the conclusion
+- `counterargument` — known objections or alternative views
+
+### Bet
+A strategic position or prediction being actively tracked.
+The `description` should include: the thesis, what signals would validate or invalidate it, and known blindspots.
+Properties beyond `name` and `description`:
+- `placed_date` — date type, when the bet was placed
+- `result` — string, evaluation of how the bet played out (filled in later when validated/invalidated)
 
 ### Party
 An organization like a company, research lab, or other group; or a person.
 
 ## vector indices
 
-Convergence, Capability. Milestone, Trend, Idea, LTC, LAC has `embedding` property with embedding vector for semantic index.
+Convergence, Capability, Milestone, Trend, Idea, Bet, LTC, LAC has `embedding` property with embedding vector for semantic index.
 
 ## edge types:
 
@@ -118,6 +129,28 @@ Describes how we build solutions and implementations from products.
 (:Idea)-[:RELATES_TO]->()  
 Ideas can relate to anything.  
 RELATES_TO has an optional `explanation` property (e.g., when the Law of Accelerating Returns relates to an EmTech, the `explanation` describes why).
+
+### PLACES
+(:Idea)-[:PLACES]->(:Bet)
+
+An idea or assessment places (gives rise to) a bet.
+
+### DEPENDS_ON
+(:Bet)-[:DEPENDS_ON]->(:Capability)
+(:Bet)-[:DEPENDS_ON]->(:Milestone)
+
+A bet depends on certain capabilities reaching certain milestones.
+
+### VALIDATES
+(:Milestone)-[:VALIDATES]->(:Bet)
+
+When a milestone validates a bet.
+
+### INVALIDATES
+(:Milestone)-[:INVALIDATES]->(:Bet)
+(:Idea)-[:INVALIDATES]->(:Bet)
+
+When a milestone or new assessment invalidates a bet.
 
 ## taxonomy
 

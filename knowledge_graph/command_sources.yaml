@@ -244,3 +244,81 @@ commands:
       - Note any assumptions or data limitations.
 
       Ensure the response is insightful, balanced, and approximately 1500-2500 words. Use tools only as needed during generation; do not mention tools in the output.
+
+  gaps:
+    icon: search
+    description: "Find gaps in thinking about..."
+    modes: [edit, readonly, learning]
+    template: |
+      Perform a structural gap analysis on the knowledge graph related to {user_input}.
+
+      1. Search the knowledge graph for all Ideas, Bets, Trends, and Capabilities related to {user_input}.
+      2. For each Bet found, check:
+         - Does it have DEPENDS_ON edges to Capabilities and Milestones?
+         - Are there any VALIDATES or INVALIDATES edges from recent Milestones?
+         - Are there known blindspots mentioned in the Bet's description that have no corresponding Ideas exploring them?
+      3. For each Idea/Assessment found, check:
+         - Does it have `argument`, `assumptions`, and `counterargument` properties filled in?
+         - Are there related Ideas that might contradict it?
+         - Does it PLACE any Bets?
+      4. Look for Capabilities that have no associated Ideas or Bets — these are areas where the user hasn't formed a position yet.
+
+      Structure your response:
+      - 🕳️ **Gaps found** — areas where thinking is incomplete or missing
+      - 💡 **Suggested positions** — questions the user should be forming opinions on
+      - 🔗 **Missing connections** — relationships that should probably exist but don't
+
+  stale:
+    icon: clock
+    description: "Find stale assessments about..."
+    modes: [edit, readonly, learning]
+    template: |
+      Find assessments and bets in the knowledge graph related to {user_input} that may be outdated.
+
+      1. Search for Ideas (assessments) and Bets related to {user_input}.
+      2. For Bets, look at the `placed_date` — if older than 6 months and no `result` property, flag them.
+      3. For Ideas with `assumptions` — search the web for recent developments that might invalidate those assumptions.
+      4. Look for Milestones that were reached after relevant Bets were placed — do they VALIDATE or INVALIDATE the bet?
+
+      Structure your response:
+      - ⏰ **Stale bets** — bets placed long ago that haven't been revisited
+      - 🔄 **Assumptions to recheck** — assumptions that may no longer hold given recent developments
+      - ✅ **Recently validated** — positions that recent evidence supports
+
+  validate:
+    icon: check-circle
+    description: "Validate bet about..."
+    modes: [edit, readonly, learning]
+    template: |
+      Validate the following bet against current evidence: {user_input}
+
+      1. Find the Bet in the knowledge graph (or the closest match using `find_node`).
+      2. Review its description for the thesis, validation signals, invalidation signals, and blindspots.
+      3. Check existing VALIDATES and INVALIDATES edges — what evidence already exists?
+      4. Search the web and X for the latest developments related to this bet's thesis.
+      5. Compare what the web says against the validation/invalidation signals listed in the bet.
+
+      Structure your response:
+      - 📊 **Current evidence** — what the latest data says
+      - 🎯 **Bet thesis** — the original position
+      - ✅ **Validating signals** — evidence supporting the bet
+      - ❌ **Invalidating signals** — evidence challenging the bet
+      - 🔮 **Updated assessment** — should this bet be maintained, revised, or closed?
+
+  contradict:
+    icon: alert-triangle
+    description: "Find contradictions in thinking about..."
+    modes: [edit, readonly, learning]
+    template: |
+      Find contradictions and tensions in existing positions related to {user_input}.
+
+      1. Search the knowledge graph for all Ideas, Bets, and Trends related to {user_input}.
+      2. Compare Ideas against each other — do any assessments contradict one another?
+      3. Check if any Bets depend on Capabilities or Milestones that other Ideas suggest are unlikely.
+      4. Look for Trends that point in opposite directions.
+      5. Search for Ideas where the `counterargument` property raises points that other Ideas treat as assumptions.
+
+      Structure your response:
+      - ⚔️ **Direct contradictions** — positions that can't both be true
+      - 🤔 **Tensions** — positions that are in tension but not necessarily contradictory
+      - 🧩 **Reconciliation** — ways to resolve or at least acknowledge the contradictions
