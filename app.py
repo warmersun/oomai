@@ -36,7 +36,7 @@ from function_tools import (
     visualize_oom,
     display_predefined_answers_as_buttons,
     TOOLS_DEFINITIONS,
-    core_x_search,
+    x_search,
 )
 from chainlit_xai_util import process_stream
 from utils import Neo4jDateEncoder
@@ -144,11 +144,7 @@ AVAILABLE_FUNCTIONS_EDIT = {
     "display_mermaid_diagram": display_mermaid_diagram,
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
-    "x_search": lambda **kwargs: core_x_search(
-        cl.user_session.get("xai_client"),
-        user_identifier=cl.user_session.get("user").identifier if cl.user_session.get("user") else None,
-        **kwargs
-    ),
+    "x_search": x_search,
 }
 
 AVAILABLE_FUNCTIONS_READONLY = {
@@ -162,11 +158,7 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "display_mermaid_diagram": display_mermaid_diagram,
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
-    "x_search": lambda **kwargs: core_x_search(
-        cl.user_session.get("xai_client"),
-        user_identifier=cl.user_session.get("user").identifier if cl.user_session.get("user") else None,
-        **kwargs
-    ),
+    "x_search": x_search,
 }
 
 AVAILABLE_FUNCTIONS_LEARNING = {

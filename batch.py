@@ -32,6 +32,9 @@ logger.setLevel(logging.INFO)
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
 
+with open("knowledge_graph/schema_population_guidance.md", "r") as f:
+    schema_population_guidance = f.read()
+
 embedding_model = "text-embedding-3-large"
 
 LAST_RUN_FILE = "last_run_timestamp.txt"
@@ -60,7 +63,7 @@ AVAILABLE_FUNCTIONS = {
 def create_response(xai_client, prompt: str):
     with open("knowledge_graph/system_prompt_batch_grok4.md", "r") as f:
         system_prompt_template = f.read()
-    system_prompt = system_prompt_template.format(schema=schema)
+    system_prompt = system_prompt_template.format(schema=schema, schema_population_guidance=schema_population_guidance)
 
     chat = xai_client.chat.create(
         model="grok-4-1-fast",

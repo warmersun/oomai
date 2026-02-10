@@ -365,36 +365,70 @@ TOOLS_DEFINITIONS = {
     "x_search":
     tool(name="x_search",
          description="""
-        Performs an agentic search on X and on the web, including image understanding.
+        Launches a powerful **agentic search** across both X (Twitter) and the web. This is NOT a simple keyword search — it spawns a subordinate AI agent (Grok) that autonomously:
+
+        1. **Reasons** about the query to determine what information is needed
+        2. **Performs multiple iterative searches** across X posts AND web pages (typically 3-15+ searches per call)
+        3. **Understands images** embedded in X posts and web pages
+        4. **Synthesizes** all findings into a comprehensive, structured answer
+
+        The search agent decides its own search strategy — it may perform keyword searches, semantic searches, user-specific searches, follow threads, and cross-reference web sources. A single x_search call can return richly structured output including tables, timelines, comparisons, and cited sources.
+
+        **The quality of results depends heavily on the `prompt` and `system_prompt` you provide.** Treat these as instructions to a research analyst, not as search keywords.
+
+        Use x_search when you need:
+        - Real-time information from X posts and social media discourse
+        - Comprehensive research combining social media signals with web sources
+        - Analysis of what specific people/companies are saying on X
+        - Up-to-date facts, announcements, product launches, opinions, or trends
+        - Structured comparisons, timelines, or data tables synthesized from multiple sources
         """,
          parameters={
              "type": "object",
              "properties": {
                  "prompt": {
                      "type": "string",
-                     "description": "The prompt to search on X.",
+                     "description": """The research question or task for the agentic search. This is the USER message sent to the subordinate search agent — it should be a detailed, specific research brief, NOT just keywords.
+
+        **Craft the prompt as if you are briefing a research analyst.** Include:
+        - The specific question(s) to answer
+        - What kind of information or data points to look for (e.g., dates, metrics, comparisons, opinions)
+        - Context about why this information is needed
+        - Any specific angles, timeframes, or aspects to focus on
+
+        GOOD: "What are the latest developments in humanoid robot hand dexterity as of early 2026? Focus on: degrees of freedom, force control precision, tactile sensing density, and task success rates. Compare offerings from Tesla Optimus, Figure, Unitree, and Boston Dynamics. Note any announced milestones or production timelines."
+
+        BAD: "humanoid robot hands" """,
                  },
                  "included_handles": {
                      "type": "array",
                      "items": {
-                         "type":
-                         "string",
-                         "description":
-                         "A Twitter/X handle to include in the search."
+                         "type": "string",
+                         "description": "An X/Twitter handle (without the @ symbol) to include in the search."
                      },
-                     "description":
-                     "A list of Twitter/X handles (as strings) to search on X.",
+                     "description": """Optional list of X/Twitter handles (without @) to restrict the X search to specific accounts. When set, the search agent will ONLY look at posts from these accounts on X (web search is unaffected). Useful for:
+        - Tracking what specific companies or people are posting (e.g., ["Tesla", "Tesla_AI", "OpenAI"])
+        - Monitoring thought leaders or industry voices
+        - Researching a party's public communications and announcements
+        Maximum 10 handles per search.""",
                      "default": [],
                  },
                  "last_24hrs": {
                      "type": "boolean",
-                     "description":
-                     "Whether to search on X for the last 24 hours.",
+                     "description": "When true, restricts X search to posts from the last 24 hours only. Use for breaking news, real-time developments, or when the user asks about 'latest' or 'today's' events. Web search is unaffected by this filter.",
                      "default": False,
                  },
                  "system_prompt": {
                      "type": "string",
-                     "description": "The system prompt to use for the search.",
+                     "description": """The system prompt that shapes the search agent's behavior, output format, and focus areas. This is the SYSTEM message sent to the subordinate search agent. Use it to control HOW results are presented and what to prioritize.
+
+        **Craft this to get the output format you need.** Examples:
+        - For structured data: "Search X and web. Return findings as a markdown table with columns: Company, Product, Date, Key Specs, Source URL. Be exhaustive."
+        - For analysis: "Search X and web. Provide a detailed analytical summary organized by theme. Cite sources. Highlight consensus vs. contrarian views."
+        - For monitoring: "Search X for the latest posts from these accounts. Summarize key announcements, opinions, and any notable threads. Include post dates."
+        - For fact-checking: "Search X and web to verify the following claims. For each claim, state whether it is supported, contradicted, or unverifiable, with evidence."
+
+        If omitted, defaults to a generic "Search on X and return a detailed summary." which produces acceptable but less targeted results.""",
                      "default": "Search on X and return a detailed summary.",
                  },
              },

@@ -40,7 +40,7 @@ Follow these steps in both modes of operation:
 - Traverse the graph, perform a depth-frist searches using `dfs`. This will greatly improve the context you receive.
 - The priority of your sources is to 
   1. ALWAYS search the knowledge graph FIRST for existing assessments, bets, ideas, and trends using `find_node`, `execute_cypher_query`, and `dfs`
-  2. search the web and X using `x_search` to gather current facts and developments
+  2. search the web and X using `x_search` to gather current facts and developments — craft detailed research prompts (not just keywords) and use `system_prompt` to shape the output format (e.g., structured tables, thematic analysis, or fact-checking)
   3. SYNTHESIZE: compare what the graph says (the user's existing thinking) with what the web says (latest facts) — highlight what's new, what changed, and what it means for existing positions
 
 ### Typical Query Themes
