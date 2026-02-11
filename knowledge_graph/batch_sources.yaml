@@ -1,663 +1,661 @@
 sources:
-#   - name: ai_news
-#     prompt: >
-#       Retrieve the latest daily AI news summary from news.smol.ai (@smol_ai).
-#       This account curates the most important AI developments of the day.
-
-#       For each notable item, extract and capture:
-
-#       1. **Products (PTC)** — New model releases, API launches, product updates.
-#          Connect each to its vendor (Party via MAKES) and product category
-#          (LTC via IS_REALIZED_BY). Identify what Capabilities they PROVIDE
-#          and what Milestones they REACH.
-
-#       2. **Capabilities and Milestones** — New benchmarks, record scores,
-#          context window expansions, speed improvements, cost reductions.
-#          Capture as Capability + Milestone nodes. Link Milestones to use
-#          cases (LAC) they UNLOCK.
-
-#       3. **Trends** — Recurring themes across the day's news (e.g., open-source
-#          catching up to closed models, cost per token dropping). Capture as
-#          Trend nodes with PREDICTS and LOOKS_AT edges.
-
-#       4. **Ideas** — Notable opinions, predictions, or policy positions mentioned.
-#          Capture as Idea nodes with `argument` and `assumptions` properties.
-
-#       Focus on what is NEW and significant — skip routine updates.
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - smol_ai
-
-#   - name: thought_leaders
-#     prompt: >
-#       Scan posts from key technology thought leaders for high-signal ideas,
-#       predictions, and strategic takes about emerging technologies and the future.
-
-#       For each noteworthy post or thread, extract and capture:
-
-#       1. **Ideas** — Opinions, predictions, warnings, or assessments about
-#          where technology is headed. Capture as Idea nodes. Use `argument`
-#          for reasoning chains, `assumptions` for underlying premises,
-#          `counterargument` for acknowledged opposing views. RELATES_TO
-#          relevant EmTechs, Capabilities, Trends, or other Ideas.
-
-#       2. **Trends** — Patterns or acceleration observations. Capture as Trend
-#          nodes with PREDICTS edges to Capabilities and LOOKS_AT edges to
-#          Milestones.
-
-#       3. **Convergences** — When a leader spots one EmTech accelerating another.
-#          Capture as Convergence with ACCELERATES / IS_ACCELERATED_BY edges.
-
-#       4. **Milestones or announcements** — If they announce or highlight a
-#          concrete achievement, capture the Milestone and connect to Capability
-#          and any products (PTC) involved.
-
-#       Credit the thought leader as a Party node and relate their Ideas to them.
-#       Prioritize non-obvious insights over routine commentary.
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - EMostaque
-#       - elonmusk
-#       - EpochAIResearch
-#       - DavidSacks
-#       - BasedBeffJezos
-
-#   - name: openai_announcements
-#     prompt: >
-#       Track the latest from OpenAI — product launches, research publications,
-#       model updates, API changes, capability improvements, and strategic
-#       announcements.
-
-#       Extract and capture:
-
-#       1. **Products (PTC)** — New models (e.g., GPT-5, o4), API features, tools.
-#          Connect to OpenAI (Party via MAKES), the right product category
-#          (LTC via IS_REALIZED_BY), and Capabilities they PROVIDE.
-
-#       2. **Capabilities and Milestones** — Benchmark improvements, new
-#          abilities (e.g., longer context, multimodal, reasoning). Capture
-#          the Capability and any measurable Milestone (with date if known).
-#          Link Milestones to use cases (LAC) they UNLOCK.
-
-#       3. **Trends** — Patterns in OpenAI's trajectory (e.g., cost reduction
-#          pace, capability curve, API adoption). Capture as Trend nodes.
-
-#       4. **Ideas** — Strategic positions from Sam Altman or Greg Brockman
-#          (e.g., AGI timeline predictions, safety stances). Capture as Idea
-#          nodes with `argument` and `assumptions`. Credit the person as Party.
-
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - OpenAI
-#       - OpenAINewsroom
-#       - OpenAIDevs
-#       - ChatGPTapp
-#       - sama
-#       - gdb
-
-#   - name: xai_updates
-#     prompt: >
-#       Track the latest from xAI — model releases (Grok series), product
-#       updates, research breakthroughs, infrastructure builds, and strategic
-#       announcements from Elon Musk about xAI.
-
-#       Extract and capture:
-
-#       1. **Products (PTC)** — New Grok models, API features, Colossus
-#          infrastructure updates. Connect to xAI (Party via MAKES) and the
-#          right LTC. Capture what Capabilities they PROVIDE.
-
-#       2. **Capabilities and Milestones** — Training scale records, inference
-#          speed benchmarks, new abilities. Capture with dates when available.
-#          Link Milestones to LACs they UNLOCK.
-
-#       3. **Trends** — xAI's growth trajectory, compute scaling patterns,
-#          competitive positioning. Capture as Trend nodes.
-
-#       4. **Ideas** — Elon's takes on AGI, AI safety, open-source vs closed.
-#          Capture as Idea nodes with reasoning.
-
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - xai
-#       - elonmusk
-#       - Grok
-
-#   - name: anthropic_updates
-#     prompt: >
-#       Track the latest from Anthropic — Claude model releases, research
-#       publications (especially on AI safety, interpretability, constitutional
-#       AI), API updates, and strategic announcements.
-
-#       Extract and capture:
-
-#       1. **Products (PTC)** — New Claude models, features, API capabilities.
-#          Connect to Anthropic (Party via MAKES) and the right LTC.
-#          Capture Capabilities they PROVIDE and Milestones they REACH.
-
-#       2. **Capabilities and Milestones** — Safety benchmarks, reasoning
-#          improvements, context window changes, tool use abilities.
-#          Capture with dates. Link to use cases (LAC) they UNLOCK.
-
-#       3. **Ideas** — Dario Amodei's takes on AI risk, scaling laws, safety
-#          approaches. Capture as Idea nodes with `argument`, `assumptions`,
-#          and `counterargument`. Credit as Party.
-
-#       4. **Trends** — Patterns in Anthropic's approach (e.g., safety-first
-#          scaling, interpretability progress). Capture as Trend nodes.
-
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - claudeai
-#       - anthropicAI
-#       - DarioAmodei
-
-#   - name: meta_ai_updates
-#     prompt: >
-#       Track the latest from Meta AI — Llama model releases, open-source AI
-#       research, AR/VR AI integration, and strategic positions from
-#       Yann LeCun and others.
-
-#       Extract and capture:
-
-#       1. **Products (PTC)** — New Llama models, open-source releases, Meta AI
-#          tools. Connect to Meta (Party via MAKES), the right LTC, and
-#          Capabilities they PROVIDE.
-
-#       2. **Capabilities and Milestones** — Open-source model benchmarks,
-#          efficiency improvements (smaller models matching larger ones),
-#          on-device AI achievements. Capture with dates.
-
-#       3. **Ideas** — Yann LeCun's takes on AI architectures (world models,
-#          JEPA), critiques of LLM limitations, open-source philosophy.
-#          Capture as Idea nodes with reasoning. Credit as Party.
-
-#       4. **Convergences** — Where Meta's AI intersects with VR/AR (virtual
-#          reality EmTech). Capture as Convergence nodes.
-
-#       Also capture insights from Alexander Wang (@alexandr_wang) on AI
-#       data, evaluation, and enterprise adoption.
-
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - meta
-#       - ylecun
-#       - alexandr_wang
-
-#   - name: google_research_updates
-#     prompt: >
-#       Track the latest from Google AI, Google DeepMind, and Google Research —
-#       model releases (Gemini series), research breakthroughs, infrastructure
-#       announcements, and scientific AI applications.
-
-#       Extract and capture:
-
-#       1. **Products (PTC)** — Gemini models, TPU generations, AI tools.
-#          Connect to Google/DeepMind (Party via MAKES) and the right LTC.
-#          Capture Capabilities they PROVIDE and Milestones they REACH.
-
-#       2. **Capabilities and Milestones** — Benchmark records, context window
-#          expansions, multimodal abilities, scientific discoveries via AI
-#          (e.g., AlphaFold-style breakthroughs). Capture with dates.
-#          Link Milestones to use cases (LAC) they UNLOCK.
-
-#       3. **Convergences** — Where AI accelerates other sciences (quantum
-#          computing, materials science, biology). Capture as Convergence
-#          nodes with proper EmTech edges.
-
-#       4. **Ideas** — Jeff Dean's and Demis Hassabis's strategic takes on
-#          AI progress, AGI timelines, AI for science. Capture as Idea nodes.
-
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - GoogleAI
-#       - GoogleResearch
-#       - JeffDean
-#       - GoogleDeepMind
-#       - demishassabis
-
-#   - name: nvidia_ai_updates
-#     prompt: >
-#       Track the latest from NVIDIA — GPU launches, AI accelerator chips,
-#       CUDA ecosystem updates, inference/training infrastructure, and
-#       announcements about AI compute scaling.
-
-#       Extract and capture:
-
-#       1. **Products (PTC)** — New GPUs (e.g., B200, Rubin), DGX systems,
-#          software frameworks. Connect to NVIDIA (Party via MAKES) and
-#          the right LTC (e.g., AI Accelerator Chips, GPU).
-#          Capture Capabilities they PROVIDE.
-
-#       2. **Capabilities and Milestones** — Performance benchmarks (FLOPS,
-#          memory bandwidth, inference throughput), power efficiency records,
-#          price/performance improvements. Capture with dates.
-
-#       3. **Trends** — GPU performance scaling curves, AI compute cost
-#          trajectories, supply/demand dynamics. Capture as Trend nodes
-#          that PREDICT compute-related Capabilities.
-
-#       4. **Convergences** — How compute hardware (computing EmTech)
-#          accelerates AI and other EmTechs. Capture as Convergence nodes.
-
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - nvidia
-#       - NVIDIAAI
-
-#   - name: energy_news
-#     prompt: >
-#       Track the latest developments in energy — solar, wind, nuclear, battery
-#       technology, energy storage, smart grid, geothermal, and other energy
-#       production and distribution advances.
-
-#       Extract and capture:
-
-#       1. **Capabilities and Milestones** — New efficiency records (e.g.,
-#          solar cell efficiency %, battery energy density Wh/kg, cost per
-#          kWh). These are the most valuable data points. Capture the
-#          Capability with its unit of measure and the Milestone with date.
-#          Link to use cases (LAC) they UNLOCK.
-
-#       2. **Products (PTC)** — New battery chemistries, solar panels, grid
-#          storage systems, nuclear reactor designs. Connect to manufacturers
-#          (Party via MAKES) and product categories (LTC).
-
-#       3. **Trends** — Cost decline curves, deployment rates, capacity
-#          additions by country. Capture as Trend nodes that PREDICT
-#          energy Capabilities.
-
-#       4. **Convergences** — Where energy advances enable other EmTechs
-#          (e.g., cheap energy enabling AI compute scaling, battery tech
-#          enabling electric transportation). Capture as Convergence nodes
-#          linking the relevant EmTechs.
-
-#       Focus on exponential progress and milestone thresholds.
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - BESTmag_news
-#       - EnergyStorageN
-#       - REWorld
-#       - PVTech
-#       - BatteryPowerMag
-#       - GreentechMedia
-#       - AltEnergyMag
-
-#   - name: crypto_news
-#     prompt: >
-#       Track the latest developments in crypto, blockchain, web3, and
-#       decentralized finance — protocol upgrades, regulatory changes,
-#       adoption milestones, and new platforms.
-
-#       Extract and capture:
-
-#       1. **Capabilities and Milestones** — Transaction throughput records,
-#          gas fee reductions, new DeFi primitives, cross-chain bridges,
-#          adoption thresholds (e.g., active wallets, TVL). Capture
-#          Capability with measure and Milestone with date.
-
-#       2. **Products (PTC)** — New protocols, L2 solutions, wallets, DeFi
-#          platforms. Connect to the building organizations (Party via MAKES)
-#          and product categories (LTC via IS_REALIZED_BY).
-
-#       3. **Trends** — Institutional adoption curves, regulatory direction,
-#          technology convergence with AI. Capture as Trend nodes.
-
-#       4. **Ideas** — Strategic positions on crypto's role in the future
-#          (from Jack Dorsey, Worldcoin team, etc.). Capture as Idea nodes
-#          with reasoning. Credit as Party.
-
-#       5. **Convergences** — Where crypto intersects other EmTechs
-#          (e.g., AI agents using crypto for payments, IoT + blockchain).
-#          Capture as Convergence nodes.
-
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - CoinMarketCap
-#       - CoinDesk
-#       - CoinTelegraph
-#       - worldcoin
-#       - ii_posts
-#       - chia_project
-#       - Bitcoin
-#       - ethereum
-#       - coinbase
-#       - jack
-
-#   - name: synbio_news
-#     prompt: >
-#       Track the latest developments in synthetic biology, gene sequencing,
-#       gene editing (CRISPR), alternative proteins, longevity research,
-#       and digital health.
-
-#       Extract and capture:
-
-#       1. **Capabilities and Milestones** — Sequencing cost per genome,
-#          CRISPR editing precision, protein folding accuracy, longevity
-#          intervention results (lifespan extension in trials). These
-#          exponential curves are the most valuable. Capture Capability
-#          with unit of measure and Milestone with date.
-#          Link to use cases (LAC) they UNLOCK.
-
-#       2. **Products (PTC)** — New sequencers, gene therapies, lab-grown
-#          meat products, longevity drugs. Connect to companies (Party)
-#          and product categories (LTC).
-
-#       3. **Trends** — Cost curves (sequencing, synthesis), regulatory
-#          approvals pace, clinical trial pipelines. Capture as Trend nodes
-#          that PREDICT synbio Capabilities.
-
-#       4. **Convergences** — Where AI accelerates biology (AI protein design,
-#          AI drug discovery), or where synbio enables other fields.
-#          Capture as Convergence nodes linking EmTechs.
-
-#       Focus on exponential progress markers and new capabilities that were
-#       previously impossible. If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - nextmedhealth
-#       - GoodFoodInst
-#       - davidasinclair
-#       - colossal
-
-#   - name: arvr_news
-#     prompt: >
-#       Track the latest developments in augmented reality, virtual reality,
-#       mixed reality, and spatial computing — headsets, spatial apps,
-#       enterprise adoption, and immersive experiences.
-
-#       Extract and capture:
-
-#       1. **Products (PTC)** — New headsets (Meta Quest, Apple Vision Pro,
-#          etc.), spatial computing platforms, AR glasses. Connect to vendors
-#          (Party via MAKES) and product categories (LTC).
-#          Capture Capabilities they PROVIDE and Milestones they REACH.
-
-#       2. **Capabilities and Milestones** — Display resolution, field of view,
-#          tracking precision, passthrough quality, battery life thresholds
-#          that make new use cases viable. Capture with dates.
-#          Link Milestones to use cases (LAC) they UNLOCK.
-
-#       3. **Use cases (LAC)** — New applications in enterprise, education,
-#          healthcare, social, entertainment. Crucial data — hard to find
-#          via web search. Capture and link to the LTCs and Milestones
-#          that enable them.
-
-#       4. **Trends** — Adoption curves, price/performance trajectories,
-#          content ecosystem growth. Capture as Trend nodes.
-
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - RtoVR
-#       - UploadVR
-#       - philiprosedale
-
-#   - name: use_cases
-#     prompt: >
-#       This source focuses on real-world **use cases and applications** of
-#       emerging technologies — the most valuable and hardest-to-find data
-#       for the knowledge graph.
-
-#       Scan posts from these accounts for concrete examples of EmTechs
-#       being applied. For each use case found, extract and capture:
-
-#       1. **Use cases (LAC)** — The abstract application category. What is
-#          being done? (e.g., "AI-Powered Drug Discovery", "3D-Printed
-#          Housing"). Before creating, check if a similar LAC already exists
-#          using `find_node`.
-
-#       2. **Implementations (PAC)** — The specific projects, companies, or
-#          deployments realizing the use case. Connect via IS_REALIZED_BY.
-
-#       3. **Product categories (LTC) and Products (PTC)** — What technologies
-#          make this use case possible? Connect LAC to LTC via USES.
-
-#       4. **Capabilities and Milestones** — What capability threshold had to
-#          be reached for this use case to become viable? Link the enabling
-#          Milestone to the LAC via UNLOCKS.
-
-#       5. **Convergences** — Many use cases emerge from the convergence of
-#          multiple EmTechs. Capture these connections.
-
-#       6. **Parties** — Companies and researchers building these applications.
-
-#       Prioritize use cases that demonstrate capabilities crossing thresholds
-#       — things that were impossible last year but are now happening.
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - IntEngineering
-#       - Dr_Singularity
-#       - dreamingtulpa
-#       - PeterDiamandis
-#       - gunsnrosesgirl3
-#       - kimmonismus
-#       - ScienceAdvances
-#       - NatureComms
-
-#   - name: robot_news
-#     prompt: >
-#       Track the latest developments in robotics — humanoid robots, industrial
-#       automation, autonomous drones, surgical robots, and robotic manipulation.
-
-#       Extract and capture:
-
-#       1. **Products (PTC)** — New robots (Tesla Optimus, Figure, Unitree,
-#          Boston Dynamics). Connect to manufacturers (Party via MAKES) and
-#          product categories (LTC). Capture Capabilities they PROVIDE.
-
-#       2. **Capabilities and Milestones** — Dexterity benchmarks, locomotion
-#          achievements, autonomous task completion rates, cost per unit
-#          thresholds. Capture with dates. Link Milestones to use cases
-#          (LAC) they UNLOCK (e.g., "under $20k humanoid" unlocks
-#          "household robotics").
-
-#       3. **Use cases (LAC)** — Where robots are being deployed: warehouses,
-#          elder care, construction, agriculture. Capture and link to the
-#          LTCs and Milestones that enable them.
-
-#       4. **Trends** — Production ramp rates, cost curves, autonomy levels
-#          over time. Capture as Trend nodes that PREDICT robotics
-#          Capabilities.
-
-#       5. **Convergences** — Where AI accelerates robotics (vision, planning,
-#          dexterity). Capture as Convergence nodes.
-
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - SawyerMerritt
-#       - TheHumanoidHub
-#       - CyberRobooo
-#       - adcock_brett
-#       - TheRundownAI
-
-#   - name: quantum_computing_news
-#     prompt: >
-#       Track the latest developments in quantum computing — qubit counts,
-#       error correction milestones, quantum advantage demonstrations,
-#       and quantum networking.
-
-#       Extract and capture:
-
-#       1. **Products (PTC)** — New quantum processors, quantum computers,
-#          quantum cloud services. Connect to manufacturers (Party via MAKES)
-#          and product categories (LTC). Capture Capabilities they PROVIDE.
-
-#       2. **Capabilities and Milestones** — Qubit counts, coherence times,
-#          error rates, quantum volume scores, first demonstrations of
-#          quantum advantage for specific problems. Capture with dates.
-#          Link Milestones to use cases (LAC) they UNLOCK (e.g., "1000
-#          logical qubits" unlocks "practical quantum chemistry simulation").
-
-#       3. **Trends** — Qubit scaling curves, error rate improvement
-#          trajectories, time-to-fault-tolerant-QC estimates. Capture as
-#          Trend nodes that PREDICT quantum Capabilities.
-
-#       4. **Ideas** — Perspectives from quantum pioneers (Deutsch, Shor,
-#          Preskill, Kurzweil) on quantum computing's trajectory and
-#          potential. Capture as Idea nodes with reasoning. Credit as Party.
-
-#       5. **Convergences** — Where quantum computing intersects AI, materials
-#          science, cryptography. Capture as Convergence nodes.
-
-#       If nothing noteworthy, say 'Nothing noteworthy today.'
-#     source_type: X
-#     handles:
-#       - DavidDeutschOfx
-#       - PeterShor
-#       - raykurzweil
-#       - sethlloyd
-#       - ilyaskhan
-#       - MJBiercuk
-#       - krystasvore
-#       - chadrigetti
-#       - preskill
-
-#   - name: AWD daily singularity ramblings
-#     prompt: >
-#       Alex Wissner-Gross (@AlexWG) publishes a **daily X Article** (long-form,
-#       NOT a regular tweet) about the Singularity and the convergence of
-#       exponential technologies. His articles are high-signal trend-spotting.
-
-#       IMPORTANT: His content is an X Article, not a regular post. To find it:
-#       1. Search his recent posts for a link to his daily X Article
-#          (X Articles have URLs like x.com/AlexWG/article/...)
-#       2. Once you find the article URL, use `x_search` or `perplexity_search`
-#          to read the FULL article content — do not just read the teaser post.
-#       3. If the article is behind a link, use web search to access and read it.
-
-#       Once you have the full article text, extract and capture:
-
-#       1. **Trends** — He identifies exponential curves, inflection points,
-#          and acceleration patterns. Capture as Trend nodes with PREDICTS edges
-#          to Capabilities and LOOKS_AT edges to Milestones.
-
-#       2. **Convergences** — He spots how breakthroughs in one EmTech accelerate
-#          another. Capture as Convergence nodes linked via
-#          ACCELERATES / IS_ACCELERATED_BY edges.
-
-#       3. **Ideas and assessments** — His opinions, predictions, and strategic
-#          takes go into Idea nodes. Use `argument` for reasoning, `assumptions`
-#          for underlying premises, `counterargument` for opposing views.
-
-#       4. **Capabilities and Milestones** — New thresholds or newly possible
-#          things. Connect Milestones to use cases (LAC) they unlock.
-
-#       5. **Products and breakthroughs** — Specific products (PTC), companies
-#          (Party), product categories (LTC) — connect to capabilities and
-#          milestones they reach.
-
-#       Credit Alex Wissner-Gross as a Party node and relate his Ideas and Trends
-#       to him. Focus on the non-obvious connections he draws — that is where
-#       the highest value lies. If no article is found today, just say
-#       'No article found today.'
-#     source_type: X
-#     handles:
-#       - AlexWG
-
-  - name: video_episodes_placeholder
+  - name: ai_news_web
     prompt: >
-      Watch the latest video episode posted by this account in the last 24 hours.
-      Use x_search with video understanding to process the full video content.
+      Retrieve the latest daily AI news summary from news.smol.ai.
+      This site curates the most important AI developments of the day.
 
-      For each episode, extract and capture:
+      For each notable item, extract and capture:
 
-      1. **Ideas** — Key arguments, predictions, and assessments presented in
-         the episode. Capture as Idea nodes with `argument` for reasoning chains,
-         `assumptions` for underlying premises, and `counterargument` for
-         acknowledged opposing views. RELATES_TO relevant EmTechs, Capabilities,
-         Trends, or other Ideas.
+      1. **Products (PTC)** — New model releases, API launches, product updates.
+         Connect each to its vendor (Party via MAKES) and product category
+         (LTC via IS_REALIZED_BY). Identify what Capabilities they PROVIDE
+         and what Milestones they REACH.
 
-      2. **Trends** — Patterns, acceleration observations, or exponential curves
-         discussed. Capture as Trend nodes with PREDICTS edges to Capabilities
-         and LOOKS_AT edges to Milestones.
+      2. **Capabilities and Milestones** — New benchmarks, record scores,
+         context window expansions, speed improvements, cost reductions.
+         Capture as Capability + Milestone nodes. Link Milestones to use
+         cases (LAC) they UNLOCK.
 
-      3. **Convergences** — When the episode discusses one EmTech accelerating
-         another. Capture as Convergence with ACCELERATES / IS_ACCELERATED_BY.
+      3. **Trends** — Recurring themes across the day's news (e.g., open-source
+         catching up to closed models, cost per token dropping). Capture as
+         Trend nodes with PREDICTS and LOOKS_AT edges.
 
-      4. **Capabilities and Milestones** — New thresholds, benchmarks, or
-         achievements discussed. Capture with dates when mentioned.
+      4. **Ideas** — Notable opinions, predictions, or policy positions mentioned.
+         Capture as Idea nodes with `argument` and `assumptions` properties.
+
+      Focus on what is NEW and significant — skip routine updates.
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: Web
+    url: "https://news.smol.ai"
+  - name: thought_leaders
+    prompt: >
+      Scan posts from key technology thought leaders for high-signal ideas,
+      predictions, and strategic takes about emerging technologies and the future.
+
+      For each noteworthy post or thread, extract and capture:
+
+      1. **Ideas** — Opinions, predictions, warnings, or assessments about
+         where technology is headed. Capture as Idea nodes. Use `argument`
+         for reasoning chains, `assumptions` for underlying premises,
+         `counterargument` for acknowledged opposing views. RELATES_TO
+         relevant EmTechs, Capabilities, Trends, or other Ideas.
+
+      2. **Trends** — Patterns or acceleration observations. Capture as Trend
+         nodes with PREDICTS edges to Capabilities and LOOKS_AT edges to
+         Milestones.
+
+      3. **Convergences** — When a leader spots one EmTech accelerating another.
+         Capture as Convergence with ACCELERATES / IS_ACCELERATED_BY edges.
+
+      4. **Milestones or announcements** — If they announce or highlight a
+         concrete achievement, capture the Milestone and connect to Capability
+         and any products (PTC) involved.
+
+      Credit the thought leader as a Party node and relate their Ideas to them.
+      Prioritize non-obvious insights over routine commentary.
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - EMostaque
+      - elonmusk
+      - EpochAIResearch
+      - DavidSacks
+      - BasedBeffJezos
+
+  - name: openai_announcements
+    prompt: >
+      Track the latest from OpenAI — product launches, research publications,
+      model updates, API changes, capability improvements, and strategic
+      announcements.
+
+      Extract and capture:
+
+      1. **Products (PTC)** — New models (e.g., GPT-5, o4), API features, tools.
+         Connect to OpenAI (Party via MAKES), the right product category
+         (LTC via IS_REALIZED_BY), and Capabilities they PROVIDE.
+
+      2. **Capabilities and Milestones** — Benchmark improvements, new
+         abilities (e.g., longer context, multimodal, reasoning). Capture
+         the Capability and any measurable Milestone (with date if known).
          Link Milestones to use cases (LAC) they UNLOCK.
 
-      5. **Products (PTC) and Parties** — Specific products, companies, or
-         people mentioned. Connect via appropriate relationships.
+      3. **Trends** — Patterns in OpenAI's trajectory (e.g., cost reduction
+         pace, capability curve, API adoption). Capture as Trend nodes.
 
-      Credit the episode host as a Party node and relate their Ideas and Trends
-      to them. If no new episode was posted in the last 24 hours,
-      say 'No new episode today.'
-    source_type: X-Video
+      4. **Ideas** — Strategic positions from Sam Altman or Greg Brockman
+         (e.g., AGI timeline predictions, safety stances). Capture as Idea
+         nodes with `argument` and `assumptions`. Credit the person as Party.
+
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
     handles:
-      - ti_morse
+      - OpenAI
+      - OpenAINewsroom
+      - OpenAIDevs
+      - ChatGPTapp
+      - sama
+      - gdb
 
-#   - name: all_in_podcast
+  - name: xai_updates
+    prompt: >
+      Track the latest from xAI — model releases (Grok series), product
+      updates, research breakthroughs, infrastructure builds, and strategic
+      announcements from Elon Musk about xAI.
+
+      Extract and capture:
+
+      1. **Products (PTC)** — New Grok models, API features, Colossus
+         infrastructure updates. Connect to xAI (Party via MAKES) and the
+         right LTC. Capture what Capabilities they PROVIDE.
+
+      2. **Capabilities and Milestones** — Training scale records, inference
+         speed benchmarks, new abilities. Capture with dates when available.
+         Link Milestones to LACs they UNLOCK.
+
+      3. **Trends** — xAI's growth trajectory, compute scaling patterns,
+         competitive positioning. Capture as Trend nodes.
+
+      4. **Ideas** — Elon's takes on AGI, AI safety, open-source vs closed.
+         Capture as Idea nodes with reasoning.
+
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - xai
+      - elonmusk
+      - Grok
+
+  - name: anthropic_updates
+    prompt: >
+      Track the latest from Anthropic — Claude model releases, research
+      publications (especially on AI safety, interpretability, constitutional
+      AI), API updates, and strategic announcements.
+
+      Extract and capture:
+
+      1. **Products (PTC)** — New Claude models, features, API capabilities.
+         Connect to Anthropic (Party via MAKES) and the right LTC.
+         Capture Capabilities they PROVIDE and Milestones they REACH.
+
+      2. **Capabilities and Milestones** — Safety benchmarks, reasoning
+         improvements, context window changes, tool use abilities.
+         Capture with dates. Link to use cases (LAC) they UNLOCK.
+
+      3. **Ideas** — Dario Amodei's takes on AI risk, scaling laws, safety
+         approaches. Capture as Idea nodes with `argument`, `assumptions`,
+         and `counterargument`. Credit as Party.
+
+      4. **Trends** — Patterns in Anthropic's approach (e.g., safety-first
+         scaling, interpretability progress). Capture as Trend nodes.
+
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - claudeai
+      - anthropicAI
+      - DarioAmodei
+
+  - name: meta_ai_updates
+    prompt: >
+      Track the latest from Meta AI — Llama model releases, open-source AI
+      research, AR/VR AI integration, and strategic positions from
+      Yann LeCun and others.
+
+      Extract and capture:
+
+      1. **Products (PTC)** — New Llama models, open-source releases, Meta AI
+         tools. Connect to Meta (Party via MAKES), the right LTC, and
+         Capabilities they PROVIDE.
+
+      2. **Capabilities and Milestones** — Open-source model benchmarks,
+         efficiency improvements (smaller models matching larger ones),
+         on-device AI achievements. Capture with dates.
+
+      3. **Ideas** — Yann LeCun's takes on AI architectures (world models,
+         JEPA), critiques of LLM limitations, open-source philosophy.
+         Capture as Idea nodes with reasoning. Credit as Party.
+
+      4. **Convergences** — Where Meta's AI intersects with VR/AR (virtual
+         reality EmTech). Capture as Convergence nodes.
+
+      Also capture insights from Alexander Wang (@alexandr_wang) on AI
+      data, evaluation, and enterprise adoption.
+
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - meta
+      - ylecun
+      - alexandr_wang
+
+  - name: google_research_updates
+    prompt: >
+      Track the latest from Google AI, Google DeepMind, and Google Research —
+      model releases (Gemini series), research breakthroughs, infrastructure
+      announcements, and scientific AI applications.
+
+      Extract and capture:
+
+      1. **Products (PTC)** — Gemini models, TPU generations, AI tools.
+         Connect to Google/DeepMind (Party via MAKES) and the right LTC.
+         Capture Capabilities they PROVIDE and Milestones they REACH.
+
+      2. **Capabilities and Milestones** — Benchmark records, context window
+         expansions, multimodal abilities, scientific discoveries via AI
+         (e.g., AlphaFold-style breakthroughs). Capture with dates.
+         Link Milestones to use cases (LAC) they UNLOCK.
+
+      3. **Convergences** — Where AI accelerates other sciences (quantum
+         computing, materials science, biology). Capture as Convergence
+         nodes with proper EmTech edges.
+
+      4. **Ideas** — Jeff Dean's and Demis Hassabis's strategic takes on
+         AI progress, AGI timelines, AI for science. Capture as Idea nodes.
+
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - GoogleAI
+      - GoogleResearch
+      - JeffDean
+      - GoogleDeepMind
+      - demishassabis
+
+  - name: nvidia_ai_updates
+    prompt: >
+      Track the latest from NVIDIA — GPU launches, AI accelerator chips,
+      CUDA ecosystem updates, inference/training infrastructure, and
+      announcements about AI compute scaling.
+
+      Extract and capture:
+
+      1. **Products (PTC)** — New GPUs (e.g., B200, Rubin), DGX systems,
+         software frameworks. Connect to NVIDIA (Party via MAKES) and
+         the right LTC (e.g., AI Accelerator Chips, GPU).
+         Capture Capabilities they PROVIDE.
+
+      2. **Capabilities and Milestones** — Performance benchmarks (FLOPS,
+         memory bandwidth, inference throughput), power efficiency records,
+         price/performance improvements. Capture with dates.
+
+      3. **Trends** — GPU performance scaling curves, AI compute cost
+         trajectories, supply/demand dynamics. Capture as Trend nodes
+         that PREDICT compute-related Capabilities.
+
+      4. **Convergences** — How compute hardware (computing EmTech)
+         accelerates AI and other EmTechs. Capture as Convergence nodes.
+
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - nvidia
+      - NVIDIAAI
+
+  - name: energy_news
+    prompt: >
+      Track the latest developments in energy — solar, wind, nuclear, battery
+      technology, energy storage, smart grid, geothermal, and other energy
+      production and distribution advances.
+
+      Extract and capture:
+
+      1. **Capabilities and Milestones** — New efficiency records (e.g.,
+         solar cell efficiency %, battery energy density Wh/kg, cost per
+         kWh). These are the most valuable data points. Capture the
+         Capability with its unit of measure and the Milestone with date.
+         Link to use cases (LAC) they UNLOCK.
+
+      2. **Products (PTC)** — New battery chemistries, solar panels, grid
+         storage systems, nuclear reactor designs. Connect to manufacturers
+         (Party via MAKES) and product categories (LTC).
+
+      3. **Trends** — Cost decline curves, deployment rates, capacity
+         additions by country. Capture as Trend nodes that PREDICT
+         energy Capabilities.
+
+      4. **Convergences** — Where energy advances enable other EmTechs
+         (e.g., cheap energy enabling AI compute scaling, battery tech
+         enabling electric transportation). Capture as Convergence nodes
+         linking the relevant EmTechs.
+
+      Focus on exponential progress and milestone thresholds.
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - BESTmag_news
+      - EnergyStorageN
+      - REWorld
+      - PVTech
+      - BatteryPowerMag
+      - GreentechMedia
+      - AltEnergyMag
+
+  - name: crypto_news
+    prompt: >
+      Track the latest developments in crypto, blockchain, web3, and
+      decentralized finance — protocol upgrades, regulatory changes,
+      adoption milestones, and new platforms.
+
+      Extract and capture:
+
+      1. **Capabilities and Milestones** — Transaction throughput records,
+         gas fee reductions, new DeFi primitives, cross-chain bridges,
+         adoption thresholds (e.g., active wallets, TVL). Capture
+         Capability with measure and Milestone with date.
+
+      2. **Products (PTC)** — New protocols, L2 solutions, wallets, DeFi
+         platforms. Connect to the building organizations (Party via MAKES)
+         and product categories (LTC via IS_REALIZED_BY).
+
+      3. **Trends** — Institutional adoption curves, regulatory direction,
+         technology convergence with AI. Capture as Trend nodes.
+
+      4. **Ideas** — Strategic positions on crypto's role in the future
+         (from Jack Dorsey, Worldcoin team, etc.). Capture as Idea nodes
+         with reasoning. Credit as Party.
+
+      5. **Convergences** — Where crypto intersects other EmTechs
+         (e.g., AI agents using crypto for payments, IoT + blockchain).
+         Capture as Convergence nodes.
+
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - CoinMarketCap
+      - CoinDesk
+      - CoinTelegraph
+      - worldcoin
+      - ii_posts
+      - chia_project
+      - Bitcoin
+      - ethereum
+      - coinbase
+      - jack
+
+  - name: synbio_news
+    prompt: >
+      Track the latest developments in synthetic biology, gene sequencing,
+      gene editing (CRISPR), alternative proteins, longevity research,
+      and digital health.
+
+      Extract and capture:
+
+      1. **Capabilities and Milestones** — Sequencing cost per genome,
+         CRISPR editing precision, protein folding accuracy, longevity
+         intervention results (lifespan extension in trials). These
+         exponential curves are the most valuable. Capture Capability
+         with unit of measure and Milestone with date.
+         Link to use cases (LAC) they UNLOCK.
+
+      2. **Products (PTC)** — New sequencers, gene therapies, lab-grown
+         meat products, longevity drugs. Connect to companies (Party)
+         and product categories (LTC).
+
+      3. **Trends** — Cost curves (sequencing, synthesis), regulatory
+         approvals pace, clinical trial pipelines. Capture as Trend nodes
+         that PREDICT synbio Capabilities.
+
+      4. **Convergences** — Where AI accelerates biology (AI protein design,
+         AI drug discovery), or where synbio enables other fields.
+         Capture as Convergence nodes linking EmTechs.
+
+      Focus on exponential progress markers and new capabilities that were
+      previously impossible. If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - nextmedhealth
+      - GoodFoodInst
+      - davidasinclair
+      - colossal
+
+  - name: arvr_news
+    prompt: >
+      Track the latest developments in augmented reality, virtual reality,
+      mixed reality, and spatial computing — headsets, spatial apps,
+      enterprise adoption, and immersive experiences.
+
+      Extract and capture:
+
+      1. **Products (PTC)** — New headsets (Meta Quest, Apple Vision Pro,
+         etc.), spatial computing platforms, AR glasses. Connect to vendors
+         (Party via MAKES) and product categories (LTC).
+         Capture Capabilities they PROVIDE and Milestones they REACH.
+
+      2. **Capabilities and Milestones** — Display resolution, field of view,
+         tracking precision, passthrough quality, battery life thresholds
+         that make new use cases viable. Capture with dates.
+         Link Milestones to use cases (LAC) they UNLOCK.
+
+      3. **Use cases (LAC)** — New applications in enterprise, education,
+         healthcare, social, entertainment. Crucial data — hard to find
+         via web search. Capture and link to the LTCs and Milestones
+         that enable them.
+
+      4. **Trends** — Adoption curves, price/performance trajectories,
+         content ecosystem growth. Capture as Trend nodes.
+
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - RtoVR
+      - UploadVR
+      - philiprosedale
+
+  - name: use_cases
+    prompt: >
+      This source focuses on real-world **use cases and applications** of
+      emerging technologies — the most valuable and hardest-to-find data
+      for the knowledge graph.
+
+      Scan posts from these accounts for concrete examples of EmTechs
+      being applied. For each use case found, extract and capture:
+
+      1. **Use cases (LAC)** — The abstract application category. What is
+         being done? (e.g., "AI-Powered Drug Discovery", "3D-Printed
+         Housing"). Before creating, check if a similar LAC already exists
+         using `find_node`.
+
+      2. **Implementations (PAC)** — The specific projects, companies, or
+         deployments realizing the use case. Connect via IS_REALIZED_BY.
+
+      3. **Product categories (LTC) and Products (PTC)** — What technologies
+         make this use case possible? Connect LAC to LTC via USES.
+
+      4. **Capabilities and Milestones** — What capability threshold had to
+         be reached for this use case to become viable? Link the enabling
+         Milestone to the LAC via UNLOCKS.
+
+      5. **Convergences** — Many use cases emerge from the convergence of
+         multiple EmTechs. Capture these connections.
+
+      6. **Parties** — Companies and researchers building these applications.
+
+      Prioritize use cases that demonstrate capabilities crossing thresholds
+      — things that were impossible last year but are now happening.
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - IntEngineering
+      - Dr_Singularity
+      - dreamingtulpa
+      - PeterDiamandis
+      - gunsnrosesgirl3
+      - kimmonismus
+      - ScienceAdvances
+      - NatureComms
+
+  - name: robot_news
+    prompt: >
+      Track the latest developments in robotics — humanoid robots, industrial
+      automation, autonomous drones, surgical robots, and robotic manipulation.
+
+      Extract and capture:
+
+      1. **Products (PTC)** — New robots (Tesla Optimus, Figure, Unitree,
+         Boston Dynamics). Connect to manufacturers (Party via MAKES) and
+         product categories (LTC). Capture Capabilities they PROVIDE.
+
+      2. **Capabilities and Milestones** — Dexterity benchmarks, locomotion
+         achievements, autonomous task completion rates, cost per unit
+         thresholds. Capture with dates. Link Milestones to use cases
+         (LAC) they UNLOCK (e.g., "under $20k humanoid" unlocks
+         "household robotics").
+
+      3. **Use cases (LAC)** — Where robots are being deployed: warehouses,
+         elder care, construction, agriculture. Capture and link to the
+         LTCs and Milestones that enable them.
+
+      4. **Trends** — Production ramp rates, cost curves, autonomy levels
+         over time. Capture as Trend nodes that PREDICT robotics
+         Capabilities.
+
+      5. **Convergences** — Where AI accelerates robotics (vision, planning,
+         dexterity). Capture as Convergence nodes.
+
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - SawyerMerritt
+      - TheHumanoidHub
+      - CyberRobooo
+      - adcock_brett
+      - TheRundownAI
+
+  - name: quantum_computing_news
+    prompt: >
+      Track the latest developments in quantum computing — qubit counts,
+      error correction milestones, quantum advantage demonstrations,
+      and quantum networking.
+
+      Extract and capture:
+
+      1. **Products (PTC)** — New quantum processors, quantum computers,
+         quantum cloud services. Connect to manufacturers (Party via MAKES)
+         and product categories (LTC). Capture Capabilities they PROVIDE.
+
+      2. **Capabilities and Milestones** — Qubit counts, coherence times,
+         error rates, quantum volume scores, first demonstrations of
+         quantum advantage for specific problems. Capture with dates.
+         Link Milestones to use cases (LAC) they UNLOCK (e.g., "1000
+         logical qubits" unlocks "practical quantum chemistry simulation").
+
+      3. **Trends** — Qubit scaling curves, error rate improvement
+         trajectories, time-to-fault-tolerant-QC estimates. Capture as
+         Trend nodes that PREDICT quantum Capabilities.
+
+      4. **Ideas** — Perspectives from quantum pioneers (Deutsch, Shor,
+         Preskill, Kurzweil) on quantum computing's trajectory and
+         potential. Capture as Idea nodes with reasoning. Credit as Party.
+
+      5. **Convergences** — Where quantum computing intersects AI, materials
+         science, cryptography. Capture as Convergence nodes.
+
+      If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - DavidDeutschOfx
+      - PeterShor
+      - raykurzweil
+      - sethlloyd
+      - ilyaskhan
+      - MJBiercuk
+      - krystasvore
+      - chadrigetti
+      - preskill
+
+  - name: AWG daily singularity ramblings
+    prompt: >
+      Alex Wissner-Gross (@AlexWG) publishes a **daily X Article** (long-form,
+      NOT a regular tweet) about the Singularity and the convergence of
+      exponential technologies. His articles are high-signal trend-spotting.
+
+      IMPORTANT: His content is an X Article, not a regular post. To find it:
+      1. Search his recent posts for a link to his daily X Article
+         (X Articles have URLs like x.com/AlexWG/article/...)
+      2. Once you find the article URL, use `x_search` or `perplexity_search`
+         to read the FULL article content — do not just read the teaser post.
+      3. If the article is behind a link, use web search to access and read it.
+
+      Once you have the full article text, extract and capture:
+
+      1. **Trends** — He identifies exponential curves, inflection points,
+         and acceleration patterns. Capture as Trend nodes with PREDICTS edges
+         to Capabilities and LOOKS_AT edges to Milestones.
+
+      2. **Convergences** — He spots how breakthroughs in one EmTech accelerate
+         another. Capture as Convergence nodes linked via
+         ACCELERATES / IS_ACCELERATED_BY edges.
+
+      3. **Ideas and assessments** — His opinions, predictions, and strategic
+         takes go into Idea nodes. Use `argument` for reasoning, `assumptions`
+         for underlying premises, `counterargument` for opposing views.
+
+      4. **Capabilities and Milestones** — New thresholds or newly possible
+         things. Connect Milestones to use cases (LAC) they unlock.
+
+      5. **Products and breakthroughs** — Specific products (PTC), companies
+         (Party), product categories (LTC) — connect to capabilities and
+         milestones they reach.
+
+      Credit Alex Wissner-Gross as a Party node and relate his Ideas and Trends
+      to him. Focus on the non-obvious connections he draws — that is where
+      the highest value lies. If no article is found today, just say
+      'No article found today.'
+    source_type: X
+    handles:
+      - AlexWG
+
+#   - name: video_episodes_placeholder
 #     prompt: >
-#       Analyze the transcript of the latest All-In Podcast episode.
-#       Extract and capture:
+#       Watch the latest video episode posted by this account in the last 24 hours.
+#       Use x_search with video understanding to process the full video content.
 
-#       1. **Ideas** — Opinions, predictions, and strategic takes from
-#          the hosts (Chamath, Jason, Sacks, Friedberg) on technology,
-#          markets, policy, and geopolitics. Capture as Idea nodes with
-#          `argument`, `assumptions`, and `counterargument`. Credit each
-#          host as a Party node.
+#       For each episode, extract and capture:
 
-#       2. **Trends** — Recurring themes and patterns they identify.
-#          Capture as Trend nodes with PREDICTS edges to Capabilities.
+#       1. **Ideas** — Key arguments, predictions, and assessments presented in
+#          the episode. Capture as Idea nodes with `argument` for reasoning chains,
+#          `assumptions` for underlying premises, and `counterargument` for
+#          acknowledged opposing views. RELATES_TO relevant EmTechs, Capabilities,
+#          Trends, or other Ideas.
 
-#       3. **Products and Companies (PTC/Party)** — Companies and products
-#          discussed. Connect via MAKES and IS_REALIZED_BY.
+#       2. **Trends** — Patterns, acceleration observations, or exponential curves
+#          discussed. Capture as Trend nodes with PREDICTS edges to Capabilities
+#          and LOOKS_AT edges to Milestones.
 
-#       4. **Convergences** — Where one EmTech accelerates another.
-#          Capture as Convergence nodes.
-
-#       If the transcript is trivial or not tech-related, say
-#       'Nothing noteworthy in this episode.'
-#     source_type: YouTube
-#     channel_url: "https://www.youtube.com/@alaborin"
-
-#   - name: moonshots_podcast
-#     prompt: >
-#       Analyze the transcript of the latest Moonshots podcast episode
-#       by Peter Diamandis. His podcast covers exponential technologies,
-#       abundance thinking, longevity, and moonshot ventures.
-
-#       Extract and capture:
-
-#       1. **Ideas** — Peter's predictions, strategic takes, and assessments
-#          about exponential technologies, abundance, AGI timelines, longevity
-#          breakthroughs, and space ventures. Capture as Idea nodes with
-#          `argument`, `assumptions`, and `counterargument`. Credit Peter
-#          Diamandis and any guests as Party nodes.
-
-#       2. **Trends** — Exponential curves, cost decline trajectories,
-#          performance improvement rates he identifies. Capture as Trend
-#          nodes with PREDICTS edges to Capabilities and LOOKS_AT edges
-#          to Milestones.
-
-#       3. **Convergences** — Where one EmTech accelerates another (this is
-#          a core Diamandis theme). Capture as Convergence nodes with
-#          ACCELERATES / IS_ACCELERATED_BY edges.
+#       3. **Convergences** — When the episode discusses one EmTech accelerating
+#          another. Capture as Convergence with ACCELERATES / IS_ACCELERATED_BY.
 
 #       4. **Capabilities and Milestones** — New thresholds, benchmarks, or
-#          breakthroughs discussed. Capture with dates when mentioned.
+#          achievements discussed. Capture with dates when mentioned.
 #          Link Milestones to use cases (LAC) they UNLOCK.
 
-#       5. **Products and Companies (PTC/Party)** — Specific companies,
-#          products, or ventures discussed (especially XPRIZE, Abundance360,
-#          guest companies). Connect via MAKES and IS_REALIZED_BY.
+#       5. **Products (PTC) and Parties** — Specific products, companies, or
+#          people mentioned. Connect via appropriate relationships.
 
-#       If the transcript is trivial or not tech-related, say
-#       'Nothing noteworthy in this episode.'
-#     source_type: YouTube
-#     channel_url: "https://www.youtube.com/@peterdiamandis"
+#       Credit the episode host as a Party node and relate their Ideas and Trends
+#       to them. If no new episode was posted in the last 24 hours,
+#       say 'No new episode today.'
+#     source_type: X-Video
+#     handles:
+#       - ti_morse
+
+  - name: all_in_podcast
+    prompt: >
+      Analyze the transcript of the latest All-In Podcast episode.
+      Extract and capture:
+
+      1. **Ideas** — Opinions, predictions, and strategic takes from
+         the hosts (Chamath, Jason, Sacks, Friedberg) on technology,
+         markets, policy, and geopolitics. Capture as Idea nodes with
+         `argument`, `assumptions`, and `counterargument`. Credit each
+         host as a Party node.
+
+      2. **Trends** — Recurring themes and patterns they identify.
+         Capture as Trend nodes with PREDICTS edges to Capabilities.
+
+      3. **Products and Companies (PTC/Party)** — Companies and products
+         discussed. Connect via MAKES and IS_REALIZED_BY.
+
+      4. **Convergences** — Where one EmTech accelerates another.
+         Capture as Convergence nodes.
+
+      If the transcript is trivial or not tech-related, say
+      'Nothing noteworthy in this episode.'
+    source_type: YouTube
+    channel_url: "https://www.youtube.com/@allin"
+  
+  - name: moonshots_podcast
+    prompt: >
+      Analyze the transcript of the latest Moonshots podcast episode
+      by Peter Diamandis. His podcast covers exponential technologies,
+      abundance thinking, longevity, and moonshot ventures.
+
+      Extract and capture:
+
+      1. **Ideas** — Peter's predictions, strategic takes, and assessments
+         about exponential technologies, abundance, AGI timelines, longevity
+         breakthroughs, and space ventures. Capture as Idea nodes with
+         `argument`, `assumptions`, and `counterargument`. Credit Peter
+         Diamandis and any guests as Party nodes.
+
+      2. **Trends** — Exponential curves, cost decline trajectories,
+         performance improvement rates he identifies. Capture as Trend
+         nodes with PREDICTS edges to Capabilities and LOOKS_AT edges
+         to Milestones.
+
+      3. **Convergences** — Where one EmTech accelerates another (this is
+         a core Diamandis theme). Capture as Convergence nodes with
+         ACCELERATES / IS_ACCELERATED_BY edges.
+
+      4. **Capabilities and Milestones** — New thresholds, benchmarks, or
+         breakthroughs discussed. Capture with dates when mentioned.
+         Link Milestones to use cases (LAC) they UNLOCK.
+
+      5. **Products and Companies (PTC/Party)** — Specific companies,
+         products, or ventures discussed (especially XPRIZE, Abundance360,
+         guest companies). Connect via MAKES and IS_REALIZED_BY.
+
+      If the transcript is trivial or not tech-related, say
+      'Nothing noteworthy in this episode.'
+    source_type: YouTube
+    channel_url: "https://www.youtube.com/@peterdiamandis"

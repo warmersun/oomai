@@ -189,6 +189,15 @@ async def main() -> None:
                 f"Process the full video content into the knowledge graph as instructed above."
             )
 
+        elif source_type == "Web" and "url" in source:
+            url = source.get("url")
+            prompt += (
+                f"\n\n[Source: Web site {url}, last 24 hours]\n"
+                f"IMPORTANT: This is a WEB source. Use x_search to check {url} for new articles "
+                f"or pages published in the last 24 hours. Do NOT restrict the search to any X handles. "
+                f"Read the full content of any new items found and process them into the knowledge graph."
+            )
+
         else:
             logger.error(f"Unknown source type: {source_type} or missing required parameters")
             continue
