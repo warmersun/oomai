@@ -431,6 +431,11 @@ TOOLS_DEFINITIONS = {
         If omitted, defaults to a generic "Search on X and return a detailed summary." which produces acceptable but less targeted results.""",
                      "default": "Search on X and return a detailed summary.",
                  },
+                 "enable_video": {
+                     "type": "boolean",
+                     "description": "When true, enables video understanding. The search agent will watch and transcribe video content found in X posts or web pages.",
+                     "default": False,
+                 },
              },
              "required": ["prompt"]
          }),

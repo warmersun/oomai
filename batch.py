@@ -17,6 +17,7 @@ from function_tools import (
     core_dfs,
     core_x_search,
     core_perplexity_search,
+    fetch_recent_transcripts,
     GraphOpsCtx,
     TOOLS_DEFINITIONS,
 )
@@ -76,7 +77,7 @@ def create_response(xai_client, prompt: str):
     return chat
 
 # Function to process the chat - no streaming needed
-async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client, xai_client):
+async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client, xai_client, is_video_source=False):
     error_count = 0
     counter = 0
 
@@ -112,6 +113,8 @@ async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client, 
                 # x_search needs extra args, to have the xai client
                 if function_name == "x_search":
                     function_args["xai_client"] = xai_client
+                    if is_video_source:
+                        function_args["enable_video"] = True
 
                 result = await AVAILABLE_FUNCTIONS[function_name](**function_args)
 
@@ -154,12 +157,40 @@ async def main() -> None:
 
         logger.info(f"\n\nProcessing {source.get('name')}")
 
-        # Append source info to the prompt instead of building search_parameters
-        if source.get("source_type") == "X" and "handles" in source:
+        # Append source info to the prompt based on source type
+        source_type = source.get("source_type")
+        is_video_source = False
+
+        if source_type == "X" and "handles" in source:
             handles_str = ", ".join(source.get("handles", []))
             prompt += f"\n\n[Source: X handles {handles_str}, last 24 hours]"
+
+        elif source_type == "YouTube" and "channel_url" in source:
+            logger.info(f"Fetching recent transcripts from {source['channel_url']}")
+            transcripts = await fetch_recent_transcripts(source["channel_url"])
+            if not transcripts:
+                logger.info(f"No new episodes found for {source.get('name')} — skipping.")
+                continue
+            transcript_text = ""
+            for t in transcripts:
+                transcript_text += f"\n\n--- Episode: {t['title']} ({t['url']}) ---\n{t['transcript']}"
+            prompt += f"\n\n[Source: YouTube channel transcript]\n{transcript_text}"
+            logger.info(f"Found {len(transcripts)} new episode(s) for {source.get('name')}")
+
+        elif source_type == "X-Video" and "handles" in source:
+            is_video_source = True
+            handles_str = ", ".join(source.get("handles", []))
+            prompt += (
+                f"\n\n[Source: X-Video from handles {handles_str}, last 24 hours]\n"
+                f"IMPORTANT: This is a VIDEO source. Use x_search with the included_handles "
+                f"parameter set to [{handles_str}] and last_24hrs=true to find the latest "
+                f"video episode from this account. The x_search tool has video understanding "
+                f"enabled for this source — it will watch and transcribe the video content. "
+                f"Process the full video content into the knowledge graph as instructed above."
+            )
+
         else:
-            logger.error(f"Unknown source type: {source.get('source_type')} or missing required parameters")
+            logger.error(f"Unknown source type: {source_type} or missing required parameters")
             continue
 
         lock = asyncio.Lock()
@@ -168,7 +199,7 @@ async def main() -> None:
         try:
             logger.info("Now processing content from sources into the knowledge graph using Grok-4-fast with built-in search.")
             chat = create_response(xai_client, prompt)
-            await process(chat, ctx, groq_client, openai_embedding_client, xai_client)
+            await process(chat, ctx, groq_client, openai_embedding_client, xai_client, is_video_source=is_video_source)
             logger.info(f"✅ Processed {source.get('name')} successfully.")
         except Exception as e:
             logger.error(f"❌ Error while processing {source.get('name')}: {str(e)}")

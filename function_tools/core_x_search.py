@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from xai_sdk.chat import system, user
 from xai_sdk.tools import web_search, x_search
 from xai_sdk import AsyncClient
@@ -12,6 +12,7 @@ async def core_x_search(
     included_handles: Optional[List[str]] = None,
     last_24hrs: Optional[bool] = False, 
     system_prompt:Optional[str] = None,
+    enable_video: Optional[bool] = False,
 ) -> str:
     """Agentic search on X and web."""
     logging.info(f"""
@@ -26,10 +27,10 @@ input parameters:
     tools = [
         web_search(excluded_domains=["wikipedia.org", "gartner.com", "weforum.com", "forbes.com", "accenture.com"], enable_image_understanding=True), 
     ]
-    x_search_params = {'enable_image_understanding': True, 'enable_video_understanding': False}
+    x_search_params = {'enable_image_understanding': True, 'enable_video_understanding': enable_video}
 
     if last_24hrs:
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         from_date = now - timedelta(hours=24)
         to_date = now
         x_search_params['from_date'] = from_date

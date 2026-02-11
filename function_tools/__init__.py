@@ -22,4 +22,5 @@ from .visual_ops import display_predefined_answers_as_buttons
 from .core_x_search import core_x_search
 from .chainlit_x_search import x_search
 from .core_perplexity_search import core_perplexity_search
+from .youtube_transcript import fetch_recent_transcripts
 from .tool_def import TOOLS_DEFINITIONS
