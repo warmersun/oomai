@@ -32,6 +32,7 @@ async def process_stream(user_input: str, ctx: Any,
     # Create chat session
     chat = xai_client.chat.create(
         model="grok-4-1-fast",
+        reasoning_effort="high",
         tools=tools,
         tool_choice="auto",
         user="tamas.simon@warmersun.com",

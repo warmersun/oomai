@@ -101,6 +101,7 @@ TOOLS_EDIT = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
+    TOOLS_DEFINITIONS["display_predefined_answers_as_buttons"],
 ]
 
 TOOLS_READONLY = [
@@ -115,6 +116,7 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
+    TOOLS_DEFINITIONS["display_predefined_answers_as_buttons"],
 ]
 
 TOOLS_LEARNING = [
@@ -145,6 +147,7 @@ AVAILABLE_FUNCTIONS_EDIT = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
+    "display_predefined_answers_as_buttons": display_predefined_answers_as_buttons,
 }
 
 AVAILABLE_FUNCTIONS_READONLY = {
@@ -159,6 +162,7 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
+    "display_predefined_answers_as_buttons": display_predefined_answers_as_buttons,
 }
 
 AVAILABLE_FUNCTIONS_LEARNING = {
@@ -172,8 +176,7 @@ AVAILABLE_FUNCTIONS_LEARNING = {
     "display_mermaid_diagram": display_mermaid_diagram,
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
-    "display_predefined_answers_as_buttons":
-    display_predefined_answers_as_buttons,
+    "display_predefined_answers_as_buttons": display_predefined_answers_as_buttons,
 }
 
 READ_ONLY_PROFILE = "Read-Only"
