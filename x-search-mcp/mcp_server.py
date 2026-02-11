@@ -102,7 +102,6 @@ input parameters:
     # Create chat and get response
     chat = client.chat.create(
         model="grok-4-1-fast",
-        reasoning_effort="high",
         tools=tools,
         messages=[
             system(system_prompt) if system_prompt else system("Search on X and return a detailed summary."),

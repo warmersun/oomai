@@ -68,7 +68,6 @@ def create_response(xai_client, prompt: str):
 
     chat = xai_client.chat.create(
         model="grok-4-1-fast",
-        reasoning_effort="high",
         tools=TOOLS,
         tool_choice="auto"
     )
