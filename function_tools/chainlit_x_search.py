@@ -8,6 +8,7 @@ async def x_search(
     included_handles: Optional[List[str]] = None,
     last_24hrs: Optional[bool] = False,
     system_prompt: Optional[str] = None,
+    enable_video: Optional[bool] = False,
 ) -> str:
     """Chainlit wrapper around core_x_search that shows a Step in the UI."""
     async with cl.Step(name="X_Search", type="tool") as step:
@@ -16,6 +17,7 @@ async def x_search(
             "prompt": prompt,
             "included_handles": included_handles,
             "last_24hrs": last_24hrs,
+            "enable_video": enable_video,
         }
 
         step_message = cl.Message(
@@ -34,6 +36,7 @@ async def x_search(
             included_handles=included_handles,
             last_24hrs=last_24hrs,
             system_prompt=system_prompt,
+            enable_video=enable_video,
         )
 
         step.output = output
