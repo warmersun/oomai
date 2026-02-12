@@ -3,12 +3,15 @@ import chainlit as cl
 from chainlit.logger import logger
 from xai_sdk.chat import tool_result, user, assistant, tool
 # Note: web_search removed - all searches go through x_search tool (core_x_search)
-from typing import Any  # For GraphOpsCtx, assume it's defined elsewhere
+from typing import Any, Optional  # For GraphOpsCtx, assume it's defined elsewhere
 import asyncio
 
 
-async def process_stream(user_input: str, ctx: Any,
-                         output_message: cl.Message) -> bool:
+async def generate_response(user_input: str, ctx: Any) -> Optional[str]:
+    """
+    Generates a response from the LLM, handling tool calls.
+    Returns the final response content as a string, or None if there was an error.
+    """
     # Retrieve from session
     user_and_assistant_messages = cl.user_session.get(
         "user_and_assistant_messages")
@@ -55,13 +58,12 @@ async def process_stream(user_input: str, ctx: Any,
         if not hasattr(response, "tool_calls") or not response.tool_calls:
             # No tool calls, done
             assert response.finish_reason == "REASON_STOP", "Expected finish reason to be REASON_STOP"
-            output_message.content = response.content
-            await output_message.update()
+            
             # update session variable
             cl.user_session.set("user_and_assistant_messages", user_and_assistant_messages)
             logger.info(f"Usage: {response.usage}")
             logger.info(f"Server side tool usage: {response.server_side_tool_usage}")
-            return True
+            return response.content
 
         assert response.finish_reason == "REASON_TOOL_CALLS", "Expected finish reason to be REASON_TOOL_CALLS"
         chat.append(response)
@@ -88,7 +90,7 @@ async def process_stream(user_input: str, ctx: Any,
                     content=
                     "❌ Error while processing LLM response. CancelledError",
                     type="system_message").send()
-                return False
+                return None
             except Exception as e:
                 logger.error(
                     f"❌ Error while processing LLM response. Error: {str(e)}")
@@ -98,8 +100,9 @@ async def process_stream(user_input: str, ctx: Any,
                         content=
                         f"❌ Error while processing LLM response. Error: {str(e)}",
                         type="system_message").send()
-                    return False
+                    return None
                 # else - if we didn't return
                 chat.append(tool_result(json.dumps({"error": str(e)})))
                 break
+    return None
 

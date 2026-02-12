@@ -37,7 +37,7 @@ from function_tools import (
     TOOLS_DEFINITIONS,
     x_search,
 )
-from chainlit_xai_util import process_stream
+from chainlit_xai_util import generate_response
 from utils import Neo4jDateEncoder
 from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
 
@@ -51,6 +51,10 @@ with open("knowledge_graph/system_prompt_grok4_readonly.md", "r") as f:
     system_prompt_readonly_template = f.read()
 SYSTEM_PROMPT_EDIT = system_prompt_edit_template.format(schema=schema, schema_population_guidance=schema_population_guidance)
 SYSTEM_PROMPT_READONLY = system_prompt_readonly_template.format(schema=schema)
+with open("knowledge_graph/system_prompt_readonly_step1.md", "r") as f:
+    SYSTEM_PROMPT_READONLY_STEP1 = f.read().format(schema=schema)
+with open("knowledge_graph/system_prompt_readonly_step2.md", "r") as f:
+    SYSTEM_PROMPT_READONLY_STEP2 = f.read()
 
 with open("knowledge_graph/command_sources.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -136,6 +140,20 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "x_search": x_search,
 }
 
+TOOLS_VISUALIZATION = [
+    TOOLS_DEFINITIONS["display_mermaid_diagram"],
+    TOOLS_DEFINITIONS["display_convergence_canvas"],
+    TOOLS_DEFINITIONS["visualize_oom"],
+    TOOLS_DEFINITIONS["x_search"],
+]
+
+AVAILABLE_FUNCTIONS_VISUALIZATION = {
+    "display_mermaid_diagram": display_mermaid_diagram,
+    "display_convergence_canvas": display_convergence_canvas,
+    "visualize_oom": visualize_oom,
+    "x_search": x_search,
+}
+
 
 
 READ_ONLY_PROFILE = "Read-Only"
@@ -146,12 +164,12 @@ READ_EDIT_PROFILE = "Read/Edit"
 async def set_chat_profile(current_user: cl.User):
     profiles = [
         cl.ChatProfile(
-            name=READ_EDIT_PROFILE,
-            markdown_description="Query and update the knowledge graph.",
-        ),
-        cl.ChatProfile(
             name=READ_ONLY_PROFILE,
             markdown_description="Query the knowledge graph in read-only mode.",
+        ),
+        cl.ChatProfile(
+            name=READ_EDIT_PROFILE,
+            markdown_description="Query and update the knowledge graph.",
         )
     ]
     return profiles
@@ -288,9 +306,60 @@ async def on_message(message: cl.Message):
         async with cl.Step(name="the Knowledge Graph",
                            type="tool",
                            default_open=True) as step:
-            await output_message.send()
-            success = await process_stream(processed_message, ctx,
-                                           output_message)
+            # Check if we are in Read-Only mode for the two-step process
+            chat_profile = cl.user_session.get("chat_profile")
+            if chat_profile == READ_ONLY_PROFILE:
+                # STEP 1: Research & Blueprinting
+                # Configure for Step 1
+                cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_READONLY_STEP1)])
+                # Use standard Tools Readonly for research (needs X Search + KG)
+                cl.user_session.set("tools", TOOLS_READONLY)
+                cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
+
+                
+                # Run step 1
+                step1_response = await generate_response(processed_message, ctx)
+                
+                if step1_response:
+                    # display the enriched prompt
+                    elements = [
+                        cl.Text(content=f"```\n{step1_response}\n```", display="inline")
+                    ]
+                    await cl.Message(content="Enriched prompt", elements=elements).send()
+                    
+                    # The content of blueprint_message is now the PROMPT for Step 2
+                    step2_prompt = step1_response
+                    
+                    # STEP 2: Visualization / Inference
+                    # Configure for second step (Visualization tools only)
+                    cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_READONLY_STEP2)])
+                    cl.user_session.set("tools", TOOLS_VISUALIZATION)
+                    cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_VISUALIZATION)
+                    
+                    # We pass the step2_prompt as the input to the second step
+                    # But we want the final output to be in 'output_message'
+                    await output_message.send()
+                    step2_response = await generate_response(step2_prompt, ctx)
+                    if step2_response:
+                        output_message.content = step2_response
+                        await output_message.update()
+                        success = True
+                    else:
+                        success = False
+                else:
+                     await cl.Message(content="❌ Error during research step.", type="system_message").send()
+                     success = False
+            
+            else:
+                # Normal Edit Mode (Single Step)
+                await output_message.send()
+                response_content = await generate_response(processed_message, ctx)
+                if response_content:
+                    output_message.content = response_content
+                    await output_message.update()
+                    success = True
+                else:
+                    success = False
 
         if success:
             # process visualizations
@@ -324,10 +393,10 @@ async def on_message(message: cl.Message):
                 output_message.elements.append(oom_visualizers_element)
                 await output_message.update()
         else:
-            logger.error("Error in proccess_stream")
+            logger.error("Error in generate_response")
             await cl.Message(content="❌ Error while Processing LLM reposonse.",
                              type="system_message").send()
-            _neo4j_connect()
+            await _neo4j_connect()
 
         debug = cl.user_session.get("debug_settings")
         if not debug:
