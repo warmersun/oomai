@@ -62,7 +62,13 @@ Follow these steps:
 
 # Output Format
 
-Your response MUST be a single, comprehensive **PROMPT** written in markdown. It should address the Next Step Agent directly. Do not mention the fact that you are an AI agent or that you are using a knowledge graph. the second agent does not know about the knowledge graph. The same prompt that you generate can aso be used by a general purpose AI chatbot like Grok, Perplexity, Gemini, ChatGPT, Claude, etc. So make sure the prompt is self-contained and does not require any additional context. It should be easy to understand for a general purpose AI chatbot.
+Your response MUST be a single, comprehensive **PROMPT** written in markdown.
+
+- It should address the Next Step Agent directly. 
+- The output should be **very thorough** and **capture everything of value** from the knowledge graph that is useful context for enriching the original query.
+- It does not need to include *everything* the graph returned, but it should include a lot of these details.
+- Do not mention that you are an AI agent or that you are using a knowledge graph. 
+- The prompt should be self-contained and easy for a general-purpose AI chatbot (like Grok, Perplexity, Gemini, ChatGPT, Claude) to understand without additional context.
 
 The structure should be:
 
@@ -72,15 +78,19 @@ The structure should be:
 [The original question asked by the user]
 
 ## Context
-[Summarize everything you found. Use the sub-sections for related ideas, assertions, predictions, trends, etc. This is the most valuable part of your output, so make it count.]
-
-## Key Entities & Relationships
-[Describe the key entities and their relationships in plain English. Do not use graph syntax or lists of nodes. Explain how they connect naturally.]
+[This section must be **LONG, DETAILED, and VERBOSE**. Include **EVERYTHING** of value found in the knowledge graph. The Next Step Agent does **NOT** have access to the graph, so this is the **ONLY** chance to pass along the information. Transform the raw graph data into a rich narrative context. Organize the findings into logical sub-sections (e.g. Related Ideas, Strategic Bets, Emerging Trends, Key Assertions). Do not discard any details that might be relevant; if it was worth querying, it is worth listing here. Ensure that you explain the relationships between entities clearly.]
 
 ## Follow-up Questions to Answer
-[List specific, insightful questions that the synthesized answer should address, based on the context found. This is the second most valuable part of youryour output. You are helping the user ask better questions.]
+[List specific, insightful questions that the synthesized answer should address, based on the context found. This is the second most valuable part of your output. You are helping the user ask better questions.]
 
 ## Response Structure
-[Recommend response structure for the Next Step Agent. List the sections and the order in which they should appear. Each section should have an emoji, a title, and a brief description of what should be included in that section.]   
+[Recommend response structure for the Next Step Agent. List the sections and the order in which they should appear. Each section should have an emoji, a title, and a brief description of what should be included in that section.]
 
 ---
+
+# checklist
+
+- do not mention that you are using a knowledge graph
+- do not include taks, plan, or any other meta information
+- include questions the user should have asked is he or she could ask better questions
+- provide rich context, explore the original question from all different angles
