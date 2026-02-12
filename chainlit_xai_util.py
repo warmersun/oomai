@@ -3,32 +3,30 @@ import chainlit as cl
 from chainlit.logger import logger
 from xai_sdk.chat import tool_result, user, assistant, tool
 # Note: web_search removed - all searches go through x_search tool (core_x_search)
-from typing import Any, Optional  # For GraphOpsCtx, assume it's defined elsewhere
+from typing import Any, Optional, List, Dict, Callable
 import asyncio
 
 
-async def generate_response(user_input: str, ctx: Any) -> Optional[str]:
+async def generate_response(
+    xai_client: Any,
+    tools: List[Any],
+    function_map: Dict[str, Callable],
+    functions_with_ctx: List[str],
+    ctx: Any,
+    messages: List[Any]
+) -> Optional[str]:
     """
     Generates a response from the LLM, handling tool calls.
     Returns the final response content as a string, or None if there was an error.
-    """
-    # Retrieve from session
-    user_and_assistant_messages = cl.user_session.get(
-        "user_and_assistant_messages")
-    assert user_and_assistant_messages is not None, "No user and assistant messages found in user session"
-    system_messages = cl.user_session.get("system_messages")
-    assert system_messages is not None, "No system messages found in user session"
-    tools = cl.user_session.get("tools")
-    assert tools is not None, "No tools found in user session"
-    xai_client = cl.user_session.get("xai_client")
-    assert xai_client is not None, "No xai_client found in user session"
-    function_map = cl.user_session.get("function_map")
-    assert function_map is not None, "No function_map found in user session"
-    functions_with_ctx = cl.user_session.get("functions_with_ctx")
-    assert functions_with_ctx is not None, "No functions_with_ctx found in user session"
     
-    # Append the new user input as a proper message object
-    user_and_assistant_messages.append(user(user_input))
+    Args:
+        xai_client: The initialized XAI client.
+        tools: List of tool definitions.
+        function_map: Dictionary mapping function names to implementations.
+        functions_with_ctx: List of function names that require context.
+        ctx: Context for graph operations.
+        messages: Full list of messages to send to the LLM (system + history).
+    """
 
     error_count = 0
 
@@ -39,9 +37,8 @@ async def generate_response(user_input: str, ctx: Any) -> Optional[str]:
         tool_choice="auto",
         user="tamas.simon@warmersun.com",
     )
-    for message in system_messages:
-        chat.append(message)
-    for message in user_and_assistant_messages:
+    
+    for message in messages:
         chat.append(message)
 
     counter = 0
@@ -51,16 +48,11 @@ async def generate_response(user_input: str, ctx: Any) -> Optional[str]:
         # Stream the response
         response = await chat.sample()
 
-        # After streaming, append the full assistant content
-        user_and_assistant_messages.append(assistant(response.content))
-
         # Check if there are tool calls in the final response
         if not hasattr(response, "tool_calls") or not response.tool_calls:
             # No tool calls, done
             assert response.finish_reason == "REASON_STOP", "Expected finish reason to be REASON_STOP"
             
-            # update session variable
-            cl.user_session.set("user_and_assistant_messages", user_and_assistant_messages)
             logger.info(f"Usage: {response.usage}")
             logger.info(f"Server side tool usage: {response.server_side_tool_usage}")
             return response.content

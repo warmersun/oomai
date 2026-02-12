@@ -303,24 +303,49 @@ async def on_message(message: cl.Message):
         cl.user_session.set("convergence_canvases", [])
         cl.user_session.set("oom_visualizers", [])
 
+        # Helper to get session vars
+        def get_session_vars(mode="readonly"):
+            xai_client = cl.user_session.get("xai_client")
+            functions_with_ctx = cl.user_session.get("functions_with_ctx")
+            if mode == "readonly":
+                tools = TOOLS_READONLY
+                function_map = AVAILABLE_FUNCTIONS_READONLY
+            elif mode == "visualization":
+                tools = TOOLS_VISUALIZATION
+                function_map = AVAILABLE_FUNCTIONS_VISUALIZATION
+            else: # edit
+                tools = TOOLS_EDIT
+                function_map = AVAILABLE_FUNCTIONS_EDIT
+            return xai_client, tools, function_map, functions_with_ctx
+
         async with cl.Step(name="the Knowledge Graph",
                            type="tool",
                            default_open=True) as step:
             # Check if we are in Read-Only mode for the two-step process
             chat_profile = cl.user_session.get("chat_profile")
+            
+            # Common session vars
+            user_and_assistant_messages = cl.user_session.get("user_and_assistant_messages")
+            # Append user input to main history
+            user_and_assistant_messages.append(user(processed_message))
+
             if chat_profile == READ_ONLY_PROFILE:
                 # STEP 1: Research & Blueprinting
-                # Configure for Step 1
-                cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_READONLY_STEP1)])
-                # Use standard Tools Readonly for research (needs X Search + KG)
-                cl.user_session.set("tools", TOOLS_READONLY)
-                cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
-
+                xai_client, tools, function_map, functions_with_ctx = get_session_vars("readonly")
+                
+                # Construct messages for Step 1
+                step1_messages = [system(SYSTEM_PROMPT_READONLY_STEP1)] + user_and_assistant_messages
                 
                 # Run step 1
-                step1_response = await generate_response(processed_message, ctx)
+                step1_response = await generate_response(
+                    xai_client, tools, function_map, functions_with_ctx, ctx, step1_messages
+                )
                 
                 if step1_response:
+                    # Append Step 1 response to main history
+                    user_and_assistant_messages.append(assistant(step1_response))
+                    cl.user_session.set("user_and_assistant_messages", user_and_assistant_messages)
+
                     # display the enriched prompt
                     elements = [
                         cl.Text(content=f"```\n{step1_response}\n```", display="inline")
@@ -331,16 +356,36 @@ async def on_message(message: cl.Message):
                     step2_prompt = step1_response
                     
                     # STEP 2: Visualization / Inference
-                    # Configure for second step (Visualization tools only)
-                    cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_READONLY_STEP2)])
-                    cl.user_session.set("tools", TOOLS_VISUALIZATION)
-                    cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_VISUALIZATION)
+                    xai_client, tools, function_map, functions_with_ctx = get_session_vars("visualization")
                     
+                    # Retrieve Step 2 specific history
+                    step2_messages = cl.user_session.get("step2_messages")
+                    if step2_messages is None:
+                        step2_messages = []
+                    
+                    # Append input (Enriched Prompt) to Step 2 history
+                    step2_messages.append(user(step2_prompt))
+
+                    # Construct messages for Step 2
+                    step2_input_messages = [system(SYSTEM_PROMPT_READONLY_STEP2)] + step2_messages
+
                     # We pass the step2_prompt as the input to the second step
                     # But we want the final output to be in 'output_message'
                     await output_message.send()
-                    step2_response = await generate_response(step2_prompt, ctx)
+                    
+                    step2_response = await generate_response(
+                        xai_client, tools, function_map, functions_with_ctx, ctx, step2_input_messages
+                    )
+
                     if step2_response:
+                        # Append Step 2 response to Step 2 history
+                        step2_messages.append(assistant(step2_response))
+                        cl.user_session.set("step2_messages", step2_messages)
+                        
+                        # Also append to main history so it's consistent
+                        user_and_assistant_messages.append(assistant(step2_response))
+                        cl.user_session.set("user_and_assistant_messages", user_and_assistant_messages)
+
                         output_message.content = step2_response
                         await output_message.update()
                         success = True
@@ -352,9 +397,21 @@ async def on_message(message: cl.Message):
             
             else:
                 # Normal Edit Mode (Single Step)
+                xai_client, tools, function_map, functions_with_ctx = get_session_vars("edit")
+                
+                # Construct messages
+                edit_messages = [system(SYSTEM_PROMPT_EDIT)] + user_and_assistant_messages
+
                 await output_message.send()
-                response_content = await generate_response(processed_message, ctx)
+                response_content = await generate_response(
+                    xai_client, tools, function_map, functions_with_ctx, ctx, edit_messages
+                )
+                
                 if response_content:
+                    # Append to history
+                    user_and_assistant_messages.append(assistant(response_content))
+                    cl.user_session.set("user_and_assistant_messages", user_and_assistant_messages)
+                    
                     output_message.content = response_content
                     await output_message.update()
                     success = True
