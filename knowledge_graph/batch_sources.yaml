@@ -323,3 +323,53 @@ sources:
       Prioritize for contextual questions. If not relevant, say 'Nothing noteworthy in this episode.'
     source_type: YouTube
     channel_url: "https://www.youtube.com/@peterdiamandis"
+
+  - name: StableCoin thought leaders
+    prompt: >
+      Track recent StableCoin developments for insights that raise questions on deployment timelines.
+
+      Extract:
+
+      1. **Capabilities and Milestones** — Thresholds unlocking use cases (e.g., cost below $20k).
+
+      2. **Use Cases** — Abstract categories of novel applications. 
+
+      3. **Trends** — Adoption or cost curves. 
+
+      4. **Convergences** — Crypto with other EmTechs. 
+
+      5. **Ideas** — Ideas, insights, perspectives, predictions, warnings.
+
+      Focus on question-enriching shifts. If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - paoloardoino
+      - jerallaire
+      - Bo_Hines
+      - GovMarkGordon
+      - AlexThorn
+      - cynthia_wu_
+      - nathanmccauley
+
+  - name: crypto_thought_leaders
+    prompt: >
+      Track recent crypto developments for insights that raise questions on deployment timelines.
+
+      Extract:
+
+      1. **Capabilities and Milestones** — Thresholds unlocking use cases (e.g., cost below $20k).
+
+      2. **Use Cases** — Abstract categories of novel applications. 
+
+      3. **Trends** — Adoption or cost curves. 
+
+      4. **Convergences** — Crypto with other EmTechs. 
+
+      5. **Ideas** — Ideas, insights, perspectives, predictions, warnings.
+
+      Focus on question-enriching shifts. If nothing noteworthy, say 'Nothing noteworthy today.'
+    source_type: X
+    handles:
+      - VitalikButerin
+      - aantonop
+
