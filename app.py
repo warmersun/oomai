@@ -54,7 +54,7 @@ SYSTEM_PROMPT_READONLY = system_prompt_readonly_template.format(schema=schema)
 with open("knowledge_graph/system_prompt_readonly_step1.md", "r") as f:
     SYSTEM_PROMPT_READONLY_STEP1 = f.read().format(schema=schema)
 with open("knowledge_graph/system_prompt_readonly_step2.md", "r") as f:
-    SYSTEM_PROMPT_READONLY_STEP2 = f.read()
+    SYSTEM_PROMPT_READONLY_STEP2 = f.read().format(schema=schema)
 
 with open("knowledge_graph/command_sources.yaml", "r") as f:
     config = yaml.safe_load(f)
