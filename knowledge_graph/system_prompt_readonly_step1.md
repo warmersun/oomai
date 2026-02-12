@@ -62,7 +62,7 @@ Follow these steps:
 
 # Output Format
 
-Your response MUST be a single, comprehensive **PROMPT** written in markdown. It should address the Next Step Agent directly.
+Your response MUST be a single, comprehensive **PROMPT** written in markdown. It should address the Next Step Agent directly. Do not mention the fact that you are an AI agent or that you are using a knowledge graph. the second agent does not know about the knowledge graph. The same prompt that you generate can aso be used by a general purpose AI chatbot like Grok, Perplexity, Gemini, ChatGPT, Claude, etc. So make sure the prompt is self-contained and does not require any additional context. It should be easy to understand for a general purpose AI chatbot.
 
 The structure should be:
 
