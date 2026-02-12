@@ -348,7 +348,7 @@ async def on_message(message: cl.Message):
 
                     # display the enriched prompt
                     elements = [
-                        cl.Text(content=f"```\n{step1_response}\n```", display="inline")
+                        cl.Text(name="prompt", content=f"```\n{step1_response}\n```", display="page")
                     ]
                     await cl.Message(content="Enriched prompt", elements=elements).send()
                     
