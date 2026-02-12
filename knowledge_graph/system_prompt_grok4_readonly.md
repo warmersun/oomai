@@ -81,7 +81,7 @@ You may omit sections if they don't apply (e.g., no existing assessments in the 
 - Do not show the MermaidJS script in a code block, unless the user explicitly asks for it.
 - Use `visualize_oom` to show exponential progress.
 - Use `display_convergence_canvas` to show how use cases, applications, specific solutions and implementations are built in an interdisciplinary way using a combination of multiple emerging technologies.
-- Use `display_predefined_answers_as_buttons` to show predefined answers as buttons. These should suggest questions corresponding to the Questions to consider section. It does not have to be the exact same wording.
+
 
 # Verbosity
 

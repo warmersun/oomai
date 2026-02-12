@@ -34,7 +34,6 @@ from function_tools import (
     display_mermaid_diagram,
     display_convergence_canvas,
     visualize_oom,
-    display_predefined_answers_as_buttons,
     TOOLS_DEFINITIONS,
     x_search,
 )
@@ -50,15 +49,8 @@ with open("knowledge_graph/system_prompt_grok4.md", "r") as f:
     system_prompt_edit_template = f.read()
 with open("knowledge_graph/system_prompt_grok4_readonly.md", "r") as f:
     system_prompt_readonly_template = f.read()
-with open("knowledge_graph/system_prompt_grok4_unhinged_readonly.md", "r") as f:
-    system_prompt_readonly_unhinged_template = f.read()
 SYSTEM_PROMPT_EDIT = system_prompt_edit_template.format(schema=schema, schema_population_guidance=schema_population_guidance)
 SYSTEM_PROMPT_READONLY = system_prompt_readonly_template.format(schema=schema)
-SYSTEM_PROMPT_READONLY_UNHINGED = system_prompt_readonly_unhinged_template.format(schema=schema)
-
-with open("knowledge_graph/system_prompt_grok4_learning.md", "r") as f:
-    system_prompt_learning_template = f.read()
-SYSTEM_PROMPT_LEARNING = system_prompt_learning_template.format(schema=schema)
 
 with open("knowledge_graph/command_sources.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -79,12 +71,7 @@ commands_readonly = [{
 } for command_id, data in COMMAND_DATA.items()
                      if 'readonly' in data.get('modes', [])]
 
-commands_learning = [{
-    "id": command_id,
-    "icon": data['icon'],
-    "description": data['description']
-} for command_id, data in COMMAND_DATA.items()
-                     if 'learning' in data.get('modes', [])]
+
 
 # Define the tools (functions) - flattened structure for Responses API
 TOOLS_EDIT = [
@@ -101,7 +88,6 @@ TOOLS_EDIT = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
-    TOOLS_DEFINITIONS["display_predefined_answers_as_buttons"],
 ]
 
 TOOLS_READONLY = [
@@ -116,22 +102,9 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
-    TOOLS_DEFINITIONS["display_predefined_answers_as_buttons"],
 ]
 
-TOOLS_LEARNING = [
-    TOOLS_DEFINITIONS["execute_cypher_query"],
-    TOOLS_DEFINITIONS["find_node"],
-    TOOLS_DEFINITIONS["dfs"],
-    TOOLS_DEFINITIONS["plan_tasks"],
-    TOOLS_DEFINITIONS["get_tasks"],
-    TOOLS_DEFINITIONS["mark_task_as_running"],
-    TOOLS_DEFINITIONS["mark_task_as_done"],
-    TOOLS_DEFINITIONS["display_mermaid_diagram"],
-    TOOLS_DEFINITIONS["display_convergence_canvas"],
-    TOOLS_DEFINITIONS["visualize_oom"],
-    TOOLS_DEFINITIONS["display_predefined_answers_as_buttons"],
-]
+
 
 AVAILABLE_FUNCTIONS_EDIT = {
     "execute_cypher_query": execute_cypher_query,
@@ -147,7 +120,6 @@ AVAILABLE_FUNCTIONS_EDIT = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
-    "display_predefined_answers_as_buttons": display_predefined_answers_as_buttons,
 }
 
 AVAILABLE_FUNCTIONS_READONLY = {
@@ -162,27 +134,12 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
-    "display_predefined_answers_as_buttons": display_predefined_answers_as_buttons,
 }
 
-AVAILABLE_FUNCTIONS_LEARNING = {
-    "execute_cypher_query": execute_cypher_query,
-    "find_node": find_node,
-    "dfs": dfs,
-    "plan_tasks": plan_tasks,
-    "get_tasks": get_tasks,
-    "mark_task_as_running": mark_task_as_running,
-    "mark_task_as_done": mark_task_as_done,
-    "display_mermaid_diagram": display_mermaid_diagram,
-    "display_convergence_canvas": display_convergence_canvas,
-    "visualize_oom": visualize_oom,
-    "display_predefined_answers_as_buttons": display_predefined_answers_as_buttons,
-}
+
 
 READ_ONLY_PROFILE = "Read-Only"
 READ_EDIT_PROFILE = "Read/Edit"
-READ_ONLY_UNHINGED_PROFILE = "Read-Only Unhinged"
-LEARNING_PROFILE = "Learning"
 
 
 @cl.set_chat_profiles
@@ -195,15 +152,6 @@ async def set_chat_profile(current_user: cl.User):
         cl.ChatProfile(
             name=READ_ONLY_PROFILE,
             markdown_description="Query the knowledge graph in read-only mode.",
-        ),
-        cl.ChatProfile(
-            name=READ_ONLY_UNHINGED_PROFILE,
-            markdown_description=
-            "Query the knowledge graph and get unhinged answers.",
-        ),
-        cl.ChatProfile(
-            name=LEARNING_PROFILE,
-            markdown_description="Learn concepts with an AI tutor.",
         )
     ]
     return profiles
@@ -272,18 +220,6 @@ async def start():
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_EDIT)
         # only edit mode has commands
         await cl.context.emitter.set_commands(commands_edit)
-    elif chat_profile == READ_ONLY_UNHINGED_PROFILE:
-        cl.user_session.set("system_messages",
-                            [system(SYSTEM_PROMPT_READONLY_UNHINGED)])
-        cl.user_session.set("tools", TOOLS_READONLY)
-        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
-        await cl.context.emitter.set_commands(commands_readonly)
-    elif chat_profile == LEARNING_PROFILE:
-        cl.user_session.set("system_messages",
-                            [system(SYSTEM_PROMPT_LEARNING)])
-        cl.user_session.set("tools", TOOLS_LEARNING)
-        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_LEARNING)
-        await cl.context.emitter.set_commands(commands_learning)
     else:
         cl.user_session.set("system_messages",
                             [system(SYSTEM_PROMPT_READONLY)])
@@ -339,14 +275,8 @@ async def on_message(message: cl.Message):
         lock = asyncio.Lock()
         ctx = GraphOpsCtx(neo4jdriver, lock)
         # predefined answers
-        canned_responses = cl.CustomElement(name="CannedMessages",
-                                            props={"messages": []},
-                                            display="inline")
-        cl.user_session.set("canned_responses", canned_responses)
-        # setup outlook message
         output_message = cl.Message(content="💭🤔💭",
-                                    actions=[tts_action],
-                                    elements=[canned_responses])
+                                    actions=[tts_action])
 
         diagram_message = cl.Message(content="")
         cl.user_session.set("diagram_message", diagram_message)
@@ -646,18 +576,6 @@ async def on_chat_resume(thread: ThreadDict):
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_EDIT)
         # only edit mode has commands
         await cl.context.emitter.set_commands(commands_edit)
-    elif chat_profile == READ_ONLY_UNHINGED_PROFILE:
-        cl.user_session.set("system_messages",
-                            [system(SYSTEM_PROMPT_READONLY_UNHINGED)])
-        cl.user_session.set("tools", TOOLS_READONLY)
-        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
-        await cl.context.emitter.set_commands(commands_readonly)
-    elif chat_profile == LEARNING_PROFILE:
-        cl.user_session.set("system_messages",
-                            [system(SYSTEM_PROMPT_LEARNING)])
-        cl.user_session.set("tools", TOOLS_READONLY)
-        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
-        await cl.context.emitter.set_commands(commands_readonly)
     else:
         cl.user_session.set("system_messages",
                             [system(SYSTEM_PROMPT_READONLY)])

@@ -55,11 +55,3 @@ async def visualize_oom(months_per_doubling: int) -> None:
     assert oom_visualizers is not None, "No OOM Visualizers found in user session"
     oom_visualizers.append(months_per_doubling)
     cl.user_session.set("oom_visualizers", oom_visualizers)
-
-async def display_predefined_answers_as_buttons(messages: List[str]) -> None:
-    canned_responses = cl.user_session.get("canned_responses")
-    assert canned_responses is not None, "Canned responses must be set."
-    canned_messages = canned_responses.props["messages"]
-    canned_messages.extend(messages)
-    canned_responses.props["messages"] = canned_messages
-    await canned_responses.update()

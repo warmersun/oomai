@@ -89,4 +89,10 @@ You may omit sections if they don't apply (e.g., no existing assessments in the 
 # Stop Conditions
 
 - Consider the task complete when you have provided a thorough, user-centered answer or have captured all relevant information into the knowledge graph.
+
+# Check List before waiting for user response
+
 - Check if you still have any planned tasks left that you can perform before you wait for the user's response. Either carry these out or update the plan if they are no longer relevant.
+- Mark all tasks as done using `mark_task_as_done`, no task should be marked running when you wait for the user's response.
+- The entire response should be in markdown format and shown in the UI.
+- Predefind next replies that the user can just pick with a button click instead of typing have to be shown using `display_predefined_answers_as_buttons` tool. The correspond to the **Questions to consider** section.

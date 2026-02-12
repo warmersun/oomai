@@ -33,7 +33,7 @@ commands:
   trend:
     icon: trending-up
     description: "Spot a trend related to..."
-    modes: [edit, readonly, learning]
+    modes: [edit, readonly]
     template: |
       Query the knowledge graph for capabilities and milestones related to {user_input}. 
       Look at milestones over time. Look at new capabilities emerging and the use cases they unlock. 
@@ -54,7 +54,7 @@ commands:
   check:
     icon: check-check
     description: "Check if the prediction is valid:"
-    modes: [edit, readonly, learning]
+    modes: [edit, readonly]
     template: |
       start by gathering data:
       1. Search the knowledge graph for an idea or trend related to {user_input}
@@ -67,7 +67,7 @@ commands:
   map:
     icon: map
     description: "Map ideas, and predictions to..."
-    modes: [edit, readonly, learning]
+    modes: [edit, readonly]
     template: |
       Find ideas and trends related to {user_input}
       Start by gathering data:
@@ -87,7 +87,7 @@ commands:
   tool:
     icon: wrench
     description: "find toolset for:"
-    modes: [edit, readonly, learning]
+    modes: [edit, readonly]
     template: |
       Find toolset for {user_input}
       Work backwards. Start by gathering data:
@@ -98,7 +98,7 @@ commands:
   pathway:
     icon: route
     description: "build pathways with..."
-    modes: [edit, readonly, learning]
+    modes: [edit, readonly]
     template: |
       # Why should we care about {user_input}?
 
@@ -248,7 +248,7 @@ commands:
   gaps:
     icon: search
     description: "Find gaps in thinking about..."
-    modes: [edit, readonly, learning]
+    modes: [edit, readonly]
     template: |
       Perform a structural gap analysis on the knowledge graph related to {user_input}.
 
@@ -271,7 +271,7 @@ commands:
   stale:
     icon: clock
     description: "Find stale assessments about..."
-    modes: [edit, readonly, learning]
+    modes: [edit, readonly]
     template: |
       Find assessments and bets in the knowledge graph related to {user_input} that may be outdated.
 
@@ -288,7 +288,7 @@ commands:
   validate:
     icon: check-circle
     description: "Validate bet about..."
-    modes: [edit, readonly, learning]
+    modes: [edit, readonly]
     template: |
       Validate the following bet against current evidence: {user_input}
 
@@ -308,7 +308,7 @@ commands:
   contradict:
     icon: alert-triangle
     description: "Find contradictions in thinking about..."
-    modes: [edit, readonly, learning]
+    modes: [edit, readonly]
     template: |
       Find contradictions and tensions in existing positions related to {user_input}.
 
