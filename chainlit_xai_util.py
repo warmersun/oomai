@@ -51,13 +51,13 @@ async def generate_response(
         # Check if there are tool calls in the final response
         if not hasattr(response, "tool_calls") or not response.tool_calls:
             # No tool calls, done
-            assert response.finish_reason == "REASON_STOP", "Expected finish reason to be REASON_STOP"
+            assert response.finish_reason == f"REASON_STOP", f"Expected finish reason to be REASON_STOP, got {response.finish_reason}"
             
             logger.info(f"Usage: {response.usage}")
             logger.info(f"Server side tool usage: {response.server_side_tool_usage}")
             return response.content
 
-        assert response.finish_reason == "REASON_TOOL_CALLS", "Expected finish reason to be REASON_TOOL_CALLS"
+        assert response.finish_reason == f"REASON_TOOL_CALLS", f"Expected finish reason to be REASON_TOOL_CALLS, got {response.finish_reason}"
         chat.append(response)
 
         logger.info(f"Going to process tool calls: {len(response.tool_calls)}")

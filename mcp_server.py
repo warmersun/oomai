@@ -214,6 +214,8 @@ async def dfs(
     node_name: str,
     node_type: Literal["Convergence", "Capability", "Milestone", "LTC", "PTC", "LAC", "PAC", "Trend", "Idea", "Party"],
     depth: int = 3,
+    max_nodes: int = 100,
+    include_descriptions: bool = True,
 ) -> str:
     """
     Perform depth-first search traversal starting from a node.
@@ -225,6 +227,8 @@ async def dfs(
         node_name: Name of the starting node
         node_type: Type of the starting node
         depth: Maximum depth for traversal (default 3)
+        max_nodes: Maximum number of nodes to return (default 100)
+        include_descriptions: Whether to include node descriptions (default True)
     
     Returns:
         JSON with 'nodes' (list of {name, description}) and 
@@ -233,7 +237,7 @@ async def dfs(
     ctx = await get_context()
     
     try:
-        results = await core_dfs(ctx, node_name, node_type, depth)
+        results = await core_dfs(ctx, node_name, node_type, depth, max_nodes, include_descriptions)
         return json.dumps(results, cls=Neo4jDateEncoder, indent=2)
     except (ValueError, RuntimeError) as e:
         return json.dumps({"error": str(e)})

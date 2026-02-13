@@ -614,36 +614,43 @@ async def core_dfs(ctx: GraphOpsCtx,
                    node_type: Literal["Convergence", "Capability", "Milestone",
                                       "LTC", "PTC", "LAC", "PAC", "Trend",
                                       "Idea", "Bet", "Party"],
-                   depth: int = 3) -> List[Dict[str, Any]]:
+                   depth: int = 3,
+                   max_nodes: int = 100,
+                   include_descriptions: bool = True) -> List[Dict[str, Any]]:
     """
     Performs a depth-first search (DFS) on a Neo4j graph starting from a node
     identified by its name, up to a specified depth, stopping at EmTech nodes.
+    
+    Automatically reduces the depth if the number of nodes exceeds max_nodes.
+    If even depth=1 exceeds max_nodes, raises a RuntimeError.
 
     Args:
         ctx (GraphOpsCtx): Context object containing Neo4j driver and lock.
         node_name (str): Name of the starting node.
         node_type (Literal): the type ("Label") of the node
         depth (int, optional): Maximum depth for DFS traversal. Defaults to 3.
+        max_nodes (int, optional): Maximum number of nodes to return. Defaults to 100.
+        include_descriptions (bool, optional): Whether to include node descriptions. Defaults to True.
 
     Returns:
         List[Dict[str, Any]]: A list of dictionaries, each containing:
-            - nodes: List of node dictionaries with 'name' and 'description'.
+            - nodes: List of node dictionaries with 'name' and optionally 'description'.
             - edges: List of edge dictionaries with 'source_node_name',
                     'relationship', and 'end_node_name'.
+            - metadata: Dict with 'depth' and 'node_count'.
 
     Raises:
         ValueError: If node_name is empty or depth is negative.
-        RuntimeError: If the query fails due to database or other errors.
+        RuntimeError: If the query fails or if max_nodes is exceeded at depth 1.
     """
     if not node_name or not isinstance(node_name, str):
         raise ValueError("node_name must be a non-empty string")
     if not isinstance(depth, int) or depth < 0:
         raise ValueError("depth must be a non-negative integer")
 
-    logging.info(f"[DFS]:\nNODE_NAME: {node_name}\nDEPTH: {depth}")
+    logging.info(f"[DFS]:\nNODE_NAME: {node_name}\nDEPTH: {depth}\nMAX_NODES: {max_nodes}\nINCLUDE_DESCRIPTIONS: {include_descriptions}")
 
-    # Query 1: Collect nodes in DFS up to specified depth, stopping at EmTech nodes
-    nodes_query = f"""
+    count_query = f"""
     MATCH (startNode:{node_type} {{name: $node_name}})
     WITH startNode
     CALL apoc.path.subgraphNodes(startNode, {{
@@ -651,33 +658,87 @@ async def core_dfs(ctx: GraphOpsCtx,
         bfs: false,
         labelFilter: '-EmTech'
     }}) YIELD node
-    RETURN collect({{ name: node.name, description: node.description }}) AS nodes
-    """
-
-    # Query 2: Collect edges in DFS up to specified depth, stopping at EmTech nodes
-    edges_query = f"""
-    MATCH (startNode:{node_type} {{name: $node_name}})
-    WITH startNode
-    CALL apoc.path.expandConfig(startNode, {{
-        maxLevel: $depth,
-        bfs: false,
-        labelFilter: '-EmTech'
-    }}) YIELD path
-    WHERE size(relationships(path)) > 0
-    UNWIND relationships(path) AS rel
-    RETURN collect({{
-        source_node_name: startNode(rel).name,
-        relationship: type(rel),
-        end_node_name: endNode(rel).name
-    }}) AS edges
+    RETURN count(node) as node_count
     """
 
     async with ctx.neo4jdriver.session() as session:
+        async def count_nodes(tx: AsyncTransaction, d: int):
+            result = await tx.run(count_query, {
+                "node_name": node_name,
+                "depth": d
+            })
+            record = await result.single()
+            return record["node_count"] if record else 0
+
+        current_depth = depth
+        
+        async with ctx.lock:
+             # Loop to find the right depth
+            while current_depth >= 1:
+                try: 
+                    count = await session.execute_read(count_nodes, current_depth)
+                    logging.info(f"[DFS] Check Depth {current_depth}: found {count} nodes.")
+                    if count <= max_nodes:
+                        break
+                    
+                    if current_depth == 1:
+                        # Even at depth 1, we have too many nodes
+                        msg = f"DFS result too large: {count} nodes found at depth 1, which exceeds the limit of {max_nodes}. Please try a more specific node or increase the limit."
+                        logging.warning(f"[DFS] {msg}")
+                        return [{"error": msg}]
+
+                    logging.info(f"[DFS] Count {count} > {max_nodes}. Reducing depth to {current_depth - 1}")
+                    current_depth -= 1
+                except ValueError as e:
+                     raise e
+                except RuntimeError as e:
+                     raise e
+                except Exception as e:
+                     logging.error(f"Error counting nodes in dfs: {str(e)}")
+                     raise RuntimeError(f"Failed to count nodes in dfs(): {str(e)}")
+        
+        if current_depth != depth:
+            logging.warning(f"[DFS] Downgraded depth from {depth} to {current_depth} to stay under {max_nodes} nodes.")
+
+        # Construct return clause based on include_descriptions
+        node_return = "name: node.name"
+        if include_descriptions:
+            node_return += ", description: node.description"
+        
+        # Query 1: Collect nodes in DFS up to specified depth, stopping at EmTech nodes
+        nodes_query = f"""
+        MATCH (startNode:{node_type} {{name: $node_name}})
+        WITH startNode
+        CALL apoc.path.subgraphNodes(startNode, {{
+            maxLevel: $depth,
+            bfs: false,
+            labelFilter: '-EmTech'
+        }}) YIELD node
+        RETURN collect({{ {node_return} }}) AS nodes
+        """
+
+        # Query 2: Collect edges in DFS up to specified depth, stopping at EmTech nodes
+        edges_query = f"""
+        MATCH (startNode:{node_type} {{name: $node_name}})
+        WITH startNode
+        CALL apoc.path.expandConfig(startNode, {{
+            maxLevel: $depth,
+            bfs: false,
+            labelFilter: '-EmTech'
+        }}) YIELD path
+        WHERE size(relationships(path)) > 0
+        UNWIND relationships(path) AS rel
+        RETURN collect({{
+            source_node_name: startNode(rel).name,
+            relationship: type(rel),
+            end_node_name: endNode(rel).name
+        }}) AS edges
+        """
 
         async def read_nodes(tx: AsyncTransaction):
             result = await tx.run(nodes_query, {
                 "node_name": node_name,
-                "depth": depth
+                "depth": current_depth
             })
             record = await result.single()
             return record["nodes"] if record else []
@@ -685,7 +746,7 @@ async def core_dfs(ctx: GraphOpsCtx,
         async def read_edges(tx: AsyncTransaction):
             result = await tx.run(edges_query, {
                 "node_name": node_name,
-                "depth": depth
+                "depth": current_depth
             })
             record = await result.single()
             return record["edges"] if record else []
@@ -694,7 +755,7 @@ async def core_dfs(ctx: GraphOpsCtx,
             try:
                 nodes = await session.execute_read(read_nodes)
                 edges = await session.execute_read(read_edges)
-                return [{"nodes": nodes, "edges": edges}]
+                return [{"nodes": nodes, "edges": edges, "metadata": {"depth": current_depth, "max_nodes": max_nodes}}]
             except Exception as e:
                 logging.error(f"Error in dfs: {str(e)}")
                 raise RuntimeError(f"Failed dfs(): {str(e)}")

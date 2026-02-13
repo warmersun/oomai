@@ -101,19 +101,27 @@ async def dfs(
     node_type: Literal[
         "Convergence", "Capability", "Milestone", "LTC", "PTC", "LAC", "PAC", "Trend", "Idea", "Party"
     ],
-    depth: int = 3
+    depth: int = 3,
+    max_nodes: int = 100,
+    include_descriptions: bool = True
 ) -> list:
     async with cl.Step(name="Depth-First_Search", type="retrieval") as step:
         step.show_input = True
-        step.input = {"node_name": node_name, "node_type": node_type, "depth": depth}
+        step.input = {"node_name": node_name, "node_type": node_type, "depth": depth, "max_nodes": max_nodes, "include_descriptions": include_descriptions}
 
-        step_message = cl.Message(content=f"Performing depth-dirst search on `{node_name}`, with depth of {depth}")
+        step_message = cl.Message(content=f"Performing depth-first search on `{node_name}`, with depth of {depth}")
         await step_message.send()
 
-        output = await core_dfs(ctx, node_name, node_type, depth)
-
-        step.output = output
-        debug = cl.user_session.get("debug_settings")
-        if not debug:
-            await step.remove()
-        return output
+        try:
+            output = await core_dfs(ctx, node_name, node_type, depth, max_nodes, include_descriptions)
+            
+            step.output = output
+            debug = cl.user_session.get("debug_settings")
+            if not debug:
+                await step.remove()
+            return output
+        except RuntimeError as e:
+            error_msg = f"❌ {str(e)}"
+            await cl.Message(content=error_msg).send()
+            step.output = {"error": str(e)}
+            return []

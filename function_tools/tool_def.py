@@ -163,7 +163,7 @@ TOOLS_DEFINITIONS = {
         description="""
         Perform a depth-first search, starting with the node identified by node_name, depth level deep.
         Returns a single row with two columns:
-            nodes with a list of nodes with name and description
+            nodes with a list of nodes with name and optional description
             edges with a list of source nodes, relationship and end nodes, identified by name
 
             {
@@ -201,6 +201,16 @@ TOOLS_DEFINITIONS = {
                     "description":
                     "How many levels deep the search should go.",
                     "default": 3,
+                },
+                "max_nodes": {
+                    "type": "integer",
+                    "description": "Maximum number of nodes to return. Defaults to 100.",
+                    "default": 100,
+                },
+                "include_descriptions": {
+                    "type": "boolean",
+                    "description": "Whether to include node descriptions. Defaults to True.",
+                    "default": True,
                 },
             },
             "required": ["node_name"],
