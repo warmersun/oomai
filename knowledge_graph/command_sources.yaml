@@ -97,18 +97,18 @@ commands:
       Then, structure your response.
   pathway:
     icon: route
-    description: "build pathways with..."
+    description: "build a pathway with..."
     modes: [edit, readonly]
     template: |
       # Why should we care about {user_input}?
 
       I mean, new advancements in science, technology and engineering really only matter when we can use them to solve humanity's big, global problems.  
       See the list of global problems below, some of which are health related, other are existential threats.
-      How might we create pathways to solve some of the big global problems in the world? 
+      How might we create a pathway to solve some of the big global problems in the world? 
 
       1. Look at the capabilities and use cases (LAC) associated with {user_input}.
-      2. Pick three problems from the list below.
-      3. Search the web and X for a brief root cause analysis of the problems.
+      2. Pick a problem from the list below where you think {user_input} can have the biggest impact.
+      3. Search the web and X for a brief root cause analysis of the problem.
       4. Propose a solution, using {user_input}
       5. Extend the solution by layering on more complexity. Display a convergence canvas and make sure at least 9 out of the 11 categories of emerging technologies are used to provide a complete, interdisciplinary solution. 
 
