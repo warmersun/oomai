@@ -479,5 +479,57 @@ TOOLS_DEFINITIONS = {
              },
              "required": ["queries"]
          }),
+    "scan_ideas":
+    tool(name="scan_ideas",
+         description="""
+        Scans the entire pool of Ideas and Bets in the knowledge graph using multiple diverse query probes.
+        Unlike `find_node` which searches with a single query, this tool takes 5-10 different search angles
+        and runs them all against the Idea and Bet vector indices. Results are deduplicated and ranked.
+
+        This is the primary tool for surfacing relevant ideas, assessments, predictions, and strategic bets
+        from the ~1000 ideas stored in the graph. Most ideas are not connected via edges, so they cannot
+        be found through Cypher traversals or DFS — this tool is the only way to surface them at scale.
+
+        **When to use**: After gathering initial context (capabilities, trends, milestones) from the graph,
+        use this tool to find which existing ideas, assessments, and bets relate to the current topic.
+
+        **How to craft probes**: Generate 5-10 diverse query strings that approach the topic from different angles:
+        - The specific topic or question
+        - Related capabilities or technologies
+        - Adjacent or contrarian perspectives
+        - Underlying assumptions or implications
+        - Industry/domain-specific angles
+        - Historical precedents or analogies
+        - Broader strategic or societal implications
+        """,
+         parameters={
+             "type": "object",
+             "properties": {
+                 "query_probes": {
+                     "type": "array",
+                     "items": {
+                         "type": "string",
+                         "description": "A search string representing one angle on the topic."
+                     },
+                     "description":
+                     "List of 5-10 diverse search strings, each approaching the topic from a different angle.",
+                     "minItems": 1,
+                     "maxItems": 15,
+                 },
+                 "top_k_per_probe": {
+                     "type": "integer",
+                     "description":
+                     "Max results per probe per index (default 20).",
+                     "default": 20,
+                 },
+                 "max_results": {
+                     "type": "integer",
+                     "description":
+                     "Total results cap after deduplication (default 80).",
+                     "default": 80,
+                 },
+             },
+             "required": ["query_probes"]
+         }),
 
 }

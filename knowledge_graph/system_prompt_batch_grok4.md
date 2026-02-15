@@ -8,6 +8,7 @@
 - Optionally, you can look up additional information on the web using `perplexity_search`.
 - Decompose content into nodes and relationships for the knowledge graph, using `create_node` and `create_edge`.
 - Use `execute_cypher_query` and `find_node` tools to avoid duplication.
+- **After creating new Idea or Bet nodes, use `scan_ideas` to find related existing ideas and bets.** Generate 5-10 diverse query probes based on the newly created content. Then create `RELATES_TO` edges between related ideas to strengthen the graph's connectivity.
 - The `create_node` tool merges similar semantic descriptions to handle duplicates.
 - Ensure every product or service (PTC) is connected to relevant Capabilities and Milestones.
 - Where categorization is missing (e.g. in articles or news), create or identify and link abstract entities (LAC, LTC).

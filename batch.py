@@ -14,6 +14,7 @@ from function_tools import (
     core_create_node,
     core_create_edge,
     core_find_node,
+    core_scan_ideas,
     core_dfs,
     core_x_search,
     core_perplexity_search,
@@ -45,6 +46,7 @@ TOOLS = [
     TOOLS_DEFINITIONS["create_node"],
     TOOLS_DEFINITIONS["create_edge"],
     TOOLS_DEFINITIONS["find_node"],
+    TOOLS_DEFINITIONS["scan_ideas"],
     TOOLS_DEFINITIONS["dfs"],
     TOOLS_DEFINITIONS["x_search"],
     TOOLS_DEFINITIONS["perplexity_search"],
@@ -55,6 +57,7 @@ AVAILABLE_FUNCTIONS = {
     "create_node": core_create_node,
     "create_edge": core_create_edge,
     "find_node": core_find_node,
+    "scan_ideas": core_scan_ideas,
     "dfs": core_dfs,
     "x_search": core_x_search,
     "perplexity_search": core_perplexity_search,
@@ -101,14 +104,14 @@ async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client, 
             try:
                 function_name = tool_call.function.name
                 function_args = json.loads(tool_call.function.arguments)
-                if function_name in ["create_node", "create_edge", "find_node", "dfs", "execute_cypher_query"]:
+                if function_name in ["create_node", "create_edge", "find_node", "scan_ideas", "dfs", "execute_cypher_query"]:
                     function_args = {"ctx": ctx, **function_args}
                 # create nodes needs extra args, to have the groq and openai clients
                 if function_name == "create_node":
                     function_args["groq_client"] = groq_client
                     function_args["openai_embedding_client"] = openai_embedding_client
-                # find nodes needs extra args, to have the openai client
-                if function_name == "find_node":
+                # find nodes and scan_ideas need extra args, to have the openai client
+                if function_name in ["find_node", "scan_ideas"]:
                     function_args["openai_embedding_client"] = openai_embedding_client
                 # x_search needs extra args, to have the xai client
                 if function_name == "x_search":

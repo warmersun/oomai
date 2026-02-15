@@ -4,6 +4,7 @@ from .core_graph_ops import core_execute_cypher_query
 from .core_graph_ops import core_create_node
 from .core_graph_ops import core_create_edge
 from .core_graph_ops import core_find_node
+from .core_graph_ops import core_scan_ideas
 from .core_graph_ops import core_dfs
 from typing import List, Optional, Literal, Dict, Union
 
@@ -88,6 +89,30 @@ async def find_node(
         await step_message.send()
 
         output = await core_find_node(ctx, query_text, node_type, top_k, openai_embedding_client)
+
+        step.output = output
+        debug = cl.user_session.get("debug_settings")
+        if not debug:
+            await step.remove()
+        return output
+
+async def scan_ideas(
+    ctx: GraphOpsCtx,
+    query_probes: List[str],
+    top_k_per_probe: int = 20,
+    max_results: int = 80,
+) -> list:
+    async with cl.Step(name="Scan_Ideas", type="retrieval") as step:
+        step.show_input = True
+        step.input = {"query_probes": query_probes, "top_k_per_probe": top_k_per_probe, "max_results": max_results}
+
+        openai_embedding_client = cl.user_session.get("openai_embedding_client")
+        assert openai_embedding_client is not None, "No OpenAI client found in user session"
+
+        step_message = cl.Message(content=f"Scanning ideas and bets with {len(query_probes)} probes (up to {max_results} results)")
+        await step_message.send()
+
+        output = await core_scan_ideas(ctx, query_probes, top_k_per_probe, max_results, openai_embedding_client)
 
         step.output = output
         debug = cl.user_session.get("debug_settings")

@@ -27,6 +27,7 @@ from function_tools.core_graph_ops import (
     core_create_node,
     core_create_edge,
     core_find_node,
+    core_scan_ideas,
     core_dfs,
     Neo4jDateEncoder,
 )
@@ -206,6 +207,42 @@ async def find_node(
         )
         return json.dumps(results, cls=Neo4jDateEncoder, indent=2)
     except RuntimeError as e:
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def scan_ideas(
+    query_probes: list[str],
+    top_k_per_probe: int = 20,
+    max_results: int = 80,
+) -> str:
+    """
+    Scan the entire pool of Ideas and Bets using multiple diverse query probes.
+    
+    Unlike find_node which uses a single query, this tool takes 5-10 different
+    search angles and runs them all against the Idea and Bet vector indices.
+    Results are deduplicated (keeping best score) and ranked.
+    
+    This is the primary tool for surfacing relevant ideas, assessments, and bets
+    from the ~1000 ideas stored in the graph.
+    
+    Args:
+        query_probes: List of 5-10 diverse search strings, each approaching the topic from a different angle
+        top_k_per_probe: Max results per probe per index (default 20)
+        max_results: Total results cap after deduplication (default 80)
+    
+    Returns:
+        List of matching ideas/bets with names, descriptions, arguments, and scores
+    """
+    ctx = await get_context()
+    openai_client = await get_openai_client()
+    
+    try:
+        results = await core_scan_ideas(
+            ctx, query_probes, top_k_per_probe, max_results, openai_client
+        )
+        return json.dumps(results, cls=Neo4jDateEncoder, indent=2)
+    except (ValueError, RuntimeError) as e:
         return json.dumps({"error": str(e)})
 
 

@@ -609,6 +609,111 @@ async def core_find_node(ctx: GraphOpsCtx,
                 raise RuntimeError(f"Failed to find nodes: {str(e)}")
 
 
+async def core_scan_ideas(ctx: GraphOpsCtx,
+                          query_probes: List[str],
+                          top_k_per_probe: int = 20,
+                          max_results: int = 80,
+                          openai_embedding_client=None) -> list:
+    """
+    Scans the Idea (and Bet) pools using multiple diverse query probes.
+    Each probe runs a vector similarity search; results are unioned,
+    deduplicated by node name (keeping the best score), and returned
+    sorted by descending similarity score.
+
+    Args:
+        ctx: GraphOpsCtx with Neo4j driver and lock.
+        query_probes: List of diverse search strings (5-10 recommended).
+        top_k_per_probe: Max results per probe per index (default 20).
+        max_results: Total results cap after deduplication (default 80).
+        openai_embedding_client: AsyncOpenAI client for embeddings.
+
+    Returns:
+        List of dicts with node info and best similarity score.
+    """
+    if openai_embedding_client is None:
+        raise ValueError("openai_embedding_client is required for scan_ideas")
+
+    if not query_probes:
+        return []
+
+    logging.info(f"[SCAN_IDEAS] {len(query_probes)} probes, top_k_per_probe={top_k_per_probe}, max_results={max_results}")
+    for i, probe in enumerate(query_probes):
+        logging.info(f"[SCAN_IDEAS] Probe {i+1}: {probe}")
+
+    # Compute all embeddings in one batch call
+    emb_response = await openai_embedding_client.embeddings.create(
+        model=EMBEDDING_MODEL, input=query_probes)
+    probe_embeddings = [item.embedding for item in emb_response.data]
+
+    # Search both Idea and Bet indices
+    index_names = ["idea_description_embeddings", "bet_description_embeddings"]
+
+    cypher_query = """
+    CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
+    YIELD node, score
+    RETURN
+        node { .name, .description, .argument, .assumptions, .counterargument } AS node,
+        score,
+        labels(node)[0] AS node_type
+    ORDER BY score DESC
+    """
+
+    def filter_values(obj):
+        """Remove None values and embedding keys, convert Neo4j dates."""
+        if isinstance(obj, dict):
+            return {
+                k: filter_values(v)
+                for k, v in obj.items()
+                if k != 'embedding' and v is not None
+            }
+        elif isinstance(obj, list):
+            return [filter_values(item) for item in obj]
+        elif isinstance(obj, Date):
+            return obj.iso_format()
+        elif isinstance(obj, DateTime):
+            return obj.iso_format()
+        return obj
+
+    # Collect all results keyed by node name -> best record
+    best_results: Dict[str, dict] = {}
+
+    async with ctx.neo4jdriver.session() as session:
+        async with ctx.lock:
+            for idx, embedding in enumerate(probe_embeddings):
+                for index_name in index_names:
+                    try:
+                        async def read_work(tx: AsyncTransaction,
+                                            _index=index_name,
+                                            _emb=embedding):
+                            result = await tx.run(
+                                cypher_query, {
+                                    "index_name": _index,
+                                    "top_k": top_k_per_probe,
+                                    "embedding": _emb
+                                })
+                            return await result.data()
+
+                        records = await session.execute_read(read_work)
+                        for record in records:
+                            filtered = filter_values(record)
+                            node_name = filtered.get("node", {}).get("name")
+                            if node_name:
+                                score = filtered.get("score", 0)
+                                if node_name not in best_results or score > best_results[node_name].get("score", 0):
+                                    best_results[node_name] = filtered
+
+                    except Exception as e:
+                        logging.warning(f"[SCAN_IDEAS] Error querying {index_name} with probe {idx+1}: {str(e)}")
+                        continue
+
+    # Sort by score descending and cap at max_results
+    sorted_results = sorted(best_results.values(), key=lambda r: r.get("score", 0), reverse=True)
+    final_results = sorted_results[:max_results]
+
+    logging.info(f"[SCAN_IDEAS] Found {len(best_results)} unique ideas/bets across all probes, returning top {len(final_results)}")
+    return final_results
+
+
 async def core_dfs(ctx: GraphOpsCtx,
                    node_name: str,
                    node_type: Literal["Convergence", "Capability", "Milestone",
