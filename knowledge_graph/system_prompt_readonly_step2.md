@@ -44,8 +44,7 @@ The enriched prompt will have the following structure:
 
 ## Visualizations
 
-- You may use `display_mermaid_diagram` to visualize milestones of the same capability on a timeline.
-- Do not show the MermaidJS script in a code block, unless the user explicitly asks for it.
+- Always show MermaidJS scripts using `display_mermaid_diagram`. Never show the MermaidJS script in a code block unless the user explicitly asks for it in the original question.
 - Use `visualize_oom` to show exponential progress.
 - Use `display_convergence_canvas` to show how use cases, applications, specific solutions and implementations are built in an interdisciplinary way using a combination of multiple emerging technologies.
 
