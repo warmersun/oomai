@@ -33,6 +33,7 @@ from function_tools import (
     get_tasks,
     mark_task_as_running,
     mark_task_as_done,
+    mark_all_tasks_as_done,
     display_mermaid_diagram,
     display_convergence_canvas,
     visualize_oom,
@@ -350,6 +351,7 @@ async def on_message(message: cl.Message):
                 step1_response = await generate_response(
                     xai_client, tools, function_map, functions_with_ctx, ctx, step1_messages
                 )
+                await mark_all_tasks_as_done()
                 
                 if step1_response:
                     # Append Step 1 response to main history
@@ -368,6 +370,19 @@ async def on_message(message: cl.Message):
                     # STEP 2: Visualization / Inference
                     xai_client, tools, function_map, functions_with_ctx = get_session_vars("visualization")
                     
+                    # Show a task for Step 2 so the user knows what's happening
+                    step2_task_title = "Synthesizing response from enriched context and questions"
+                    task_list = cl.user_session.get('task_list')
+                    if task_list is None:
+                        task_list = cl.TaskList()
+                        cl.user_session.set('task_list', task_list)
+                    step2_task = cl.Task(title=step2_task_title, status=cl.TaskStatus.RUNNING)
+                    await task_list.add_task(step2_task)
+                    tasks_dict = cl.user_session.get('tasks', {})
+                    tasks_dict[step2_task_title] = step2_task
+                    cl.user_session.set('tasks', tasks_dict)
+                    await task_list.send()
+
                     # Retrieve Step 2 specific history
                     step2_messages = cl.user_session.get("step2_messages")
                     if step2_messages is None:
@@ -386,6 +401,10 @@ async def on_message(message: cl.Message):
                     step2_response = await generate_response(
                         xai_client, tools, function_map, functions_with_ctx, ctx, step2_input_messages
                     )
+
+                    # Mark step 2 task as done
+                    step2_task.status = cl.TaskStatus.DONE
+                    await task_list.send()
 
                     if step2_response:
                         # Append Step 2 response to Step 2 history
@@ -416,6 +435,7 @@ async def on_message(message: cl.Message):
                 response_content = await generate_response(
                     xai_client, tools, function_map, functions_with_ctx, ctx, edit_messages
                 )
+                await mark_all_tasks_as_done()
                 
                 if response_content:
                     # Append to history

@@ -27,6 +27,7 @@ Follow these steps:
 
 - As you gather context and formulate your response use `mark_task_as_done` and `get_tasks` to track your progress.
 - You can at any point change course and come up with a new plan for going forward: send the updated list of planned tasks with `plan_tasks`. The tasks you have completed and marked DONE will remain so.
+- **Before you produce your final response, you MUST mark every remaining task as done using `mark_task_as_done`.** No tasks should be left in RUNNING or READY state when your response ends.
 
 ## Mode of Operation
 

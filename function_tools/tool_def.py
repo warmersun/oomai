@@ -252,7 +252,7 @@ TOOLS_DEFINITIONS = {
     tool(
         name="mark_task_as_running",
         description="""
-        Marks a task as done by updating its status to DONE, only if it's not already done.
+        Marks a task as running by updating its status to RUNNING, only if it's not already done.
         Does not affect done tasks. Refreshes the TaskList, which shows both DONE and planned tasks.
         """,
         parameters={
@@ -268,7 +268,7 @@ TOOLS_DEFINITIONS = {
     "mark_task_as_done":
     tool(name="mark_task_as_done",
          description="""
-        Marks a task as running by updating its status to RUNNING, only if it's not done.
+        Marks a task as done by updating its status to DONE, only if it's not already done.
         Does not affect done tasks. Refreshes the TaskList, which shows both DONE and planned tasks.
         """,
          parameters={

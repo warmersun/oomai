@@ -78,3 +78,24 @@ async def mark_task_as_running(task_title: str) -> None:
         task_list = cl.user_session.get('task_list')
         if task_list:
             await task_list.send()
+
+
+async def mark_all_tasks_as_done() -> None:
+    """
+    Marks all remaining non-DONE tasks as DONE.
+    Called as a safety net after generate_response completes to ensure the task list
+    UI doesn't show stale RUNNING or READY states.
+    """
+    tasks_dict = cl.user_session.get('tasks', {})
+    if not tasks_dict:
+        return
+    any_changed = False
+    for title, task in tasks_dict.items():
+        if task.status != cl.TaskStatus.DONE:
+            task.status = cl.TaskStatus.DONE
+            any_changed = True
+    if any_changed:
+        logger.warning("Auto-completing remaining tasks")
+        task_list = cl.user_session.get('task_list')
+        if task_list:
+            await task_list.send()
