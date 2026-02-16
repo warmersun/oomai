@@ -714,6 +714,142 @@ async def core_scan_ideas(ctx: GraphOpsCtx,
     return final_results
 
 
+async def core_scan_trends(ctx: GraphOpsCtx,
+                           query_probes: List[str],
+                           top_k_per_probe: int = 20,
+                           max_results: int = 80,
+                           emtech_filter: Optional[str] = None,
+                           openai_embedding_client=None) -> list:
+    """
+    Scans the Trend pool using multiple diverse query probes.
+    Each probe runs a vector similarity search; results are unioned,
+    deduplicated by node name (keeping the best score), and returned
+    sorted by descending similarity score.
+
+    Optionally filters to only Trends connected to a specific EmTech
+    (via PREDICTS->Capability<-ENABLES-EmTech or
+     LOOKS_AT->Milestone<-HAS_MILESTONE-Capability<-ENABLES-EmTech).
+
+    Args:
+        ctx: GraphOpsCtx with Neo4j driver and lock.
+        query_probes: List of diverse search strings (5-10 recommended).
+        top_k_per_probe: Max results per probe (default 20).
+        max_results: Total results cap after deduplication (default 80).
+        emtech_filter: Optional EmTech name to filter trends by (e.g., "crypto-currency").
+        openai_embedding_client: AsyncOpenAI client for embeddings.
+
+    Returns:
+        List of dicts with node info and best similarity score.
+    """
+    if openai_embedding_client is None:
+        raise ValueError("openai_embedding_client is required for scan_trends")
+
+    if not query_probes:
+        return []
+
+    logging.info(f"[SCAN_TRENDS] {len(query_probes)} probes, top_k_per_probe={top_k_per_probe}, max_results={max_results}, emtech_filter={emtech_filter}")
+    for i, probe in enumerate(query_probes):
+        logging.info(f"[SCAN_TRENDS] Probe {i+1}: {probe}")
+
+    # Compute all embeddings in one batch call
+    emb_response = await openai_embedding_client.embeddings.create(
+        model=EMBEDDING_MODEL, input=query_probes)
+    probe_embeddings = [item.embedding for item in emb_response.data]
+
+    index_names = ["trend_description_embeddings"]
+
+    cypher_query = """
+    CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
+    YIELD node, score
+    RETURN
+        node { .name, .description } AS node,
+        score,
+        labels(node)[0] AS node_type
+    ORDER BY score DESC
+    """
+
+    def filter_values(obj):
+        """Remove None values and embedding keys, convert Neo4j dates."""
+        if isinstance(obj, dict):
+            return {
+                k: filter_values(v)
+                for k, v in obj.items()
+                if k != 'embedding' and v is not None
+            }
+        elif isinstance(obj, list):
+            return [filter_values(item) for item in obj]
+        elif isinstance(obj, Date):
+            return obj.iso_format()
+        elif isinstance(obj, DateTime):
+            return obj.iso_format()
+        return obj
+
+    # Collect all results keyed by node name -> best record
+    best_results: Dict[str, dict] = {}
+
+    async with ctx.neo4jdriver.session() as session:
+        async with ctx.lock:
+            for idx, embedding in enumerate(probe_embeddings):
+                for index_name in index_names:
+                    try:
+                        async def read_work(tx: AsyncTransaction,
+                                            _index=index_name,
+                                            _emb=embedding):
+                            result = await tx.run(
+                                cypher_query, {
+                                    "index_name": _index,
+                                    "top_k": top_k_per_probe,
+                                    "embedding": _emb
+                                })
+                            return await result.data()
+
+                        records = await session.execute_read(read_work)
+                        for record in records:
+                            filtered = filter_values(record)
+                            node_name = filtered.get("node", {}).get("name")
+                            if node_name:
+                                score = filtered.get("score", 0)
+                                if node_name not in best_results or score > best_results[node_name].get("score", 0):
+                                    best_results[node_name] = filtered
+
+                    except Exception as e:
+                        logging.warning(f"[SCAN_TRENDS] Error querying {index_name} with probe {idx+1}: {str(e)}")
+                        continue
+
+            # If emtech_filter is set, filter to only Trends connected to that EmTech
+            if emtech_filter and best_results:
+                trend_names = list(best_results.keys())
+                filter_query = """
+                UNWIND $trend_names AS tname
+                MATCH (t:Trend {name: tname})
+                WHERE
+                    EXISTS { (t)-[:PREDICTS]->(:Capability)<-[:ENABLES]-(:EmTech {name: $emtech}) }
+                    OR EXISTS { (t)-[:LOOKS_AT]->(:Milestone)<-[:HAS_MILESTONE]-(:Capability)<-[:ENABLES]-(:EmTech {name: $emtech}) }
+                RETURN t.name AS name
+                """
+                try:
+                    async def read_filter(tx: AsyncTransaction):
+                        result = await tx.run(filter_query, {
+                            "trend_names": trend_names,
+                            "emtech": emtech_filter
+                        })
+                        return await result.data()
+
+                    filtered_records = await session.execute_read(read_filter)
+                    connected_names = {r["name"] for r in filtered_records}
+                    best_results = {k: v for k, v in best_results.items() if k in connected_names}
+                    logging.info(f"[SCAN_TRENDS] EmTech filter '{emtech_filter}' kept {len(connected_names)} of {len(trend_names)} trends")
+                except Exception as e:
+                    logging.warning(f"[SCAN_TRENDS] Error applying emtech filter: {str(e)}")
+
+    # Sort by score descending and cap at max_results
+    sorted_results = sorted(best_results.values(), key=lambda r: r.get("score", 0), reverse=True)
+    final_results = sorted_results[:max_results]
+
+    logging.info(f"[SCAN_TRENDS] Found {len(best_results)} unique trends across all probes, returning top {len(final_results)}")
+    return final_results
+
+
 async def core_dfs(ctx: GraphOpsCtx,
                    node_name: str,
                    node_type: Literal["Convergence", "Capability", "Milestone",

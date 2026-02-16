@@ -5,6 +5,7 @@ from .chainlit_graph_ops import create_node
 from .chainlit_graph_ops import create_edge
 from .chainlit_graph_ops import find_node
 from .chainlit_graph_ops import scan_ideas
+from .chainlit_graph_ops import scan_trends
 from .chainlit_graph_ops import dfs
 from .core_graph_ops import GraphOpsCtx
 from .core_graph_ops import core_execute_cypher_query
@@ -12,6 +13,7 @@ from .core_graph_ops import core_create_node
 from .core_graph_ops import core_create_edge
 from .core_graph_ops import core_find_node
 from .core_graph_ops import core_scan_ideas
+from .core_graph_ops import core_scan_trends
 from .core_graph_ops import core_dfs
 from .task_ops import plan_tasks
 from .task_ops import get_tasks

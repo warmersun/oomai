@@ -26,6 +26,7 @@ from function_tools import (
     create_edge,
     find_node,
     scan_ideas,
+    scan_trends,
     dfs,
     GraphOpsCtx,
     plan_tasks,
@@ -40,7 +41,7 @@ from function_tools import (
 )
 from chainlit_xai_util import generate_response
 from utils import Neo4jDateEncoder
-from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
+from config import OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, USER_PARTY_NAME
 
 with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
@@ -50,12 +51,12 @@ with open("knowledge_graph/system_prompt_grok4.md", "r") as f:
     system_prompt_edit_template = f.read()
 with open("knowledge_graph/system_prompt_grok4_readonly.md", "r") as f:
     system_prompt_readonly_template = f.read()
-SYSTEM_PROMPT_EDIT = system_prompt_edit_template.format(schema=schema, schema_population_guidance=schema_population_guidance)
-SYSTEM_PROMPT_READONLY = system_prompt_readonly_template.format(schema=schema)
+SYSTEM_PROMPT_EDIT = system_prompt_edit_template.format(schema=schema, schema_population_guidance=schema_population_guidance, user_party_name=USER_PARTY_NAME)
+SYSTEM_PROMPT_READONLY = system_prompt_readonly_template.format(schema=schema, user_party_name=USER_PARTY_NAME)
 with open("knowledge_graph/system_prompt_readonly_step1.md", "r") as f:
-    SYSTEM_PROMPT_READONLY_STEP1 = f.read().format(schema=schema)
+    SYSTEM_PROMPT_READONLY_STEP1 = f.read().format(schema=schema, user_party_name=USER_PARTY_NAME)
 with open("knowledge_graph/system_prompt_readonly_step2.md", "r") as f:
-    SYSTEM_PROMPT_READONLY_STEP2 = f.read().format(schema=schema)
+    SYSTEM_PROMPT_READONLY_STEP2 = f.read().format(schema=schema, user_party_name=USER_PARTY_NAME)
 
 with open("knowledge_graph/command_sources.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -85,6 +86,7 @@ TOOLS_EDIT = [
     TOOLS_DEFINITIONS["create_edge"],
     TOOLS_DEFINITIONS["find_node"],
     TOOLS_DEFINITIONS["scan_ideas"],
+    TOOLS_DEFINITIONS["scan_trends"],
     TOOLS_DEFINITIONS["dfs"],
     TOOLS_DEFINITIONS["plan_tasks"],
     TOOLS_DEFINITIONS["get_tasks"],
@@ -100,6 +102,7 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["execute_cypher_query"],
     TOOLS_DEFINITIONS["find_node"],
     TOOLS_DEFINITIONS["scan_ideas"],
+    TOOLS_DEFINITIONS["scan_trends"],
     TOOLS_DEFINITIONS["dfs"],
     TOOLS_DEFINITIONS["plan_tasks"],
     TOOLS_DEFINITIONS["get_tasks"],
@@ -119,6 +122,7 @@ AVAILABLE_FUNCTIONS_EDIT = {
     "create_edge": create_edge,
     "find_node": find_node,
     "scan_ideas": scan_ideas,
+    "scan_trends": scan_trends,
     "dfs": dfs,
     "plan_tasks": plan_tasks,
     "get_tasks": get_tasks,
@@ -134,6 +138,7 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "execute_cypher_query": execute_cypher_query,
     "find_node": find_node,
     "scan_ideas": scan_ideas,
+    "scan_trends": scan_trends,
     "dfs": dfs,
     "plan_tasks": plan_tasks,
     "get_tasks": get_tasks,
@@ -250,7 +255,7 @@ async def start():
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
         await cl.context.emitter.set_commands(commands_readonly)
     functions_with_ctx = [
-        "create_node", "create_edge", "find_node", "scan_ideas", "dfs",
+        "create_node", "create_edge", "find_node", "scan_ideas", "scan_trends", "dfs",
         "execute_cypher_query"
     ]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
@@ -714,7 +719,7 @@ async def on_chat_resume(thread: ThreadDict):
         cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
         await cl.context.emitter.set_commands(commands_readonly)
     functions_with_ctx = [
-        "create_node", "create_edge", "find_node", "scan_ideas", "dfs",
+        "create_node", "create_edge", "find_node", "scan_ideas", "scan_trends", "dfs",
         "execute_cypher_query"
     ]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)

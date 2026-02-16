@@ -531,5 +531,53 @@ TOOLS_DEFINITIONS = {
              },
              "required": ["query_probes"]
          }),
+    "scan_trends":
+    tool(name="scan_trends",
+         description="""
+        Scans the Trend pool in the knowledge graph using multiple diverse query probes.
+        Similar to `scan_ideas`, this uses vector similarity search with multiple angles to find
+        relevant Trends that may not be reachable through graph traversals alone.
+
+        Trends connect to EmTechs indirectly via PREDICTS->Capability<-ENABLES-EmTech or
+        LOOKS_AT->Milestone<-HAS_MILESTONE-Capability<-ENABLES-EmTech. Use the optional
+        `emtech_filter` parameter to narrow results to Trends connected to a specific EmTech.
+
+        **When to use**: When you want to find tracked trends related to a topic, especially
+        trends that may not be directly reachable from the nodes you've found via DFS or Cypher.
+        """,
+         parameters={
+             "type": "object",
+             "properties": {
+                 "query_probes": {
+                     "type": "array",
+                     "items": {
+                         "type": "string",
+                         "description": "A search string representing one angle on the topic."
+                     },
+                     "description":
+                     "List of 5-10 diverse search strings, each approaching the topic from a different angle.",
+                     "minItems": 1,
+                     "maxItems": 15,
+                 },
+                 "top_k_per_probe": {
+                     "type": "integer",
+                     "description":
+                     "Max results per probe (default 20).",
+                     "default": 20,
+                 },
+                 "max_results": {
+                     "type": "integer",
+                     "description":
+                     "Total results cap after deduplication (default 80).",
+                     "default": 80,
+                 },
+                 "emtech_filter": {
+                     "type": "string",
+                     "description":
+                     "Optional. Filter to only Trends connected to this EmTech (e.g., 'crypto-currency', 'artificial intelligence', 'robots'). Uses the exact EmTech node name from the taxonomy.",
+                 },
+             },
+             "required": ["query_probes"]
+         }),
 
 }

@@ -5,6 +5,7 @@ from .core_graph_ops import core_create_node
 from .core_graph_ops import core_create_edge
 from .core_graph_ops import core_find_node
 from .core_graph_ops import core_scan_ideas
+from .core_graph_ops import core_scan_trends
 from .core_graph_ops import core_dfs
 from typing import List, Optional, Literal, Dict, Union
 
@@ -113,6 +114,32 @@ async def scan_ideas(
         await step_message.send()
 
         output = await core_scan_ideas(ctx, query_probes, top_k_per_probe, max_results, openai_embedding_client)
+
+        step.output = output
+        debug = cl.user_session.get("debug_settings")
+        if not debug:
+            await step.remove()
+        return output
+
+async def scan_trends(
+    ctx: GraphOpsCtx,
+    query_probes: List[str],
+    top_k_per_probe: int = 20,
+    max_results: int = 80,
+    emtech_filter: Optional[str] = None,
+) -> list:
+    async with cl.Step(name="Scan_Trends", type="retrieval") as step:
+        step.show_input = True
+        step.input = {"query_probes": query_probes, "top_k_per_probe": top_k_per_probe, "max_results": max_results, "emtech_filter": emtech_filter}
+
+        openai_embedding_client = cl.user_session.get("openai_embedding_client")
+        assert openai_embedding_client is not None, "No OpenAI client found in user session"
+
+        filter_msg = f" (filtered to {emtech_filter})" if emtech_filter else ""
+        step_message = cl.Message(content=f"Scanning trends with {len(query_probes)} probes{filter_msg} (up to {max_results} results)")
+        await step_message.send()
+
+        output = await core_scan_trends(ctx, query_probes, top_k_per_probe, max_results, emtech_filter, openai_embedding_client)
 
         step.output = output
         debug = cl.user_session.get("debug_settings")
