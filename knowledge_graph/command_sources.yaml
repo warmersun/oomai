@@ -322,3 +322,33 @@ commands:
       - ⚔️ **Direct contradictions** — positions that can't both be true
       - 🤔 **Tensions** — positions that are in tension but not necessarily contradictory
       - 🧩 **Reconciliation** — ways to resolve or at least acknowledge the contradictions
+
+  analyze:
+    icon: scan-search
+    description: "Analyze news event:"
+    modes: [edit, readonly]
+    template: |
+      Analyze the following news event and provide a structured, multi-dimensional assessment: {user_input}
+
+      Start by gathering data from multiple sources:
+
+      1. **Research the news** — Use `x_search` with a detailed prompt to get the full story, reactions, and context around this event. Search for what happened, who is involved, and what people are saying about it.
+      2. **Identify the parties** — For each party involved, search the knowledge graph using `find_node` (type: Party) and `dfs` to find what you already know about them: their products, positions, previous moves, and connections.
+      3. **Scan for related ideas and predictions** — Use `scan_ideas` with 5-8 diverse probes approaching the event from different angles:
+         - The event itself
+         - The strategic motivations of each party
+         - The market or technology segment affected
+         - Contrarian takes or risks
+         - Historical precedents or analogies
+         - Broader industry implications
+      4. **Scan for related trends** — Use `scan_trends` with probes about the technology areas, market dynamics, and capability shifts this event relates to.
+      5. **Check existing bets** — Search the knowledge graph for Bets that this event might validate or invalidate.
+
+      Then, structure your response in these sections:
+
+      - 📰 **What happened** — The facts: who did what, when, and the immediate context.
+      - 🎯 **Why it matters** — Significance in the broader technology landscape. What does this signal about where the industry is heading? Connect to known trends and capabilities from the knowledge graph.
+      - 🧩 **Why the parties did this** — For each party involved, analyze their likely motivations, strategic reasoning, and what they stand to gain or lose. Reference their known positions, products, and history from the knowledge graph.
+      - 🔮 **Who predicted this** — Search the knowledge graph for thought leaders, ideas, assessments, or bets that anticipated this kind of move. Credit the parties who saw it coming and explain how their reasoning led to this prediction.
+      - ⚡ **Implications** — What this likely means going forward. What does it validate or invalidate? What new capabilities, products, or competitive dynamics might emerge? How does it affect existing bets and assessments?
+      - ❓ **Questions to track** — Open questions this raises that should be monitored. What should we watch for next?
