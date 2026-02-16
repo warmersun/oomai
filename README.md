@@ -55,6 +55,7 @@ oom.ai includes a suite of specialized commands designed for high-level analysis
 *   **`Map`**: Maps "Ideas" and "Predictions" to observed "Trends" and "Milestones" to see if reality is aligning with the theory.
 *   **`Tool`**: Finds the specific "Stack" (Products, Services, Models) available to solve a problem *right now*.
 *   **`Pathway`**: Generates a solution to a global problem (e.g., "Water Scarcity") using a convergence of at least 9 different EmTech domains.
+*   **`Analyze`**: Answers the "So What?" behind breaking news. It dissects the strategic motivations of the parties involved, identifies who predicted it, and forecasts what it signals for the future.
 
 ### Validation & Accountability
 *   **`Check`**: Instantly validates a specific prediction against the known facts in the graph.
