@@ -10,21 +10,16 @@ It is designed for one specific purpose: **Deep Tech Foresight.** It helps you u
 **oom.ai** is built for sovereignty. You run it yourself, on your own hardware, with your own data.
 
 - The **entire tool** is **free forever** under the **MIT License**.
-- This means anyone can use it for **personal or commercial purposes** (client work, consulting, internal enterprise use, etc.) without ever paying anything.
+- This means anyone can use it for **personal or commercial purposes** (client work, consulting, enterprise, etc.) without ever paying anything.
 
-**Pro Lifetime License** ($499–$999 one-time) is completely optional.  
-It is **not required** for commercial use.
+**Pro Access**: Completely optional and negotiated case-by-case.
+- Includes custom support, deployment help, graph customization, etc.
+- Starts with a free discovery call to discuss your needs and agree on pricing.
 
-You buy Pro only if you want:
-- Priority support from the creator (usually same-day replies)
-- One private 1-hour onboarding call to help set up your graph and first bets
-- A signed official license document for your company or legal records
-- Access to the private Pro-only Discord community
-- To directly support continued development
+The software and commands are **identical** to the free version. Pro is for those who want personalized service.
 
-The software, commands, and capabilities are **identical** in both versions.
+[Book a free Pro discovery call here](https://calendar.app.google/smopr2YhUJibL5557)
 
-This is the same honest, transparent model used by many respected self-hosted tools in 2026.
 
 ### Free vs Pro
 
@@ -138,7 +133,3 @@ oom.ai allows individuals and boutique firms to compete with massive research co
 **oom.ai** is a tool for **thinking clearly about the future**.
 
 It moves beyond the "Chatbot" paradigm and into the "Research Partner" paradigm. By anchoring AI reasoning in a structured, observable reality, it provides a defense against hallucination and a telescope for identifying the non-obvious convergences that will shape the next decade.
-
-## Get Pro
-
-If you’d like priority support and the official license document, [buy the Pro Lifetime License here](https://gumroad.com/l/oomai-pro).
