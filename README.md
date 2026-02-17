@@ -5,6 +5,39 @@
 
 It is designed for one specific purpose: **Deep Tech Foresight.** It helps you understand not just *what* is happening in technology, but *what it means, what it connects to, and where it is going.*
 
+## License & Pricing
+
+**oom.ai** is built for sovereignty. You run it yourself, on your own hardware, with your own data.
+
+- The **entire tool** is **free forever** under the **MIT License**.
+- This means anyone can use it for **personal or commercial purposes** (client work, consulting, internal enterprise use, etc.) without ever paying anything.
+
+**Pro Lifetime License** ($499–$999 one-time) is completely optional.  
+It is **not required** for commercial use.
+
+You buy Pro only if you want:
+- Priority support from the creator (usually same-day replies)
+- One private 1-hour onboarding call to help set up your graph and first bets
+- A signed official license document for your company or legal records
+- Access to the private Pro-only Discord community
+- To directly support continued development
+
+The software, commands, and capabilities are **identical** in both versions.
+
+This is the same honest, transparent model used by many respected self-hosted tools in 2026.
+
+### Free vs Pro
+
+| Feature                          | Free (MIT License)                              | Pro Lifetime ($499–$999 one-time)                  |
+|----------------------------------|-------------------------------------------------|----------------------------------------------------|
+| Full engine & all commands       | ✅ Yes                                          | ✅ Yes                                             |
+| Self-hosting                     | ✅ Unlimited                                    | ✅ Unlimited                                       |
+| Commercial use allowed           | ✅ Yes (no purchase needed)                     | ✅ Yes (included)                                  |
+| Support                          | Public GitHub only                              | Priority (direct from creator)                     |
+| Onboarding call                  | None                                            | One 1-hour private call                            |
+| Official license document        | None                                            | Signed PDF for your records                        |
+| Private community                | No                                              | ✅ Pro-only Discord                                |
+
 ---
 
 ## The Core Value Proposition
@@ -105,3 +138,7 @@ oom.ai allows individuals and boutique firms to compete with massive research co
 **oom.ai** is a tool for **thinking clearly about the future**.
 
 It moves beyond the "Chatbot" paradigm and into the "Research Partner" paradigm. By anchoring AI reasoning in a structured, observable reality, it provides a defense against hallucination and a telescope for identifying the non-obvious convergences that will shape the next decade.
+
+## Get Pro
+
+If you’d like priority support and the official license document, [buy the Pro Lifetime License here](https://gumroad.com/l/oomai-pro).
