@@ -648,15 +648,26 @@ async def core_scan_ideas(ctx: GraphOpsCtx,
     # Search both Idea and Bet indices
     index_names = ["idea_description_embeddings", "bet_description_embeddings"]
 
-    cypher_query = """
-    CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
-    YIELD node, score
-    RETURN
-        node { .name, .description, .argument, .assumptions, .counterargument } AS node,
-        score,
-        labels(node)[0] AS node_type
-    ORDER BY score DESC
-    """
+    queries = {
+        "idea_description_embeddings": """
+        CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
+        YIELD node, score
+        RETURN
+            node { .name, .description, .argument, .assumptions, .counterargument } AS node,
+            score,
+            labels(node)[0] AS node_type
+        ORDER BY score DESC
+        """,
+        "bet_description_embeddings": """
+        CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
+        YIELD node, score
+        RETURN
+            node { .name, .description, .placed_date, .result } AS node,
+            score,
+            labels(node)[0] AS node_type
+        ORDER BY score DESC
+        """
+    }
 
     def filter_values(obj):
         """Remove None values and embedding keys, convert Neo4j dates."""
@@ -686,7 +697,7 @@ async def core_scan_ideas(ctx: GraphOpsCtx,
                                             _index=index_name,
                                             _emb=embedding):
                             result = await tx.run(
-                                cypher_query, {
+                                queries[_index], {
                                     "index_name": _index,
                                     "top_k": top_k_per_probe,
                                     "embedding": _emb
