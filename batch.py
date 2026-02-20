@@ -86,7 +86,7 @@ async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client, 
 
     while counter < 100:
         counter += 1
-        logger.warning(f"Counter: {counter}")
+        logger.debug(f"Counter: {counter}")
         response = await chat.sample()
         logger.info("Response received.")
 
@@ -132,7 +132,8 @@ async def process(chat, ctx: GraphOpsCtx, groq_client, openai_embedding_client, 
                     raise e
                 # Add error result
                 chat.append(tool_result(json.dumps({"error": str(e)})))
-                break
+                # Do not break here; allow other tool calls in the same turn to proceed
+                # break
 
 async def main() -> None:
     neo4jdriver = AsyncGraphDatabase.driver(

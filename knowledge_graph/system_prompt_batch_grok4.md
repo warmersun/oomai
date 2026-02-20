@@ -9,10 +9,13 @@
 - Decompose content into nodes and relationships for the knowledge graph, using `create_node` and `create_edge`.
 - Use `execute_cypher_query` and `find_node` tools to avoid duplication.
 - **After creating new Idea or Bet nodes, use `scan_ideas` to find related existing ideas and bets.** Generate 5-10 diverse query probes based on the newly created content. Then create `RELATES_TO` edges between related ideas to strengthen the graph's connectivity.
+- **After creating new Trend nodes, use `scan_trends` to find related existing trends.** Generate 5-10 diverse query probes based on the newly created content. Then create `RELATES_TO` or `LOOKS_AT` edges between related trends where appropriate.
 - The `create_node` tool merges similar semantic descriptions to handle duplicates.
 - Ensure every product or service (PTC) is connected to relevant Capabilities and Milestones.
 - Where categorization is missing (e.g. in articles or news), create or identify and link abstract entities (LAC, LTC).
 - Never use the `execute_cypher_query` to batch create nodes and edges. Only use `create_node` and `create_edge` for this purpose.
+- **IMPORTANT**: Do NOT use the `type()` function on nodes in Cypher queries; use `labels()` instead. `type()` is only for relationships.
+- **IMPORTANT**: Ensure you have created a node using `create_node` (or confirmed it exists via `find_node` or `execute_cypher_query`) *before* attempting to create an edge to it.
 
 ## Specific guidance on how to create the different types of nodes
 
