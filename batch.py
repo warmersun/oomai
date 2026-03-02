@@ -210,7 +210,7 @@ async def main() -> None:
         ctx = GraphOpsCtx(neo4jdriver, lock)
 
         try:
-            logger.info("Now processing content from sources into the knowledge graph using Grok-4-fast with built-in search.")
+            logger.info("Now processing content from sources into the knowledge graph using Grok-4.1-Fast with built-in search.")
             chat = create_response(xai_client, prompt)
             await process(chat, ctx, groq_client, openai_embedding_client, xai_client, is_video_source=is_video_source)
             logger.info(f"✅ Processed {source.get('name')} successfully.")

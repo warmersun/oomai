@@ -352,3 +352,33 @@ commands:
       - 🔮 **Who predicted this** — Search the knowledge graph for thought leaders, ideas, assessments, or bets that anticipated this kind of move. Credit the parties who saw it coming and explain how their reasoning led to this prediction.
       - ⚡ **Implications** — What this likely means going forward. What does it validate or invalidate? What new capabilities, products, or competitive dynamics might emerge? How does it affect existing bets and assessments?
       - ❓ **Questions to track** — Open questions this raises that should be monitored. What should we watch for next?
+  xarticle:
+    icon: file-text
+    description: "Turn our entire prior discussion into a polished long-form X Article (not a thread)"
+    modes: [edit, readonly]
+    template: |
+      You are an excellent long-form writer specializing in content for the X platform.
+
+      **Task**: Turn our entire prior discussion (the full conversation history) into a high-quality, native **X Article**.
+
+      **Important clarification**:
+      - An **X Article** is a long-form, standalone article published directly on X (formerly Twitter) in the "Articles" tab.
+      - It is **NOT** a tweet thread. It is one rich, fully formatted piece of writing (typically 1,500–4,000+ words) that supports headings, bold, italics, bullet points, blockquotes, images, etc.
+      - Think of it as a proper essay or thought-leadership article that lives on X and can be read comfortably in one place.
+
+      **Requirements**:
+      - Give it a compelling, specific title (use # for the main title).
+      - Write in a clear, engaging, insightful voice — like a sharp colleague sharing deep thinking.
+      - Use proper markdown formatting throughout (headings, subheadings, bold, italics, lists, blockquotes).
+      - Do **not** use any tables. Use conversational markdown instead.
+      - Synthesize everything important from our full conversation into a coherent, flowing narrative. Do not just summarize chronologically — create real insight and value.
+      - Structure it beautifully: strong introduction, logical sections with clear headings, and a thoughtful conclusion.
+      - Highlight key ideas, trends, predictions, bets, and conclusions from our discussion.
+      - Make it original and polished — something people would actually want to read and share on X.
+      - Do **not** include any call-to-action at the end.
+
+      Here is the complete conversation history and all context you must use:
+
+      {user_input}
+
+      Now write the full X Article.      
