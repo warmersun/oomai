@@ -10,6 +10,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script
     src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/gridstack@10.0.1/dist/gridstack.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/gridstack@10.0.1/dist/gridstack-all.js"></script>
   <link
     href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
@@ -334,11 +336,12 @@
     .dashboard {
       position: relative;
       z-index: 10;
-      display: grid;
-      grid-template-columns: 1fr 380px;
-      grid-template-rows: auto auto auto;
-      gap: 16px;
       padding: 0 32px 32px 32px;
+    }
+
+    .grid-stack-item-content {
+      display: flex;
+      flex-direction: column;
     }
 
     .panel {
@@ -360,6 +363,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      cursor: move;
     }
 
     .panel-title {
@@ -377,9 +381,8 @@
 
     /* Chart panel spans full width on left */
     .chart-panel {
-      grid-column: 1;
-      grid-row: 1 / 4;
-      min-height: 500px;
+      flex: 1;
+      min-height: 0;
     }
 
     .chart-container {
@@ -399,7 +402,7 @@
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      max-height: 440px;
+      height: 100%;
     }
 
     .trend-spot-input {
@@ -689,9 +692,7 @@
 
     /* ═══════════════════════════════ BETS PANEL ═══════════════════════════════ */
     .bets-panel {
-      grid-column: 2;
-      grid-row: 1;
-      max-height: 500px;
+      flex: 1;
       display: flex;
       flex-direction: column;
     }
@@ -812,11 +813,9 @@
 
     /* ═══════════════════════════════ IDEAS PANEL ═══════════════════════════════ */
     .ideas-panel {
-      grid-column: 2;
-      grid-row: 2;
+      flex: 1;
       display: flex;
       flex-direction: column;
-      max-height: 280px;
     }
 
     .ideas-panel .panel-body {
@@ -901,6 +900,29 @@
       color: var(--accent-amber);
     }
 
+    .party-badge {
+      font-size: 0.58rem;
+      font-family: var(--font-mono);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+      background: rgba(0, 212, 255, 0.12);
+      color: var(--accent-cyan);
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    .trend-list-party {
+      font-size: 0.58rem;
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      opacity: 0.7;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     /* Check button in modal */
     .check-btn {
       padding: 10px 20px;
@@ -928,11 +950,9 @@
 
     /* ═══════════════════════════════ NEWS PANEL ═══════════════════════════════ */
     .news-panel {
-      grid-column: 2;
-      grid-row: 3;
+      flex: 1;
       display: flex;
       flex-direction: column;
-      max-height: 360px;
     }
 
     .news-panel .panel-body {
@@ -1417,76 +1437,86 @@
   </div>
 
   <!-- ═══════════════════════════════ DASHBOARD ═══════════════════════════════ -->
-  <main class="dashboard">
+  <main class="dashboard grid-stack">
     <!-- Chart Panel -->
-    <section class="panel chart-panel">
-      <div class="panel-header">
-        <span class="panel-title" id="chart-title">📊 Trend Explorer</span>
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <span id="doubling-info"></span>
-          <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted);">LOG SCALE</span>
-        </div>
-      </div>
-      <div class="trend-explorer">
-        <!-- Left: trend list -->
-        <div class="trend-list-area">
-          <div class="trend-spot-input">
-            <input type="text" id="spot-input" placeholder="Spot a trend…"
-              onkeydown="if(event.key==='Enter') spotTrend()">
-            <button class="trend-spot-btn" id="spot-btn" onclick="spotTrend()">🔭 Spot</button>
-          </div>
-          <div class="trend-count" id="trend-count"></div>
-          <div class="trend-scroll" id="trend-list">
-            <!-- Populated by JS -->
+    <div class="grid-stack-item" gs-w="8" gs-h="13" gs-x="0" gs-y="0">
+      <section class="grid-stack-item-content panel chart-panel">
+        <div class="panel-header">
+          <span class="panel-title" id="chart-title">📊 Trend Explorer</span>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span id="doubling-info"></span>
+            <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted);">LOG SCALE</span>
           </div>
         </div>
-        <!-- Right: chart or detail -->
-        <div class="chart-main-area">
-          <div class="chart-container" id="chart-area">
-            <canvas id="main-chart"></canvas>
+        <div class="trend-explorer" style="flex: 1; display: flex; overflow: hidden;">
+          <!-- Left: trend list -->
+          <div class="trend-list-area">
+            <div class="trend-spot-input">
+              <input type="text" id="spot-input" placeholder="Spot a trend…"
+                onkeydown="if(event.key==='Enter') spotTrend()">
+              <button class="trend-spot-btn" id="spot-btn" onclick="spotTrend()">🔭 Spot</button>
+            </div>
+            <div class="trend-count" id="trend-count"></div>
+            <div class="trend-scroll" id="trend-list">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+          <!-- Right: chart or detail -->
+          <div class="chart-main-area" style="flex: 1; min-height: 0;">
+            <div class="chart-container" id="chart-area"
+              style="height: 100%; display: flex; flex-direction: column; min-height: 0;">
+              <canvas id="main-chart" style="flex: 1; min-height: 0;"></canvas>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
 
     <!-- Bets Panel -->
-    <section class="panel bets-panel">
-      <div class="panel-header">
-        <span class="panel-title">🎯 Active Bets</span>
-        <span id="bet-count" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);"></span>
-      </div>
-      <div class="panel-body" id="bets-container">
-        <div class="empty-state">Select an EmTech to track bets</div>
-      </div>
-    </section>
+    <div class="grid-stack-item" gs-w="4" gs-h="5" gs-x="8" gs-y="0">
+      <section class="grid-stack-item-content panel bets-panel">
+        <div class="panel-header">
+          <span class="panel-title">🎯 Active Bets</span>
+          <span id="bet-count"
+            style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);"></span>
+        </div>
+        <div class="panel-body" id="bets-container">
+          <div class="empty-state">Select an EmTech to track bets</div>
+        </div>
+      </section>
+    </div>
 
     <!-- Ideas Panel -->
-    <section class="panel ideas-panel">
-      <div class="panel-header">
-        <span class="panel-title">💡 Ideas & Assessments</span>
-        <span id="idea-count"
-          style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);"></span>
-      </div>
-      <div class="panel-body" id="ideas-container">
-        <div class="empty-state">Select an EmTech to view ideas</div>
-      </div>
-    </section>
+    <div class="grid-stack-item" gs-w="4" gs-h="4" gs-x="8" gs-y="5">
+      <section class="grid-stack-item-content panel ideas-panel">
+        <div class="panel-header">
+          <span class="panel-title">💡 Ideas & Assessments</span>
+          <span id="idea-count"
+            style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);"></span>
+        </div>
+        <div class="panel-body" id="ideas-container">
+          <div class="empty-state">Select an EmTech to view ideas</div>
+        </div>
+      </section>
+    </div>
 
     <!-- News Panel -->
-    <section class="panel news-panel">
-      <div class="panel-header">
-        <span class="panel-title">📡 Latest Intel</span>
-        <button class="scan-btn" id="scan-btn" onclick="scanNews()" disabled>
-          ⚡ Scan X
-        </button>
-      </div>
-      <div class="panel-body" id="news-container">
-        <div class="news-placeholder">
-          <span class="radar-icon">📡</span>
-          Select an EmTech and click Scan X to gather intelligence
+    <div class="grid-stack-item" gs-w="4" gs-h="4" gs-x="8" gs-y="9">
+      <section class="grid-stack-item-content panel news-panel">
+        <div class="panel-header">
+          <span class="panel-title">📡 Latest Intel</span>
+          <button class="scan-btn" id="scan-btn" onclick="scanNews()" disabled>
+            ⚡ Scan X
+          </button>
         </div>
-      </div>
-    </section>
+        <div class="panel-body" id="news-container">
+          <div class="news-placeholder">
+            <span class="radar-icon">📡</span>
+            Select an EmTech and click Scan X to gather intelligence
+          </div>
+        </div>
+      </section>
+    </div>
   </main>
 
   <!-- ═══════════════════════════════ MILESTONE MODAL ═══════════════════════════════ -->
@@ -1503,6 +1533,7 @@
   <!-- ═══════════════════════════════ JAVASCRIPT ═══════════════════════════════ -->
   <script>
     // ═══════════════════════════════ STATE ═══════════════════════════════
+    let grid = null;
     let currentEmTech = null;
     let mainChart = null;
     let milestonesData = [];
@@ -1531,6 +1562,15 @@
 
     async function init() {
       try {
+        // Init GridStack
+        grid = GridStack.init({
+          cellHeight: 60,
+          margin: 16,
+          handle: '.panel-header',
+          animate: true,
+          column: 12
+        });
+
         const res = await fetch('/api/emtechs');
         const emtechs = await res.json();
         renderTabs(emtechs);
@@ -1660,12 +1700,16 @@
       window._uniqueTrends = unique;
 
       countEl.textContent = `${unique.length} TRENDS`;
-      listEl.innerHTML = unique.map((t, idx) =>
-        `<div class="trend-list-item" data-idx="${idx}" onclick="openTrendDetail(${idx})">
+      listEl.innerHTML = unique.map((t, idx) => {
+        const parties = (t.parties || []).filter(p => p);
+        const partyLine = parties.length > 0
+          ? `<div class="trend-list-party">👤 ${parties.map(p => escapeHtml(p)).join(', ')}</div>`
+          : '';
+        return `<div class="trend-list-item" data-idx="${idx}" onclick="openTrendDetail(${idx})">
            <span class="trend-list-icon">📈</span>
-           <span class="trend-list-name">${escapeHtml(t.name)}</span>
-         </div>`
-      ).join('');
+           <div style="min-width:0; flex:1;"><span class="trend-list-name">${escapeHtml(t.name)}</span>${partyLine}</div>
+         </div>`;
+      }).join('');
     }
 
     function openTrendDetail(idx) {
@@ -1691,6 +1735,7 @@
           <div class="trend-detail-meta">
             ${trend.capability ? `<span>🎯 Capability: ${escapeHtml(trend.capability)}</span>` : ''}
             ${trend.observed_date ? `<span>📅 Observed: ${trend.observed_date}</span>` : ''}
+            ${(trend.parties || []).filter(p => p).length > 0 ? `<span>👤 Spotted by: ${trend.parties.filter(p => p).map(p => escapeHtml(p)).join(', ')}</span>` : ''}
           </div>
           <div class="trend-detail-actions">
             <button class="trend-action-btn primary" onclick="visualizeTrendGrowth(${idx})">📈 Visualize Growth</button>
@@ -2204,6 +2249,7 @@
         <div class="idea-card-desc">${escapeHtml(truncDesc)}</div>
         <div class="idea-card-meta">
           <span>${idea.date || ''}</span>
+          ${(idea.parties || []).filter(p => p).length > 0 ? `<span>${idea.parties.filter(p => p).map(p => '<span class="party-badge">👤 ' + escapeHtml(p) + '</span>').join(' ')}</span>` : ''}
           <span class="idea-card-check">VIEW & CHECK →</span>
         </div>
       </div>
@@ -2291,6 +2337,19 @@
           <div class="modal-section-title">Related Capabilities</div>
           <div>${caps.map(c =>
               `<span class="modal-tag lac">${escapeHtml(c.name)}</span>`
+            ).join('')}</div>
+        </div>`;
+          }
+        }
+
+        // Connected parties
+        if (data.parties?.length) {
+          const parties = data.parties.filter(p => p.name);
+          if (parties.length) {
+            html += `<div class="modal-section">
+          <div class="modal-section-title">Related Parties</div>
+          <div>${parties.map(p =>
+              `<span class="party-badge" style="margin-right:6px; font-size:0.72rem; padding:3px 8px;">👤 ${escapeHtml(p.name)}${p.description ? ' — ' + escapeHtml(p.description.slice(0, 100)) : ''}</span>`
             ).join('')}</div>
         </div>`;
           }

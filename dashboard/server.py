@@ -135,9 +135,11 @@ async def list_emtechs():
 async def emtech_trends(name: str):
     query = """
     MATCH (e:EmTech {name: $name})-[:ENABLES]->(c:Capability)<-[:PREDICTS]-(t:Trend)
+    OPTIONAL MATCH (p:Party)-[r]-(t)
     RETURN DISTINCT t.name AS name, t.description AS description,
            t.observed_date AS observed_date,
-           c.name AS capability
+           c.name AS capability,
+           collect(DISTINCT p.name) AS parties
     ORDER BY t.observed_date
     """
     async with driver.session() as session:
@@ -716,8 +718,10 @@ async def _gather_kg_context(emtech: str, headline: str, summary: str) -> dict:
 async def emtech_ideas(name: str):
     query = """
     MATCH (e:EmTech {name: $name})-[:ENABLES]->(c:Capability)<-[:RELATES_TO]-(i:Idea)
+    OPTIONAL MATCH (i)-[:RELATES_TO]->(p:Party)
     RETURN DISTINCT i.name AS name, i.description AS description,
-           i.date AS date, i.argument AS argument
+           i.date AS date, i.argument AS argument,
+           collect(DISTINCT p.name) AS parties
     ORDER BY i.date DESC
     """
     async with driver.session() as session:
@@ -735,12 +739,14 @@ async def idea_detail(name: str):
     MATCH (i:Idea {name: $name})
     OPTIONAL MATCH (i)-[:PLACES]->(b:Bet)
     OPTIONAL MATCH (i)-[:RELATES_TO]->(c:Capability)
+    OPTIONAL MATCH (i)-[:RELATES_TO]->(p:Party)
     RETURN i.name AS name, i.description AS description,
            i.argument AS argument, i.assumptions AS assumptions,
            i.counterargument AS counterargument,
            i.date AS date, i.last_updated_date AS last_updated_date,
            collect(DISTINCT {name: b.name, description: b.description, placed_date: b.placed_date, result: b.result}) AS bets,
-           collect(DISTINCT {name: c.name, description: c.description}) AS capabilities
+           collect(DISTINCT {name: c.name, description: c.description}) AS capabilities,
+           collect(DISTINCT {name: p.name, description: p.description}) AS parties
     """
     async with driver.session() as session:
         result = await session.run(query, {"name": name})
