@@ -82,8 +82,18 @@ TOOLS_DEFINITIONS = {
                     "description":
                     "A detailed description of the node for similarity checks and updates.",
                 },
+                "properties": {
+                    "type": "object",
+                    "description":
+                    "Optional extra properties for the node. Use for date fields: "
+                    "`release_date` (PTC), `launch_date` (PAC), `observed_date` (Trend), "
+                    "`date` and `last_updated_date` (Idea). "
+                    "Provide dates as ISO 8601 strings: 'YYYY-MM-DD', 'YYYY-MM', or 'YYYY'.",
+                    "additionalProperties": True,
+                },
             },
             "required": ["node_type", "name", "description"],
+            "additionalProperties": False,
         }),
     "create_edge":
     tool(
@@ -93,6 +103,8 @@ TOOLS_DEFINITIONS = {
         If the relationship doesn't exist, it creates it; if it does, it matches the existing one.
         Use this tool to connect nodes, such as linking an emerging technology to a capability it enables.
         Provide the source and target node names, the relationship type, and optional properties for the edge.
+        Edge date properties are supported: use `date` for REACHES, VALIDATES, INVALIDATES relationships.
+        Provide dates as ISO 8601 strings ('YYYY-MM-DD', 'YYYY-MM', or 'YYYY') — they will be stored as Neo4j date types.
         Returns the relationship object.
         """,
         parameters={

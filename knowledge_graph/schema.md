@@ -28,6 +28,8 @@ A Logical Technology Component (LTC) is a product class—an abstract product ca
 
 ### PTC
 A Physical Technology Component (PTC) is a specific product by a given vendor. It can be unreleased research (e.g., X.ai's Grok-4-Fast AI model).
+Optional properties beyond `name` and `description`:
+- `release_date` — date type, when the product was released, announced, or first demonstrated
 
 So "Large Language Model" is the abstract product category, the "bucket"L an LTC
 and "Grok-4-Fast" is a specific instance in that product category, a PTC.
@@ -37,9 +39,13 @@ A Logical Application Component (LAC) is an abstract group of similar applicatio
 
 ### PAC
 A Physical Application Component (PAC) is a specific application, implementation, or solution built.
+Optional properties beyond `name` and `description`:
+- `launch_date` — date type, when the application or solution was launched or deployed
 
 ### Trend
 A trend examines how some capability is progressing and makes predictions about where it is headed.
+Optional properties beyond `name` and `description`:
+- `observed_date` — date type, when the trend was first observed or reported
 
 ### Idea
 Describes an idea, assessment, evaluation, or strategic position.
@@ -47,6 +53,8 @@ Optional properties beyond `name` and `description`:
 - `argument` — the reasoning chain supporting this idea
 - `assumptions` — underlying assumptions that, if wrong, change the conclusion
 - `counterargument` — known objections or alternative views
+- `date` — date type, when the idea or assessment was formed or captured
+- `last_updated_date` — date type, when the idea was last revised or re-evaluated
 
 ### Bet
 A strategic position or prediction being actively tracked.
@@ -98,6 +106,8 @@ As a capability progresses, there are measurable milestones. For example, a Larg
 A specific application or implementation (PAC) can also relate to a milestone directly. For example, maybe it is the combination of multiple components how the milestone was reached.  
 Events should also be modeled this way - as a pair of a PAC and a milestone that does not need relate to a specific capability.
 
+REACHES has an optional `date` property (date type) — when the milestone was reached.
+
 ### PREDICTS
 (:Trend)-[:PREDICTS]->(:Capability)  
 A trend looks at how a capability advances and makes predictions.
@@ -145,12 +155,14 @@ A bet depends on certain capabilities reaching certain milestones.
 (:Milestone)-[:VALIDATES]->(:Bet)
 
 When a milestone validates a bet.
+VALIDATES has an optional `date` property (date type) — when the validation occurred.
 
 ### INVALIDATES
 (:Milestone)-[:INVALIDATES]->(:Bet)
 (:Idea)-[:INVALIDATES]->(:Bet)
 
 When a milestone or new assessment invalidates a bet.
+INVALIDATES has an optional `date` property (date type) — when the invalidation occurred.
 
 ## taxonomy
 

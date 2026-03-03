@@ -56,6 +56,45 @@ class Neo4jDateEncoder(json.JSONEncoder):
         return super().default(o)
 
 
+# Date property keys that should be parsed from ISO strings into Neo4j Date objects.
+_DATE_PROPERTY_KEYS = {
+    "date", "last_updated_date", "milestone_reached_date",
+    "placed_date", "release_date", "launch_date", "observed_date",
+}
+
+
+def parse_date_properties(props: dict) -> dict:
+    """
+    For any key in `props` that is a known date property (see _DATE_PROPERTY_KEYS),
+    convert an ISO 8601 string value (YYYY-MM-DD, YYYY-MM, or YYYY) into a
+    neo4j.time.Date object. Non-string values and unknown keys are passed through
+    unchanged.
+    """
+    import re
+    result = {}
+    for k, v in props.items():
+        if k in _DATE_PROPERTY_KEYS and isinstance(v, str):
+            try:
+                # YYYY-MM-DD
+                if re.fullmatch(r'\d{4}-\d{2}-\d{2}', v):
+                    y, m, d = map(int, v.split('-'))
+                    result[k] = Date(y, m, d)
+                # YYYY-MM  ->  first day of month
+                elif re.fullmatch(r'\d{4}-\d{2}', v):
+                    y, m = map(int, v.split('-'))
+                    result[k] = Date(y, m, 1)
+                # YYYY  ->  1 Jan
+                elif re.fullmatch(r'\d{4}', v):
+                    result[k] = Date(int(v), 1, 1)
+                else:
+                    result[k] = v  # unrecognised format, pass through
+            except Exception:
+                result[k] = v  # parsing failed, pass through
+        else:
+            result[k] = v
+    return result
+
+
 EMBEDDING_MODEL = "text-embedding-3-large"
 
 
@@ -147,10 +186,12 @@ async def core_create_node(ctx: GraphOpsCtx,
                            name: str,
                            description: str,
                            groq_client=None,
-                           openai_embedding_client=None) -> str:
+                           openai_embedding_client=None,
+                           properties: Optional[Dict[str, Any]] = None) -> str:
     logging.info(
-        f"[CREATE_NODE] TYPE: {node_type}\nNAME: {name}\n DESCRIPTION: {description}"
+        f"[CREATE_NODE] TYPE: {node_type}\nNAME: {name}\n DESCRIPTION: {description}\n PROPERTIES: {properties}"
     )
+    extra_props = parse_date_properties(properties) if properties else {}
 
     if node_type in [
             "Convergence", "Capability", "Milestone", "Trend", "Idea", "Bet", "LTC",
@@ -161,11 +202,12 @@ async def core_create_node(ctx: GraphOpsCtx,
                 "groq_client and openai_embedding_client are required for smart_upsert node types"
             )
         return await core_smart_upsert(ctx, node_type, name, description,
-                                       groq_client, openai_embedding_client)
+                                       groq_client, openai_embedding_client,
+                                       extra_props)
     elif node_type == "EmTech":
         return "Do not create new EmTech type nodes. EmTechs are reference data, use existing ones."
     else:
-        return await core_merge_node(ctx, node_type, name, description)
+        return await core_merge_node(ctx, node_type, name, description, extra_props)
 
 
 class CompareResult(BaseModel):
@@ -176,7 +218,8 @@ class CompareResult(BaseModel):
 
 async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str,
                             description: str, groq_client,
-                            openai_embedding_client) -> str:
+                            openai_embedding_client,
+                            extra_props: Optional[Dict[str, Any]] = None) -> str:
     """
     Performs a smart UPSERT for a node in Neo4j.
     - Queries for similar nodes based on description embedding similarity >= 0.8 (top 100 candidates, filtered).
@@ -275,6 +318,9 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str,
                         f"LLM response: {completion.choices[0].message.content}"
                     )
 
+            extra = extra_props or {}
+            extra_set = "".join(f", n.{k} = ${k}" for k in extra)
+
             if found_same_name:
                 logging.info(
                     f"[CREATE_NODE] Found semantically equivalent node to: {name}; "
@@ -286,17 +332,18 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str,
                     model=EMBEDDING_MODEL, input=updated_description)
                 updated_embedding = updated_emb_response.data[0].embedding
 
-                # Update the existing node with new name, description and embedding
+                # Update the existing node with new name, description, embedding, and extra props
                 update_query = f"""
                 MATCH (n:`{node_type}` {{name: $node_name}})
-                SET n.name = $name, n.description = $description, n.embedding = $embedding
+                SET n.name = $name, n.description = $description, n.embedding = $embedding{extra_set}
                 RETURN n.name AS name
                 """
                 update_params = {
                     "node_name": found_same_name,
                     "name": updated_name,
                     "description": updated_description,
-                    "embedding": updated_embedding
+                    "embedding": updated_embedding,
+                    **extra
                 }
 
                 async def write_update(tx: AsyncTransaction):
@@ -320,15 +367,17 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str,
                     f"No semantically equivalent node found, creating a new node;"
                     f"Type: {node_type} Name: {name} Description: {description}"
                 )
-                # Create a new node
+                # Build create query including any extra props
+                extra_create = "".join(f", {k}: ${k}" for k in extra)
                 create_query = f"""
-                CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding}})
+                CREATE (n:`{node_type}` {{name: $name, description: $description, embedding: $embedding{extra_create}}})
                 RETURN n.name AS name
                 """
                 create_params = {
                     "name": name,
                     "description": description,
-                    "embedding": new_embedding
+                    "embedding": new_embedding,
+                    **extra
                 }
 
                 async def write_create(tx: AsyncTransaction):
@@ -348,7 +397,8 @@ async def core_smart_upsert(ctx: GraphOpsCtx, node_type: str, name: str,
 
 
 async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str,
-                          description: str) -> str:
+                          description: str,
+                          extra_props: Optional[Dict[str, Any]] = None) -> str:
     """
     Performs a simple MERGE operation to create or match a node in Neo4j with the given type, name, and description.
     If a node with the same name and type exists, it updates the description; otherwise, it creates a new node.
@@ -358,6 +408,7 @@ async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str,
         node_type (str): The type/label of the node (e.g., 'EmTech', 'Capability', 'Party').
         name (str): A short, unique name for the node (e.g., 'AI', 'OpenAI').
         description (str): A detailed description of the node.
+        extra_props (dict): Optional extra properties (e.g. date fields) to set on the node.
 
     Returns:
         str: The name of the matched or created node.
@@ -365,20 +416,22 @@ async def core_merge_node(ctx: GraphOpsCtx, node_type: str, name: str,
     Raises:
         RuntimeError: If the Neo4j driver is not found or the query fails.
     """
+    extra = extra_props or {}
+    # Build SET clauses for extra properties
+    extra_set = "".join(f", n.{k} = ${k}" for k in extra)
 
     query = f"""
     MERGE (n:`{node_type}` {{name: $name}})
-    SET n.description = $description
+    SET n.description = $description{extra_set}
     RETURN n.name AS node_name
     """
+
+    params = {"name": name, "description": description, **extra}
 
     async with ctx.neo4jdriver.session() as session:
 
         async def write_work(tx: AsyncTransaction):
-            result = await tx.run(query, {
-                "name": name,
-                "description": description
-            })
+            result = await tx.run(query, params)
             records = await result.data()
             if not records:
                 raise RuntimeError("Failed to merge node")
@@ -403,7 +456,7 @@ async def core_create_edge(
     source_name: str,
     target_name: str,
     relationship_type: str,
-    properties: Optional[Dict[str, Union[str, int, float, bool]]] = None,
+    properties: Optional[Dict[str, Any]] = None,
 ) -> dict:
     """
     Creates a directed edge (relationship) between two existing nodes in Neo4j.
@@ -419,8 +472,8 @@ async def core_create_edge(
         f"[CREATE_EDGE]\nSOURCE: {source_name} -> {actual_source_name}\n->\nTARGET:{target_name} -> {actual_target_name}\nWITH TYPE:{relationship_type} AND PROPERTIES: {properties}"
     )
 
-    # Use the properties dict directly
-    props_dict = properties or {}
+    # Parse any date string values into Neo4j Date objects
+    props_dict = parse_date_properties(properties) if properties else {}
 
     prop_keys = ", ".join(f"{key}: ${key}" for key in props_dict)
     prop_str = f"{{{prop_keys}}}" if prop_keys else ""
@@ -555,8 +608,11 @@ async def core_find_node(ctx: GraphOpsCtx,
     YIELD node, score
     RETURN
         CASE
-            WHEN node:Milestone
-            THEN node { .name, .description, .milestone_reached_date }
+            WHEN node:Milestone THEN node { .name, .description, .milestone_reached_date }
+            WHEN node:PTC       THEN node { .name, .description, .release_date }
+            WHEN node:PAC       THEN node { .name, .description, .launch_date }
+            WHEN node:Trend     THEN node { .name, .description, .observed_date }
+            WHEN node:Idea      THEN node { .name, .description, .date, .last_updated_date }
             ELSE node { .name, .description }
         END AS node,
         score
@@ -653,7 +709,7 @@ async def core_scan_ideas(ctx: GraphOpsCtx,
         CALL db.index.vector.queryNodes($index_name, $top_k, $embedding)
         YIELD node, score
         RETURN
-            node { .name, .description, .argument, .assumptions, .counterargument } AS node,
+            node { .name, .description, .argument, .assumptions, .counterargument, .date, .last_updated_date } AS node,
             score,
             labels(node)[0] AS node_type
         ORDER BY score DESC

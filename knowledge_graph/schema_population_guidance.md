@@ -38,6 +38,7 @@ Only create new LTC when you discover a new logical category of products or serv
 Make sure you identify the right LTC for the PTC. LTCs can be nested, make sure you create the LTC at the right level of abstraction, the lower in the hierarchy, the more specific the LTC is the better.
 The goal is not to describe each product in detail, as this information can be easily looked up with web search.
 The right level of detail is to focus on trends, milestones, exponential progress and show which new product is the first to reach a certain milestone.
+Set `release_date` when the release or announcement date of the product is known. Use the finest granularity available: prefer `YYYY-MM-DD`, fall back to `YYYY-MM` for month-level, or `YYYY` for year-level.
 
 ###### LAC
 
@@ -48,6 +49,7 @@ BEfore you add a new LAC, check if a similar one already exists. Do this in addi
 ###### PAC
 
 You will rarely need to create a PAC. A PAC is a specific application, implementation, or solution built that is of interest e.g. a success story, case study or a remarkable project.
+Set `launch_date` when the deployment or public availability date is known. Use the finest granularity available: prefer `YYYY-MM-DD`, fall back to `YYYY-MM` or `YYYY`.
 
 ###### Trend
 
@@ -55,6 +57,7 @@ Includes both looking back at how a capability has evolved through milestones an
 Trends are similar to ideas, but they relate to capabilities and milestones.
 Trends are important to build context, to ask questions one would not think to ask otherwise, therefore focus on capturing trends.
 Trends can be spotted by others, or by yourself. When spotted by others, give credit to these thought leaders by relating a Party node.
+Set `observed_date` to when the trend was first observed or reported. This is usually the publication or post date of the source material.
 
 ###### Idea
 
@@ -64,6 +67,8 @@ When the user shares an assessment or opinion, always capture it as an Idea and 
 Use the optional `argument`, `assumptions`, and `counterargument` properties when the user provides their reasoning — this preserves the chain of thought and enables the system to re-evaluate positions when new information arrives.
 Ideas can relate to other ideas.
 Ideas are the most important nodes to build context, to ask questions one would not think to ask otherwise, therefore focus on capturing ideas.
+Set `date` to when the idea or assessment was formed or first captured — typically today's date for user-originated ideas, or the publication date for externally sourced ones. Use `YYYY-MM-DD` when the exact date is known, or `YYYY-MM` for approximate month granularity.
+Set `last_updated_date` whenever an existing Idea node is re-evaluated or revised in light of new information. Always update this property when you merge or update an idea's description, argument, or counterargument.
 
 ###### Bet
 
@@ -74,6 +79,16 @@ When new information validates or invalidates a bet, create VALIDATES or INVALID
 Before creating a new Bet, check if a similar one already exists using `find_node`.
 
 
+
+###### Edge Date Properties
+
+Several relationship types carry an optional `date` property (date type). Place the date on the **edge**, not on either endpoint node — the date captures *when the relationship came into being*, not a property of the nodes themselves.
+
+- **REACHES.date** — when a PTC or PAC reached the milestone. This is usually the same as the PTC's `release_date` but belongs on the edge when precision matters or when a different date applies.
+- **VALIDATES.date** — when the milestone event was recognised as validating a bet.
+- **INVALIDATES.date** — when the milestone or idea was recognised as invalidating a bet.
+
+Use the finest available granularity (`YYYY-MM-DD` > `YYYY-MM` > `YYYY`). If only approximated, prefer month granularity.
 
 ###### Party
 

@@ -26,10 +26,11 @@ async def execute_cypher_query(ctx: GraphOpsCtx, query: str) -> List[dict]:
             await step.remove()
         return output
 
-async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str) -> str:
+async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: str,
+                      properties: Optional[dict] = None) -> str:
     async with cl.Step(name="Create_Node", type="tool") as step:
         step.show_input = True
-        step.input = {"node_type": node_type, "name": name, "description": description}
+        step.input = {"node_type": node_type, "name": name, "description": description, "properties": properties}
 
         groq_client = cl.user_session.get("groq_client")
         openai_embedding_client = cl.user_session.get("openai_embedding_client")
@@ -37,7 +38,8 @@ async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: 
         step_message = cl.Message(content=f"Creating node: {name} of type {node_type} with description: {description}")
         await step_message.send()
 
-        output = await core_create_node(ctx, node_type, name, description, groq_client, openai_embedding_client)
+        output = await core_create_node(ctx, node_type, name, description, groq_client, openai_embedding_client,
+                                        properties)
 
         step.output = output
         debug = cl.user_session.get("debug_settings")
