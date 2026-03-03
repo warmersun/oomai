@@ -363,6 +363,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
       cursor: move;
     }
 
@@ -962,6 +964,27 @@
       scrollbar-color: var(--accent-cyan) transparent;
     }
 
+    .intel-topic-input {
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      width: 160px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .intel-topic-input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    .intel-topic-input::placeholder {
+      color: var(--text-muted);
+    }
+
     .scan-btn {
       padding: 8px 16px;
       border-radius: var(--radius-sm);
@@ -1176,6 +1199,311 @@
       to {
         transform: rotate(360deg);
       }
+    }
+
+    /* ═══════════════════════════════ ADVANCEMENT PANEL ═══════════════════════════════ */
+    .advancement-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .advancement-panel .panel-body {
+      overflow-y: auto;
+      flex: 1;
+      padding: 24px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-green) transparent;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    /* Abstract Timeline - Capabilities */
+    .adv-capability-group {
+      margin-bottom: 32px;
+      position: relative;
+    }
+
+    .adv-capability-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .adv-capability-title {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent-green);
+      letter-spacing: 0.05em;
+    }
+
+    .adv-capability-desc {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
+    .adv-timeline {
+      position: relative;
+      padding-left: 24px;
+      border-left: 2px dashed rgba(0, 255, 136, 0.2);
+    }
+
+    /* Milestones */
+    .adv-milestone-card {
+      position: relative;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+      transition: border-color 0.3s ease;
+    }
+
+    .adv-milestone-card:hover {
+      border-color: rgba(0, 255, 136, 0.4);
+    }
+
+    .adv-milestone-dot {
+      position: absolute;
+      left: -31px;
+      top: 20px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--bg-primary);
+      border: 2px solid var(--accent-green);
+      box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+    }
+
+    .adv-milestone-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .adv-milestone-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .adv-milestone-date {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--accent-amber);
+      background: rgba(255, 165, 0, 0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .adv-milestone-desc {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Unlocks / LACs */
+    .adv-unlocks-container {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .adv-unlocks-title {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
+
+    .adv-lac-item {
+      margin-bottom: 12px;
+      background: rgba(0, 212, 255, 0.03);
+      border: 1px solid rgba(0, 212, 255, 0.1);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .adv-lac-header {
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .adv-lac-header:hover {
+      background: rgba(0, 212, 255, 0.08);
+    }
+
+    .adv-lac-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .adv-lac-name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--accent-cyan);
+    }
+
+    .adv-lac-desc {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 400px;
+    }
+
+    .pathway-btn {
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--accent-purple);
+      background: rgba(168, 85, 247, 0.1);
+      color: var(--accent-purple);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pathway-btn:hover {
+      background: rgba(168, 85, 247, 0.25);
+      box-shadow: 0 0 12px rgba(168, 85, 247, 0.2);
+    }
+
+    .pathway-btn.loading {
+      animation: scan-pulse-purple 1.5s infinite;
+      pointer-events: none;
+    }
+
+    @keyframes scan-pulse-purple {
+
+      0%,
+      100% {
+        border-color: var(--accent-purple);
+      }
+
+      50% {
+        border-color: rgba(168, 85, 247, 0.4);
+      }
+    }
+
+    .adv-lac-toggle {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      transition: transform 0.3s;
+      padding: 4px;
+    }
+
+    .adv-lac-item.expanded .adv-lac-toggle {
+      transform: rotate(180deg);
+    }
+
+    /* Product Tree (LTC / PTC) */
+    .adv-product-tree {
+      display: none;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.4);
+      border-top: 1px solid rgba(0, 212, 255, 0.1);
+    }
+
+    .adv-lac-item.expanded .adv-product-tree {
+      display: block;
+    }
+
+    .adv-ltc-group {
+      margin-bottom: 16px;
+    }
+
+    .adv-ltc-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .adv-ltc-name {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .adv-ltc-desc {
+      font-family: var(--font-sans);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: normal;
+    }
+
+    .adv-ptc-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+      padding-left: 12px;
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      margin-left: 6px;
+    }
+
+    .adv-ptc-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .adv-ptc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .adv-ptc-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .adv-ptc-vendor {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      padding: 2px 6px;
+      background: rgba(0, 212, 255, 0.15);
+      color: var(--accent-cyan);
+      border-radius: 4px;
+      word-break: break-all;
+      max-width: 120px;
+      text-align: right;
+    }
+
+    .adv-ptc-desc {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+
+    .adv-ptc-date {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      margin-top: auto;
     }
 
     /* ═══════════════════════════════ MODAL ═══════════════════════════════ */
@@ -1505,15 +1833,42 @@
       <section class="grid-stack-item-content panel news-panel">
         <div class="panel-header">
           <span class="panel-title">📡 Latest Intel</span>
-          <button class="scan-btn" id="scan-btn" onclick="scanNews()" disabled>
-            ⚡ Scan X
-          </button>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="text" id="intel-topic-input" class="intel-topic-input" placeholder="Enter a news topic…"
+              onkeydown="if(event.key==='Enter') scanNews()">
+            <button class="scan-btn" id="scan-btn" onclick="scanNews()" disabled>
+              ⚡ Scan
+            </button>
+          </div>
         </div>
         <div class="panel-body" id="news-container">
           <div class="news-placeholder">
             <span class="radar-icon">📡</span>
-            Select an EmTech and click Scan X to gather intelligence
+            Select an EmTech and click Scan or enter a topic to gather intelligence
           </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Advancement Panel -->
+    <div class="grid-stack-item" gs-w="12" gs-h="8" gs-x="0" gs-y="13">
+      <section class="grid-stack-item-content panel advancement-panel">
+        <div class="panel-header">
+          <span class="panel-title">🔬 EmTech Advancement</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="text" id="adv-search-input" placeholder="🔍 Filter use cases..."
+              style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary); font-size: 0.8rem; width: 200px;"
+              onkeydown="if(event.key==='Enter') filterAdvancement()">
+            <button class="search-bar-btn" id="adv-filter-btn" onclick="filterAdvancement()"
+              style="padding: 4px 10px; font-size: 0.8rem;">Filter</button>
+            <button class="search-bar-btn clear" id="adv-clear-btn" onclick="clearAdvFilter()"
+              style="display:none; padding: 4px 10px; font-size: 0.8rem;">✕ Clear</button>
+            <span id="adv-count"
+              style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); margin-left: 8px;"></span>
+          </div>
+        </div>
+        <div class="panel-body" id="advancement-container">
+          <div class="empty-state">Select an EmTech to view advancement</div>
         </div>
       </section>
     </div>
@@ -1539,6 +1894,7 @@
     let milestonesData = [];
     let trendsData = [];
     let ideasData = [];
+    let advancementData = [];
     let currentTrend = null;
     let searchActive = false;
 
@@ -1643,10 +1999,12 @@
       document.getElementById('scan-btn').disabled = false;
       document.getElementById('doubling-info').innerHTML = '';
       document.getElementById('spot-input').value = '';
+      document.getElementById('intel-topic-input').value = '';
 
       // Load data in parallel
       showBetsLoading();
       showIdeasLoading();
+      showAdvancementLoading();
       document.getElementById('trend-list').innerHTML = `
         <div class="loading-container" style="padding:30px">
           <div class="loading-spinner"></div>
@@ -1656,17 +2014,24 @@
       const chartArea = document.getElementById('chart-area');
       chartArea.innerHTML = '<div class="empty-state">📈 Select a trend or spot a new one</div>';
 
-      const [trends, bets, ideas] = await Promise.all([
+      const [trends, bets, ideas, advancement] = await Promise.all([
         fetchJSON(`/api/emtech/${encodeURIComponent(name)}/trends`),
         fetchJSON(`/api/emtech/${encodeURIComponent(name)}/bets`),
         fetchJSON(`/api/emtech/${encodeURIComponent(name)}/ideas`),
+        fetchJSON(`/api/emtech/${encodeURIComponent(name)}/advancement`),
       ]);
 
       trendsData = trends;
       ideasData = ideas;
+      advancementData = advancement;
+
+      // Clear advancement filter if any
+      clearAdvFilter(false);
+
       renderTrendList(trends);
       renderBets(bets);
       renderIdeas(ideas);
+      renderAdvancement(advancement);
     }
 
     async function fetchJSON(url) {
@@ -1703,11 +2068,18 @@
       listEl.innerHTML = unique.map((t, idx) => {
         const parties = (t.parties || []).filter(p => p);
         const partyLine = parties.length > 0
-          ? `<div class="trend-list-party">👤 ${parties.map(p => escapeHtml(p)).join(', ')}</div>`
+          ? `<div class="trend-list-party" style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px;">
+               ${parties.map(p =>
+            `<span style="background: rgba(0, 212, 255, 0.1); color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(0, 212, 255, 0.2);">👤 ${escapeHtml(p)}</span>`
+          ).join('')}
+             </div>`
           : '';
         return `<div class="trend-list-item" data-idx="${idx}" onclick="openTrendDetail(${idx})">
            <span class="trend-list-icon">📈</span>
-           <div style="min-width:0; flex:1;"><span class="trend-list-name">${escapeHtml(t.name)}</span>${partyLine}</div>
+           <div style="min-width:0; flex:1;">
+             <span class="trend-list-name">${escapeHtml(t.name)}</span>
+             ${partyLine}
+           </div>
          </div>`;
       }).join('');
     }
@@ -1732,10 +2104,10 @@
         <div class="trend-detail-card">
           <div class="trend-detail-name">📈 ${escapeHtml(trend.name)}</div>
           <div class="trend-detail-desc">${escapeHtml(trend.description || 'No description available')}</div>
-          <div class="trend-detail-meta">
+          <div class="trend-detail-meta" style="flex-wrap: wrap; gap: 8px;">
             ${trend.capability ? `<span>🎯 Capability: ${escapeHtml(trend.capability)}</span>` : ''}
             ${trend.observed_date ? `<span>📅 Observed: ${trend.observed_date}</span>` : ''}
-            ${(trend.parties || []).filter(p => p).length > 0 ? `<span>👤 Spotted by: ${trend.parties.filter(p => p).map(p => escapeHtml(p)).join(', ')}</span>` : ''}
+            ${(trend.parties || []).filter(p => p).length > 0 ? `<span style="background: rgba(0, 212, 255, 0.15); color: var(--accent-cyan); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(0, 212, 255, 0.3);">👤 Spotted by: ${trend.parties.filter(p => p).map(p => escapeHtml(p)).join(', ')}</span>` : ''}
           </div>
           <div class="trend-detail-actions">
             <button class="trend-action-btn primary" onclick="visualizeTrendGrowth(${idx})">📈 Visualize Growth</button>
@@ -2240,6 +2612,16 @@
         const nodeType = idea.node_type || 'Idea';
         const badgeClass = nodeType === 'Bet' ? 'bet' : 'idea';
 
+        // Formatting party tags vividly for Ideas & Assessments
+        const parties = (idea.parties || []).filter(p => p);
+        const partyTags = parties.length > 0
+          ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;">
+              ${parties.map(p =>
+            `<span style="background: rgba(0, 212, 255, 0.15); border: 1px solid rgba(0, 212, 255, 0.3); color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.65rem; padding: 2px 6px; border-radius: 4px;">👤 ${escapeHtml(p)}</span>`
+          ).join('')}
+             </div>`
+          : '';
+
         return `
       <div class="idea-card" onclick="openIdeaDetail('${escapeAttr(idea.name)}')">
         <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
@@ -2247,9 +2629,9 @@
           <span class="idea-type-badge ${badgeClass}">${nodeType}</span>
         </div>
         <div class="idea-card-desc">${escapeHtml(truncDesc)}</div>
+        ${partyTags}
         <div class="idea-card-meta">
           <span>${idea.date || ''}</span>
-          ${(idea.parties || []).filter(p => p).length > 0 ? `<span>${idea.parties.filter(p => p).map(p => '<span class="party-badge">👤 ' + escapeHtml(p) + '</span>').join(' ')}</span>` : ''}
           <span class="idea-card-check">VIEW & CHECK →</span>
         </div>
       </div>
@@ -2348,8 +2730,11 @@
           if (parties.length) {
             html += `<div class="modal-section">
           <div class="modal-section-title">Related Parties</div>
-          <div>${parties.map(p =>
-              `<span class="party-badge" style="margin-right:6px; font-size:0.72rem; padding:3px 8px;">👤 ${escapeHtml(p.name)}${p.description ? ' — ' + escapeHtml(p.description.slice(0, 100)) : ''}</span>`
+          <div style="display:flex; flex-direction:column; gap:8px;">${parties.map(p =>
+              `<div class="party-badge" style="display:flex; flex-direction:column; align-items:flex-start; padding:8px 12px; background: rgba(0, 212, 255, 0.05); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 6px;">
+                 <span style="font-weight:600; color:var(--text-primary); font-size:0.85rem; margin-bottom:4px;">👤 ${escapeHtml(p.name)}</span>
+                 ${p.description ? `<span style="color:var(--text-secondary); font-size:0.75rem;">${escapeHtml(p.description)}</span>` : ''}
+               </div>`
             ).join('')}</div>
         </div>`;
           }
@@ -2586,23 +2971,31 @@
       if (!currentEmTech) return;
       const btn = document.getElementById('scan-btn');
       const container = document.getElementById('news-container');
+      const topicInput = document.getElementById('intel-topic-input');
+      const topic = topicInput.value.trim();
 
       btn.disabled = true;
       btn.classList.add('scanning');
       btn.textContent = '⏳ SCANNING…';
 
+      const loadingLabel = topic
+        ? `SEARCHING: \u201C${escapeHtml(topic)}\u201D…`
+        : 'SCANNING X AND WEB…';
       container.innerHTML = `
     <div class="loading-container">
       <div class="loading-spinner"></div>
-      <div class="loading-text">SCANNING X AND WEB…<br>This may take 15-30 seconds</div>
+      <div class="loading-text">${loadingLabel}<br>This may take 15-30 seconds</div>
     </div>
   `;
+
+      const body = { emtech: currentEmTech };
+      if (topic) body.topic = topic;
 
       try {
         const res = await fetch('/api/news', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ emtech: currentEmTech }),
+          body: JSON.stringify(body),
         });
         const data = await res.json();
 
@@ -2615,14 +3008,14 @@
         } else if (data.detail) {
           container.innerHTML = `<div class="empty-state">⚠️ ${escapeHtml(data.detail)}</div>`;
         } else {
-          container.innerHTML = '<div class="empty-state">No news found for this sector</div>';
+          container.innerHTML = '<div class="empty-state">No news found</div>';
         }
       } catch (err) {
         container.innerHTML = `<div class="empty-state">⚠️ Scan failed: ${escapeHtml(err.message)}</div>`;
       } finally {
         btn.disabled = false;
         btn.classList.remove('scanning');
-        btn.textContent = '⚡ Scan X';
+        btn.textContent = '⚡ Scan';
       }
     }
 
@@ -2808,6 +3201,248 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeModal();
     });
+
+    // ═══════════════════════════════ ADVANCEMENT PANEL ═══════════════════════════════
+    function showAdvancementLoading() {
+      const container = document.getElementById('advancement-container');
+      const countEl = document.getElementById('adv-count');
+      countEl.textContent = '';
+      container.innerHTML = `
+        <div class="loading-container">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">LOADING ADVANCEMENT MAP…</div>
+        </div>
+      `;
+    }
+
+    function renderAdvancement(data) {
+      const container = document.getElementById('advancement-container');
+      const countEl = document.getElementById('adv-count');
+
+      if (!data || data.length === 0) {
+        container.innerHTML = '<div class="empty-state">No advancement data for this sector</div>';
+        countEl.textContent = '';
+        return;
+      }
+
+      let totalCapabilities = data.length;
+      let totalMilestones = data.reduce((acc, cap) => acc + (cap.milestones?.length || 0), 0);
+      countEl.textContent = `${totalCapabilities} CAPABILITIES · ${totalMilestones} MILESTONES`;
+
+      container.innerHTML = data.map(cap => {
+        const milestonesHtml = (cap.milestones || []).map(ms => {
+
+          const unlocksHtml = ms.unlocks && ms.unlocks.length > 0 ? `
+            <div class="adv-unlocks-container">
+              <div class="adv-unlocks-title">Unlocks Use Cases</div>
+              ${ms.unlocks.map((lac, lidx) => {
+
+            const productsHtml = lac.products && lac.products.length > 0 ? `
+                  <div class="adv-product-tree">
+                    ${lac.products.map(ltc => `
+                      <div class="adv-ltc-group">
+                        <div class="adv-ltc-name">
+                          📦 ${escapeHtml(ltc.ltc_name)} 
+                          ${ltc.ltc_desc ? `<span class="adv-ltc-desc">— ${escapeHtml(ltc.ltc_desc)}</span>` : ''}
+                        </div>
+                        <div class="adv-ptc-list">
+                          ${ltc.ptcs.map(ptc => `
+                            <div class="adv-ptc-card">
+                              <div class="adv-ptc-header">
+                                <span class="adv-ptc-name">${escapeHtml(ptc.name)}</span>
+                                ${ptc.vendor ? `<span class="adv-ptc-vendor">${escapeHtml(ptc.vendor)}</span>` : ''}
+                              </div>
+                              ${ptc.description ? `<div class="adv-ptc-desc">${escapeHtml(ptc.description)}</div>` : ''}
+                              ${ptc.release_date ? `<div class="adv-ptc-date">${ptc.release_date}</div>` : ''}
+                            </div>
+                          `).join('')}
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : `<div class="adv-product-tree"><div class="empty-state" style="padding:10px">No products mapped yet</div></div>`;
+
+            // Unique ID for toggling
+            const id = `lac-${cap.capability}-${ms.name}-${lac.lac_name}`.replace(/[^a-zA-Z0-9-]/g, '-');
+
+            return `
+                  <div class="adv-lac-item" id="${id}">
+                    <div class="adv-lac-header" onclick="toggleLac('${id}')">
+                      <div class="adv-lac-info">
+                        <span class="adv-lac-name">${escapeHtml(lac.lac_name)}</span>
+                        ${lac.lac_desc ? `<span class="adv-lac-desc">${escapeHtml(lac.lac_desc)}</span>` : ''}
+                      </div>
+                      <div style="display:flex; align-items:center; gap:16px;">
+                        <button class="pathway-btn" onclick="event.stopPropagation(); generatePathway('${escapeAttr(lac.lac_name)}')">
+                          🛤️ Pathway
+                        </button>
+                        <span class="adv-lac-toggle">▼</span>
+                      </div>
+                    </div>
+                    ${productsHtml}
+                  </div>
+                `;
+          }).join('')}
+            </div>
+          ` : '';
+
+          return `
+            <div class="adv-timeline">
+              <div class="adv-milestone-card">
+                <div class="adv-milestone-dot"></div>
+                <div class="adv-milestone-header">
+                  <div class="adv-milestone-title">${escapeHtml(ms.name)}</div>
+                  ${ms.date ? `<div class="adv-milestone-date">${ms.date}</div>` : ''}
+                </div>
+                ${ms.description ? `<div class="adv-milestone-desc">${escapeHtml(ms.description)}</div>` : ''}
+                ${unlocksHtml}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="adv-capability-group">
+            <div class="adv-capability-header">
+              <span class="adv-capability-title">${escapeHtml(cap.capability)}</span>
+              ${cap.capability_desc ? `<span class="adv-capability-desc">${escapeHtml(cap.capability_desc)}</span>` : ''}
+            </div>
+            ${milestonesHtml}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleLac(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.toggle('expanded');
+      }
+    }
+
+    // ═══════════════════════════════ ADVANCEMENT FILTERING ═══════════════════════════════
+    async function filterAdvancement() {
+      const input = document.getElementById('adv-search-input');
+      const query = input.value.trim();
+      if (!query || !currentEmTech) return;
+
+      const btn = document.getElementById('adv-filter-btn');
+      const clearBtn = document.getElementById('adv-clear-btn');
+      const container = document.getElementById('advancement-container');
+      const countEl = document.getElementById('adv-count');
+
+      btn.disabled = true;
+      btn.textContent = '⏳...';
+
+      countEl.textContent = '';
+      container.innerHTML = `
+        <div class="loading-container">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">FILTERING USE CASES...<br>AI is finding relevant applications</div>
+        </div>
+      `;
+
+      try {
+        const res = await fetch('/api/advancement/filter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, emtech: currentEmTech }),
+        });
+        const data = await res.json();
+
+        if (data.lacs && data.lacs.length > 0) {
+          const matchedLacNames = new Set(data.lacs);
+
+          // Deep clone to filter
+          const filteredData = [];
+
+          for (const cap of advancementData) {
+            const newCap = { ...cap, milestones: [] };
+
+            for (const ms of cap.milestones || []) {
+              const newMs = { ...ms, unlocks: [] };
+
+              for (const lac of ms.unlocks || []) {
+                if (matchedLacNames.has(lac.lac_name)) {
+                  newMs.unlocks.push(lac);
+                }
+              }
+
+              if (newMs.unlocks.length > 0) {
+                newCap.milestones.push(newMs);
+              }
+            }
+
+            if (newCap.milestones.length > 0) {
+              filteredData.push(newCap);
+            }
+          }
+
+          renderAdvancement(filteredData);
+          clearBtn.style.display = 'inline-block';
+        } else {
+          container.innerHTML = '<div class="empty-state">No matching use cases found for your query.</div>';
+          clearBtn.style.display = 'inline-block';
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="empty-state">⚠️ Filtering failed: ${escapeHtml(err.message)}</div>`;
+        clearBtn.style.display = 'inline-block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Filter';
+      }
+    }
+
+    function clearAdvFilter(doRender = true) {
+      const input = document.getElementById('adv-search-input');
+      const clearBtn = document.getElementById('adv-clear-btn');
+
+      if (input) input.value = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+
+      if (doRender && currentEmTech) {
+        renderAdvancement(advancementData);
+      }
+    }
+
+    async function generatePathway(lacName) {
+      const overlay = document.getElementById('modal-overlay');
+      const titleEl = document.getElementById('modal-title');
+      const bodyEl = document.getElementById('modal-body');
+
+      titleEl.textContent = `🛤️ Pathway: ${lacName}`;
+      bodyEl.innerHTML = `
+        <div class="loading-container">
+          <div class="loading-spinner" style="border-top-color: var(--accent-purple);"></div>
+          <div class="loading-text" style="color: var(--accent-purple);">
+            GENERATING PATHWAY…<br>Mapping use case to global problems via AI<br>This may take 30-60 seconds
+          </div>
+        </div>
+      `;
+      overlay.classList.add('visible');
+
+      try {
+        const res = await fetch('/api/advancement/pathway', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lac_name: lacName,
+            emtech: currentEmTech
+          })
+        });
+        const data = await res.json();
+
+        if (data.content) {
+          titleEl.textContent = `🛤️ Pathway: ${lacName}`;
+          bodyEl.innerHTML = `<div class="analysis-content">${markdownToHtml(data.content)}</div>`;
+        } else if (data.detail) {
+          bodyEl.innerHTML = `<div class="empty-state">⚠️ ${escapeHtml(data.detail)}</div>`;
+        }
+      } catch (err) {
+        bodyEl.innerHTML = `<div class="empty-state">⚠️ Analysis failed: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
   </script>
 </body>
 

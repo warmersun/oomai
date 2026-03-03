@@ -506,10 +506,11 @@ async def save_trend(req: SaveTrendRequest):
 
 class NewsRequest(BaseModel):
     emtech: str
+    topic: str | None = None
 
 @app.post("/api/news")
 async def news_search(req: NewsRequest):
-    """Search X and web for latest news items on an EmTech. Returns a JSON list of items."""
+    """Search X and web for latest news items on an EmTech or a specific topic. Returns a JSON list of items."""
     try:
         from xai_sdk import AsyncClient
         from xai_sdk.chat import system, user
@@ -526,25 +527,52 @@ async def news_search(req: NewsRequest):
             x_search(from_date=from_date, to_date=now),
         ]
 
-        system_prompt = (
-            f"You are an intelligence analyst monitoring emerging technologies. "
-            f"Search X and the web for the latest developments in '{req.emtech}' from the last 72 hours. "
-            f"Return your findings as a JSON array of news items. Each item must be a JSON object with these fields:\n"
-            f"- \"headline\": A concise headline (one sentence)\n"
-            f"- \"summary\": A 2-3 sentence summary of what happened\n"
-            f"- \"source\": Where the news comes from (e.g., 'X/@handle', 'TechCrunch', 'Reuters')\n"
-            f"- \"date\": Approximate date (e.g., '2026-03-01')\n"
-            f"- \"significance\": One of 'high', 'medium', 'low'\n\n"
-            f"Return 5-12 distinct news items. Return ONLY the JSON array, no other text. "
-            f"Ensure the output is valid JSON."
-        )
+        if req.topic:
+            # Targeted search: user provided a specific news topic
+            system_prompt = (
+                f"You are an intelligence analyst monitoring emerging technologies. "
+                f"Search X and the web for the latest news and developments specifically about: '{req.topic}' "
+                f"(in the context of the '{req.emtech}' sector). Focus on this specific topic. "
+                f"Return your findings as a JSON array of news items. Each item must be a JSON object with these fields:\n"
+                f"- \"headline\": A concise headline (one sentence)\n"
+                f"- \"summary\": A 2-3 sentence summary of what happened\n"
+                f"- \"source\": Where the news comes from (e.g., 'X/@handle', 'TechCrunch', 'Reuters')\n"
+                f"- \"date\": Approximate date (e.g., '2026-03-01')\n"
+                f"- \"significance\": One of 'high', 'medium', 'low'\n\n"
+                f"Return 5-12 distinct news items. Return ONLY the JSON array, no other text. "
+                f"Ensure the output is valid JSON."
+            )
+            user_prompt = (
+                f"Find the latest news, discussions, and expert opinions about: {req.topic}. "
+                f"Context: this relates to the {req.emtech} technology sector. "
+                f"Search both X and the web for the most recent and relevant developments. Return as JSON array."
+            )
+        else:
+            # Original EmTech-wide scan
+            system_prompt = (
+                f"You are an intelligence analyst monitoring emerging technologies. "
+                f"Search X and the web for the latest developments in '{req.emtech}' from the last 72 hours. "
+                f"Return your findings as a JSON array of news items. Each item must be a JSON object with these fields:\n"
+                f"- \"headline\": A concise headline (one sentence)\n"
+                f"- \"summary\": A 2-3 sentence summary of what happened\n"
+                f"- \"source\": Where the news comes from (e.g., 'X/@handle', 'TechCrunch', 'Reuters')\n"
+                f"- \"date\": Approximate date (e.g., '2026-03-01')\n"
+                f"- \"significance\": One of 'high', 'medium', 'low'\n\n"
+                f"Return 5-12 distinct news items. Return ONLY the JSON array, no other text. "
+                f"Ensure the output is valid JSON."
+            )
+            user_prompt = (
+                f"What are the latest developments and news in {req.emtech}? "
+                f"Focus on breakthroughs, product launches, funding, partnerships, and expert opinions "
+                f"from the last 72 hours. Return as JSON array."
+            )
 
         chat = xai_client.chat.create(
             model="grok-4-1-fast",
             tools=tools,
             messages=[
                 system(system_prompt),
-                user(f"What are the latest developments and news in {req.emtech}? Focus on breakthroughs, product launches, funding, partnerships, and expert opinions from the last 72 hours. Return as JSON array."),
+                user(user_prompt),
             ],
         )
 
@@ -561,12 +589,13 @@ async def news_search(req: NewsRequest):
         try:
             items = json.loads(content)
             if isinstance(items, list):
-                return {"items": items, "emtech": req.emtech}
+                return {"items": items, "emtech": req.emtech, "topic": req.topic}
         except json.JSONDecodeError:
             pass
 
         # Fallback: return the raw content for the frontend to display
-        return {"items": [], "raw_content": response.content, "emtech": req.emtech}
+        return {"items": [], "raw_content": response.content, "emtech": req.emtech, "topic": req.topic}
+
 
     except Exception as e:
         logger.error(f"News search failed: {e}")
@@ -1136,4 +1165,313 @@ async def map_search(req: MapRequest):
 
     except Exception as e:
         logger.error(f"Map search failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ---------------------------------------------------------------------------
+# API: EmTech advancement — capabilities, milestones, use cases, products
+# ---------------------------------------------------------------------------
+
+@app.get("/api/emtech/{name}/advancement")
+async def emtech_advancement(name: str):
+    """Return a structured tree: Capability → Milestones → LAC → LTC → PTC (with vendor)."""
+    query = """
+    MATCH (e:EmTech {name: $name})-[:ENABLES]->(c:Capability)
+    OPTIONAL MATCH (c)-[:HAS_MILESTONE]->(m:Milestone)
+    OPTIONAL MATCH (m)-[:UNLOCKS]->(lac:LAC)
+    OPTIONAL MATCH (lac)-[:USES]->(ltc:LTC)
+    OPTIONAL MATCH (ltc)-[:IS_REALIZED_BY]->(ptc:PTC)
+    OPTIONAL MATCH (party:Party)-[:MAKES]->(ptc)
+    RETURN c.name AS capability, c.description AS cap_desc,
+           m.name AS milestone, m.description AS ms_desc,
+           m.milestone_reached_date AS ms_date,
+           lac.name AS lac_name, lac.description AS lac_desc,
+           ltc.name AS ltc_name, ltc.description AS ltc_desc,
+           ptc.name AS ptc_name, ptc.description AS ptc_desc,
+           ptc.release_date AS ptc_release_date,
+           party.name AS vendor
+    ORDER BY c.name, m.milestone_reached_date, lac.name, ltc.name, ptc.name
+    """
+    async with driver.session() as session:
+        result = await session.run(query, {"name": name})
+        data = await result.data()
+
+    rows = neo4j_to_json(data)
+
+    # Restructure flat rows into a nested tree
+    cap_map = {}  # capability_name -> { ... }
+    for row in rows:
+        cap_name = row.get("capability")
+        if not cap_name:
+            continue
+
+        if cap_name not in cap_map:
+            cap_map[cap_name] = {
+                "capability": cap_name,
+                "capability_desc": row.get("cap_desc", ""),
+                "milestones": {},
+            }
+        cap = cap_map[cap_name]
+
+        ms_name = row.get("milestone")
+        if not ms_name:
+            continue
+
+        if ms_name not in cap["milestones"]:
+            cap["milestones"][ms_name] = {
+                "name": ms_name,
+                "description": row.get("ms_desc", ""),
+                "date": row.get("ms_date"),
+                "unlocks": {},
+            }
+        ms = cap["milestones"][ms_name]
+
+        lac_name = row.get("lac_name")
+        if not lac_name:
+            continue
+
+        if lac_name not in ms["unlocks"]:
+            ms["unlocks"][lac_name] = {
+                "lac_name": lac_name,
+                "lac_desc": row.get("lac_desc", ""),
+                "products": {},
+            }
+        lac = ms["unlocks"][lac_name]
+
+        ltc_name = row.get("ltc_name")
+        if not ltc_name:
+            continue
+
+        if ltc_name not in lac["products"]:
+            lac["products"][ltc_name] = {
+                "ltc_name": ltc_name,
+                "ltc_desc": row.get("ltc_desc", ""),
+                "ptcs": [],
+            }
+        ltc = lac["products"][ltc_name]
+
+        ptc_name = row.get("ptc_name")
+        if ptc_name and not any(p["name"] == ptc_name for p in ltc["ptcs"]):
+            ltc["ptcs"].append({
+                "name": ptc_name,
+                "description": row.get("ptc_desc", ""),
+                "release_date": row.get("ptc_release_date"),
+                "vendor": row.get("vendor"),
+            })
+
+    # Convert dicts to lists for JSON response
+    result_tree = []
+    for cap in cap_map.values():
+        ms_list = sorted(cap["milestones"].values(), key=lambda m: m.get("date") or "9999")
+        for ms in ms_list:
+            unlocks_list = list(ms["unlocks"].values())
+            for lac in unlocks_list:
+                lac["products"] = list(lac["products"].values())
+            ms["unlocks"] = unlocks_list
+        cap["milestones"] = ms_list
+        result_tree.append(cap)
+
+    return result_tree
+
+
+# ---------------------------------------------------------------------------
+# API: pathway — AI analysis of why a use case matters for global problems
+# ---------------------------------------------------------------------------
+
+class PathwayRequest(BaseModel):
+    lac_name: str
+    emtech: str
+
+@app.post("/api/advancement/pathway")
+async def advancement_pathway(req: PathwayRequest):
+    """Show why a use case matters — using the /pathway prompt from command_sources."""
+    try:
+        from xai_sdk import AsyncClient
+        from xai_sdk.chat import system, user
+        from xai_sdk.tools import web_search, x_search
+        from datetime import datetime, timedelta, timezone
+
+        # 1. Gather KG context about the LAC
+        lac_query = """
+        MATCH (lac:LAC {name: $lac_name})
+        OPTIONAL MATCH (m:Milestone)-[:UNLOCKS]->(lac)
+        OPTIONAL MATCH (c:Capability)-[:HAS_MILESTONE]->(m)
+        OPTIONAL MATCH (lac)-[:USES]->(ltc:LTC)
+        OPTIONAL MATCH (lac)-[:IS_REALIZED_BY]->(pac:PAC)
+        RETURN lac.name AS name, lac.description AS description,
+               collect(DISTINCT c.name) AS capabilities,
+               collect(DISTINCT m.name) AS milestones,
+               collect(DISTINCT ltc.name) AS product_categories,
+               collect(DISTINCT pac.name) AS implementations
+        """
+        async with driver.session() as session:
+            result = await session.run(lac_query, {"lac_name": req.lac_name})
+            lac_data = await result.data()
+
+        lac_context = ""
+        if lac_data:
+            lac = neo4j_to_json(lac_data[0])
+            lac_context = (
+                f"\n### Knowledge Graph Context for '{lac.get('name', req.lac_name)}':\n"
+                f"- Description: {lac.get('description', 'N/A')}\n"
+                f"- Related Capabilities: {', '.join(lac.get('capabilities', [])) or 'N/A'}\n"
+                f"- Key Milestones: {', '.join(lac.get('milestones', [])[:10]) or 'N/A'}\n"
+                f"- Product Categories: {', '.join(lac.get('product_categories', [])) or 'N/A'}\n"
+                f"- Implementations: {', '.join(lac.get('implementations', [])) or 'N/A'}\n"
+            )
+
+        # 2. Call AI with the /pathway prompt structure
+        xai_client = AsyncClient(api_key=XAI_API_KEY, timeout=180)
+
+        now = datetime.now(timezone.utc)
+        from_date = now - timedelta(hours=168)
+
+        tools = [
+            web_search(excluded_domains=["wikipedia.org", "gartner.com", "weforum.com", "forbes.com", "accenture.com"]),
+            x_search(from_date=from_date, to_date=now),
+        ]
+
+        global_problems = (
+            "Rogue SuperIntelligence, Prevent Genocide, Extreme Poverty, "
+            "Chemical and Biological Weapons, Asteroid Impact, Extreme Weather Events, "
+            "Peace in the Middle East, Nuclear Annihilation, Slavery, "
+            "Promote Equal Rights for Women, Lack of Education, Automation/UBI, "
+            "Refugees, Sustainable Agriculture, Food Security, Ecological Crises, "
+            "Infectious Diseases, Climate Crises, Cure Cancer, Mental Health Crises, "
+            "Alzheimer, Ageing as a Disease, Clean Water, Air Pollution, Access to Energy, "
+            "Homelessness, Cities/Urbanization, Child Health, Maternal Health"
+        )
+
+        system_prompt = (
+            "You are a technology strategist who connects emerging technology use cases to "
+            "humanity's biggest problems. Your analysis should be inspiring yet grounded. "
+            "Use search tools to find current real-world examples.\n\n"
+            "Structure your response in markdown with these sections:\n\n"
+            "## 🌍 Why This Matters\n"
+            "Explain what this use case is and why it's significant.\n\n"
+            "## 🎯 Target Problem\n"
+            "Pick the global problem where this use case can have the biggest impact. "
+            "Provide a brief root cause analysis.\n\n"
+            "## 🛤️ Pathway to Impact\n"
+            "Propose a concrete solution using this use case. Show how it addresses root causes.\n\n"
+            "## 🔗 Convergence Canvas\n"
+            "Layer on more complexity: show how at least 5-6 emerging technology categories "
+            "(AI, robots, synthetic biology, IoT, VR, 3D printing, networks, computing, etc.) "
+            "can combine to deliver a comprehensive, interdisciplinary solution.\n\n"
+            "## 📊 Real-World Evidence\n"
+            "Current projects, companies, or research already working on this.\n\n"
+            "## 🔮 Timeline\n"
+            "Realistic timeline for when this pathway could start delivering meaningful impact."
+        )
+
+        user_prompt = (
+            f"# Why should we care about {req.lac_name}?\n\n"
+            f"New advancements in science, technology and engineering really only matter "
+            f"when we can use them to solve humanity's big, global problems.\n\n"
+            f"EmTech sector: {req.emtech}\n"
+            f"{lac_context}\n\n"
+            f"Global problems to consider: {global_problems}\n\n"
+            f"Pick the problem where {req.lac_name} can have the biggest impact, "
+            f"do a brief root cause analysis, and propose a pathway. "
+            f"Use web and X search for current evidence."
+        )
+
+        chat = xai_client.chat.create(
+            model="grok-4-1-fast",
+            tools=tools,
+            messages=[
+                system(system_prompt),
+                user(user_prompt),
+            ],
+        )
+
+        response = await chat.sample()
+        return {"content": response.content, "lac_name": req.lac_name, "emtech": req.emtech}
+
+    except Exception as e:
+        logger.error(f"Pathway analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ---------------------------------------------------------------------------
+# API: filter advancement — AI-powered search of use cases (LAC)
+# ---------------------------------------------------------------------------
+
+class AdvFilterRequest(BaseModel):
+    query: str
+    emtech: str
+
+@app.post("/api/advancement/filter")
+async def advancement_filter(req: AdvFilterRequest):
+    """Use AI to narrow down relevant use cases (LAC) based on user query."""
+    try:
+        from xai_sdk import AsyncClient
+        from xai_sdk.chat import system, user
+        import json
+
+        # 1. Gather all LACs for the EmTech
+        lac_query = """
+        MATCH (e:EmTech {name: $emtech})-[:ENABLES]->(c:Capability)
+        MATCH (c)-[:HAS_MILESTONE]->(m:Milestone)
+        MATCH (m)-[:UNLOCKS]->(lac:LAC)
+        RETURN DISTINCT lac.name AS name, lac.description AS description
+        """
+        async with driver.session() as session:
+            result = await session.run(lac_query, {"emtech": req.emtech})
+            lac_data = await result.data()
+
+        lacs = neo4j_to_json(lac_data)
+        if not lacs:
+            return {"lacs": []}
+
+        # Format LAC list for the prompt
+        lac_list_str = "\\n".join([f"- **{l['name']}**: {l.get('description', '')}" for l in lacs])
+
+        # 2. Ask Grok to filter
+        system_prompt = (
+            "You are a technology analyst helping to filter a list of use cases (LACs). "
+            "The user will provide a search query, and you must return ONLY the exact names "
+            "of the use cases from the provided list that are highly relevant to the query. "
+            "Return your answer ONLY as a valid JSON array of strings (the LAC names). "
+            "Do not include any other text, markdown formatting, or explanation."
+        )
+
+        user_prompt = (
+            f"Filter this list of use cases for the EmTech '{req.emtech}' based on "
+            f"the user query: '{req.query}'\\n\\n"
+            f"Use Cases:\\n{lac_list_str}\\n\\n"
+            "Return ONLY a JSON array of the exact names of the relevant use cases."
+        )
+
+        xai_client = AsyncClient(api_key=XAI_API_KEY, timeout=60)
+        chat = xai_client.chat.create(
+            model="grok-4-1-fast",
+            messages=[
+                system(system_prompt),
+                user(user_prompt),
+            ],
+        )
+
+        response = await chat.sample()
+        content = response.content.strip()
+        
+        # Clean up potential markdown formatting in the LLM response
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+
+        try:
+            matched_lacs = json.loads(content)
+            if not isinstance(matched_lacs, list):
+                matched_lacs = []
+        except json.JSONDecodeError:
+            logger.warning(f"Advancement filter returned invalid JSON: {content}")
+            matched_lacs = []
+
+        return {"lacs": matched_lacs, "query": req.query, "emtech": req.emtech}
+
+    except Exception as e:
+        logger.error(f"Advancement filter failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
