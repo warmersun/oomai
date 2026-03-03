@@ -1109,7 +1109,7 @@ class MapRequest(BaseModel):
 
 @app.post("/api/map")
 async def map_search(req: MapRequest):
-    """Semantic search for trends and ideas related to a query, inspired by /map command."""
+    """Semantic search for trends, ideas, and convergences related to a query."""
     try:
         import asyncio
         from openai import AsyncOpenAI
@@ -1121,7 +1121,7 @@ async def map_search(req: MapRequest):
         # Use the query itself as the probe for semantic search
         probes = [req.query]
 
-        # Run both scans in parallel
+        # Run ideas + trends scans in parallel
         ideas_task = core_scan_ideas(
             ctx, query_probes=probes, top_k_per_probe=15, max_results=20,
             openai_embedding_client=openai_client,
@@ -1156,16 +1156,63 @@ async def map_search(req: MapRequest):
                 "score": r.get("score", 0),
             })
 
+        # Semantic search for convergences
+        convergences = await _search_convergences(openai_client, req.query, req.emtech)
+
         return {
             "query": req.query,
             "emtech": req.emtech,
             "trends": trends,
             "ideas": ideas,
+            "convergences": convergences,
         }
 
     except Exception as e:
         logger.error(f"Map search failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _search_convergences(openai_client, query: str, emtech: str) -> list:
+    """Semantic vector search for Convergence nodes filtered to the given EmTech."""
+    try:
+        # 1. Generate embedding for the query
+        emb_response = await openai_client.embeddings.create(
+            model="text-embedding-3-large", input=[query]
+        )
+        embedding = emb_response.data[0].embedding
+
+        # 2. Query the convergence vector index
+        vector_query = """
+        CALL db.index.vector.queryNodes('convergence_description_embeddings', $top_k, $embedding)
+        YIELD node, score
+        WITH node AS conv, score
+        // Filter: must be connected to the selected EmTech
+        WHERE EXISTS {
+            (e:EmTech {name: $emtech})-[:ACCELERATES|IS_ACCELERATED_BY]->(conv)
+        }
+        // Get the other EmTechs involved and the direction
+        OPTIONAL MATCH (e:EmTech {name: $emtech})-[r:ACCELERATES|IS_ACCELERATED_BY]->(conv)
+        OPTIONAL MATCH (other:EmTech)-[:ACCELERATES|IS_ACCELERATED_BY]->(conv)
+        WHERE other.name <> $emtech
+        RETURN conv.name AS name, conv.description AS description,
+               score,
+               type(r) AS direction,
+               collect(DISTINCT other.name) AS other_emtechs
+        ORDER BY score DESC
+        """
+        async with driver.session() as session:
+            result = await session.run(vector_query, {
+                "top_k": 20,
+                "embedding": embedding,
+                "emtech": emtech,
+            })
+            data = await result.data()
+
+        return neo4j_to_json(data)
+
+    except Exception as e:
+        logger.warning(f"Convergence semantic search failed: {e}")
+        return []
 
 # ---------------------------------------------------------------------------
 # API: EmTech advancement — capabilities, milestones, use cases, products
@@ -1271,6 +1318,27 @@ async def emtech_advancement(name: str):
         result_tree.append(cap)
 
     return result_tree
+
+# ---------------------------------------------------------------------------
+# API: convergences for an EmTech
+# ---------------------------------------------------------------------------
+
+@app.get("/api/emtech/{name}/convergences")
+async def emtech_convergences(name: str):
+    """Return Convergence nodes where the selected EmTech ACCELERATES or IS_ACCELERATED_BY."""
+    query = """
+    MATCH (e:EmTech {name: $name})-[r:ACCELERATES|IS_ACCELERATED_BY]->(conv:Convergence)
+    OPTIONAL MATCH (other:EmTech)-[:ACCELERATES|IS_ACCELERATED_BY]->(conv)
+    WHERE other.name <> $name
+    RETURN conv.name AS name, conv.description AS description,
+           type(r) AS direction,
+           collect(DISTINCT other.name) AS other_emtechs
+    ORDER BY conv.name
+    """
+    async with driver.session() as session:
+        result = await session.run(query, {"name": name})
+        data = await result.data()
+    return neo4j_to_json(data)
 
 
 # ---------------------------------------------------------------------------

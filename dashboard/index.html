@@ -1414,6 +1414,18 @@
       transform: rotate(180deg);
     }
 
+    .adv-lac-item.expanded .adv-lac-info {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .adv-lac-item.expanded .adv-lac-desc {
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: unset !important;
+      max-width: none !important;
+    }
+
     /* Product Tree (LTC / PTC) */
     .adv-product-tree {
       display: none;
@@ -1685,6 +1697,82 @@
       background: rgba(0, 212, 255, 0.4);
     }
 
+    /* ═══════════════════════════════ CONVERGENCE PANEL ═══════════════════════════════ */
+    .conv-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .conv-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .conv-card:hover {
+      border-color: rgba(0, 212, 255, 0.25);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .conv-card-name {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .conv-card-desc {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 8px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .conv-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .conv-direction {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .conv-direction.accelerates {
+      background: rgba(0, 255, 136, 0.12);
+      color: var(--accent-green);
+      border: 1px solid rgba(0, 255, 136, 0.25);
+    }
+
+    .conv-direction.accelerated-by {
+      background: rgba(168, 85, 247, 0.12);
+      color: var(--accent-purple);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+    }
+
+    .conv-emtech-badge {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(0, 212, 255, 0.1);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+    }
+
     /* ═══════════════════════════════ RESPONSIVE ═══════════════════════════════ */
     @media (max-width: 900px) {
       .dashboard {
@@ -1712,6 +1800,12 @@
       .news-panel {
         grid-column: 1;
         grid-row: 4;
+        max-height: none;
+      }
+
+      .convergences-panel {
+        grid-column: 1;
+        grid-row: 5;
         max-height: none;
       }
 
@@ -1756,7 +1850,7 @@
 
   <!-- ═══════════════════════════════ SEARCH BAR ═══════════════════════════════ -->
   <div class="search-bar">
-    <input type="text" id="search-input" placeholder="🔍 Search ideas, trends, and predictions…"
+    <input type="text" id="search-input" placeholder="🔍 Search ideas, trends, predictions, and convergences…"
       onkeydown="if(event.key==='Enter') performSearch()">
     <button class="search-bar-btn" id="search-btn" onclick="performSearch()">🗺️ Map</button>
     <button class="search-bar-btn clear" id="search-clear-btn" onclick="clearSearch()" style="display:none">✕
@@ -1850,8 +1944,22 @@
       </section>
     </div>
 
+    <!-- Convergences Panel -->
+    <div class="grid-stack-item" gs-w="4" gs-h="4" gs-x="8" gs-y="13">
+      <section class="grid-stack-item-content panel convergences-panel">
+        <div class="panel-header">
+          <span class="panel-title">🔗 Convergences</span>
+          <span id="conv-count"
+            style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);"></span>
+        </div>
+        <div class="panel-body" id="convergences-container">
+          <div class="empty-state">Select an EmTech to view convergences</div>
+        </div>
+      </section>
+    </div>
+
     <!-- Advancement Panel -->
-    <div class="grid-stack-item" gs-w="12" gs-h="8" gs-x="0" gs-y="13">
+    <div class="grid-stack-item" gs-w="12" gs-h="8" gs-x="0" gs-y="17">
       <section class="grid-stack-item-content panel advancement-panel">
         <div class="panel-header">
           <span class="panel-title">🔬 EmTech Advancement</span>
@@ -1895,6 +2003,7 @@
     let trendsData = [];
     let ideasData = [];
     let advancementData = [];
+    let convergencesData = [];
     let currentTrend = null;
     let searchActive = false;
 
@@ -2005,6 +2114,7 @@
       showBetsLoading();
       showIdeasLoading();
       showAdvancementLoading();
+      showConvergencesLoading();
       document.getElementById('trend-list').innerHTML = `
         <div class="loading-container" style="padding:30px">
           <div class="loading-spinner"></div>
@@ -2014,16 +2124,18 @@
       const chartArea = document.getElementById('chart-area');
       chartArea.innerHTML = '<div class="empty-state">📈 Select a trend or spot a new one</div>';
 
-      const [trends, bets, ideas, advancement] = await Promise.all([
+      const [trends, bets, ideas, advancement, convergences] = await Promise.all([
         fetchJSON(`/api/emtech/${encodeURIComponent(name)}/trends`),
         fetchJSON(`/api/emtech/${encodeURIComponent(name)}/bets`),
         fetchJSON(`/api/emtech/${encodeURIComponent(name)}/ideas`),
         fetchJSON(`/api/emtech/${encodeURIComponent(name)}/advancement`),
+        fetchJSON(`/api/emtech/${encodeURIComponent(name)}/convergences`),
       ]);
 
       trendsData = trends;
       ideasData = ideas;
       advancementData = advancement;
+      convergencesData = convergences;
 
       // Clear advancement filter if any
       clearAdvFilter(false);
@@ -2032,6 +2144,7 @@
       renderBets(bets);
       renderIdeas(ideas);
       renderAdvancement(advancement);
+      renderConvergences(convergences);
     }
 
     async function fetchJSON(url) {
@@ -2802,7 +2915,7 @@
       btn.textContent = '⏳…';
       searchActive = true;
 
-      // Show loading in trends and ideas
+      // Show loading in trends, ideas, and convergences
       document.getElementById('trend-list').innerHTML = `
         <div class="loading-container" style="padding:30px">
           <div class="loading-spinner"></div>
@@ -2810,6 +2923,7 @@
         </div>
       `;
       showIdeasLoading();
+      showConvergencesLoading();
 
       try {
         const res = await fetch('/api/map', {
@@ -2843,6 +2957,11 @@
         badge.style.display = '';
         badge.innerHTML = `<span class="search-active-badge">🔍 "${escapeHtml(query)}"</span>`;
 
+        // Render convergences from semantic search results
+        const searchConv = data.convergences || [];
+        renderConvergences(searchConv);
+        document.getElementById('conv-count').textContent = `${searchConv.length} MATCHING`;
+
       } catch (err) {
         document.getElementById('trend-list').innerHTML = `<div class="empty-state">⚠️ Search failed: ${escapeHtml(err.message)}</div>`;
       } finally {
@@ -2865,6 +2984,7 @@
       if (currentEmTech) {
         renderTrendList(trendsData);
         renderIdeas(ideasData);
+        renderConvergences(convergencesData);
       }
     }
 
@@ -3441,6 +3561,48 @@
       } catch (err) {
         bodyEl.innerHTML = `<div class="empty-state">⚠️ Analysis failed: ${escapeHtml(err.message)}</div>`;
       }
+    }
+
+    // ═══════════════════════════════ CONVERGENCES ═══════════════════════════════
+    function showConvergencesLoading() {
+      document.getElementById('convergences-container').innerHTML = `
+        <div class="loading-container">
+          <div class="loading-spinner" style="border-top-color: var(--accent-cyan);"></div>
+          <div class="loading-text">LOADING CONVERGENCES…</div>
+        </div>
+      `;
+    }
+
+    function renderConvergences(convergences) {
+      const container = document.getElementById('convergences-container');
+      const countEl = document.getElementById('conv-count');
+
+      if (!convergences || convergences.length === 0) {
+        countEl.textContent = '';
+        container.innerHTML = '<div class="empty-state">No convergences found for this EmTech</div>';
+        return;
+      }
+
+      countEl.textContent = `${convergences.length}`;
+
+      container.innerHTML = `<div class="conv-list">${convergences.map(c => {
+        const isAccelerates = c.direction === 'ACCELERATES';
+        const dirClass = isAccelerates ? 'accelerates' : 'accelerated-by';
+        const dirLabel = isAccelerates ? '→ accelerates' : '← accelerated by';
+        const otherBadges = (c.other_emtechs || [])
+          .filter(e => e)
+          .map(e => `<span class="conv-emtech-badge">${escapeHtml(e)}</span>`)
+          .join('');
+
+        return `<div class="conv-card">
+          <div class="conv-card-name">🔗 ${escapeHtml(c.name)}</div>
+          ${c.description ? `<div class="conv-card-desc">${escapeHtml(c.description)}</div>` : ''}
+          <div class="conv-card-meta">
+            <span class="conv-direction ${dirClass}">${dirLabel}</span>
+            ${otherBadges}
+          </div>
+        </div>`;
+      }).join('')}</div>`;
     }
 
   </script>
