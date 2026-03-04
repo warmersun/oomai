@@ -379,6 +379,75 @@
 
     .panel-body {
       padding: 20px;
+      transition: opacity 0.25s ease;
+    }
+
+    /* ── Panel collapse toggle ── */
+    .panel-collapse-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+
+    .panel-collapse-btn:hover {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      background: rgba(0, 212, 255, 0.08);
+    }
+
+    .panel-collapse-btn .chevron {
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+
+    .panel.collapsed .panel-collapse-btn .chevron {
+      transform: rotate(-90deg);
+    }
+
+    /* ── Collapsed state ── */
+    .panel.collapsed .panel-body,
+    .panel.collapsed .trend-explorer,
+    .panel.collapsed .chat-input-area {
+      display: none !important;
+    }
+
+    .panel.collapsed {
+      border-left: 3px solid var(--accent-cyan);
+      overflow: visible;
+    }
+
+    .panel.collapsed .panel-header {
+      border-bottom: none;
+      cursor: pointer;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.06), rgba(0, 255, 136, 0.03));
+      transition: all 0.25s ease;
+    }
+
+    .panel.collapsed .panel-header:hover {
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.14), rgba(0, 255, 136, 0.07));
+      box-shadow: var(--glow-cyan);
+    }
+
+    .panel.collapsed .panel-title {
+      color: var(--accent-cyan);
+      font-size: 0.8rem;
+    }
+
+    .panel.collapsed .panel-collapse-btn {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
     }
 
     /* Chart panel spans full width on left */
@@ -2346,6 +2415,57 @@
       'synthetic biology': '#84cc16',
     };
 
+    // ═══════════════════════════════ PANEL COLLAPSE ═══════════════════════════════
+    function initCollapseButtons() {
+      document.querySelectorAll('.panel-header').forEach(header => {
+        // Add collapse chevron button
+        const btn = document.createElement('button');
+        btn.className = 'panel-collapse-btn';
+        btn.title = 'Collapse panel';
+        btn.innerHTML = '<span class="chevron">▼</span>';
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          togglePanel(header.closest('.grid-stack-item'));
+        });
+        header.appendChild(btn);
+
+        // Click anywhere on the header to expand when collapsed
+        header.addEventListener('click', (e) => {
+          const panel = header.closest('.panel');
+          if (panel && panel.classList.contains('collapsed')) {
+            e.stopPropagation();
+            e.preventDefault();
+            togglePanel(header.closest('.grid-stack-item'));
+          }
+          // When not collapsed, clicks pass through to GridStack drag
+        });
+      });
+    }
+
+    function togglePanel(gsItem) {
+      if (!gsItem || !grid) return;
+      const panel = gsItem.querySelector('.panel');
+      if (!panel) return;
+
+      const isCollapsed = panel.classList.contains('collapsed');
+
+      if (isCollapsed) {
+        // Expand: restore saved height
+        const savedH = parseInt(gsItem.dataset.expandedH) || 5;
+        panel.classList.remove('collapsed');
+        grid.update(gsItem, { h: savedH });
+        gsItem.querySelector('.panel-collapse-btn').title = 'Collapse panel';
+      } else {
+        // Collapse: save current height, shrink to 1 row
+        const currentH = parseInt(gsItem.getAttribute('gs-h')) || 5;
+        gsItem.dataset.expandedH = currentH;
+        panel.classList.add('collapsed');
+        grid.update(gsItem, { h: 2 });
+        gsItem.querySelector('.panel-collapse-btn').title = 'Expand panel';
+      }
+    }
+
     // ═══════════════════════════════ INIT ═══════════════════════════════
     document.addEventListener('DOMContentLoaded', init);
 
@@ -2359,6 +2479,8 @@
           animate: true,
           column: 12
         });
+
+        initCollapseButtons();
 
         const res = await fetch('/api/emtechs');
         const emtechs = await res.json();
