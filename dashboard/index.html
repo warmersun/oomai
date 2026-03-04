@@ -382,8 +382,8 @@
       transition: opacity 0.25s ease;
     }
 
-    /* ── Panel collapse toggle ── */
-    .panel-collapse-btn {
+    .panel-collapse-btn,
+    .panel-maximize-btn {
       width: 28px;
       height: 28px;
       border-radius: 6px;
@@ -397,13 +397,20 @@
       cursor: pointer;
       transition: all 0.25s ease;
       flex-shrink: 0;
-      margin-left: auto;
     }
 
-    .panel-collapse-btn:hover {
+    .panel-collapse-btn:hover,
+    .panel-maximize-btn:hover {
       border-color: var(--accent-cyan);
       color: var(--accent-cyan);
       background: rgba(0, 212, 255, 0.08);
+    }
+
+    .panel-header-controls {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      margin-left: auto;
     }
 
     .panel-collapse-btn .chevron {
@@ -445,9 +452,20 @@
       font-size: 0.8rem;
     }
 
-    .panel.collapsed .panel-collapse-btn {
+    .panel.collapsed .panel-collapse-btn,
+    .panel.collapsed .panel-maximize-btn {
       border-color: var(--accent-cyan);
       color: var(--accent-cyan);
+    }
+
+    /* ── Maximized state ── */
+    .panel.maximized {
+      border-color: rgba(0, 255, 136, 0.2);
+    }
+
+    .panel.maximized .panel-maximize-btn {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
     }
 
     /* Chart panel spans full width on left */
@@ -2415,10 +2433,26 @@
       'synthetic biology': '#84cc16',
     };
 
-    // ═══════════════════════════════ PANEL COLLAPSE ═══════════════════════════════
+    // ═══════════════════════════════ PANEL COLLAPSE & MAXIMIZE ═══════════════════════════════
     function initCollapseButtons() {
       document.querySelectorAll('.panel-header').forEach(header => {
-        // Add collapse chevron button
+        // Create controls container
+        const controls = document.createElement('div');
+        controls.className = 'panel-header-controls';
+
+        // Maximize button
+        const maxBtn = document.createElement('button');
+        maxBtn.className = 'panel-maximize-btn';
+        maxBtn.title = 'Maximize panel';
+        maxBtn.textContent = '⛶';
+        maxBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          maximizePanel(header.closest('.grid-stack-item'));
+        });
+        controls.appendChild(maxBtn);
+
+        // Collapse chevron button
         const btn = document.createElement('button');
         btn.className = 'panel-collapse-btn';
         btn.title = 'Collapse panel';
@@ -2428,7 +2462,9 @@
           e.preventDefault();
           togglePanel(header.closest('.grid-stack-item'));
         });
-        header.appendChild(btn);
+        controls.appendChild(btn);
+
+        header.appendChild(controls);
 
         // Click anywhere on the header to expand when collapsed
         header.addEventListener('click', (e) => {
@@ -2438,7 +2474,6 @@
             e.preventDefault();
             togglePanel(header.closest('.grid-stack-item'));
           }
-          // When not collapsed, clicks pass through to GridStack drag
         });
       });
     }
@@ -2448,21 +2483,58 @@
       const panel = gsItem.querySelector('.panel');
       if (!panel) return;
 
+      // If maximized, restore first
+      if (panel.classList.contains('maximized')) {
+        maximizePanel(gsItem);
+      }
+
       const isCollapsed = panel.classList.contains('collapsed');
 
       if (isCollapsed) {
-        // Expand: restore saved height
         const savedH = parseInt(gsItem.dataset.expandedH) || 5;
         panel.classList.remove('collapsed');
         grid.update(gsItem, { h: savedH });
         gsItem.querySelector('.panel-collapse-btn').title = 'Collapse panel';
       } else {
-        // Collapse: save current height, shrink to 1 row
         const currentH = parseInt(gsItem.getAttribute('gs-h')) || 5;
         gsItem.dataset.expandedH = currentH;
         panel.classList.add('collapsed');
         grid.update(gsItem, { h: 2 });
         gsItem.querySelector('.panel-collapse-btn').title = 'Expand panel';
+      }
+    }
+
+    function maximizePanel(gsItem) {
+      if (!gsItem || !grid) return;
+      const panel = gsItem.querySelector('.panel');
+      if (!panel) return;
+
+      // Don't maximize if collapsed
+      if (panel.classList.contains('collapsed')) return;
+
+      const isMaximized = panel.classList.contains('maximized');
+      const maxBtn = gsItem.querySelector('.panel-maximize-btn');
+
+      if (isMaximized) {
+        // Restore to saved position & size
+        const savedW = parseInt(gsItem.dataset.savedW) || 4;
+        const savedH = parseInt(gsItem.dataset.savedH) || 5;
+        const savedX = parseInt(gsItem.dataset.savedX) || 0;
+        const savedY = parseInt(gsItem.dataset.savedY) || 0;
+        panel.classList.remove('maximized');
+        grid.update(gsItem, { w: savedW, h: savedH, x: savedX, y: savedY });
+        maxBtn.textContent = '⛶';
+        maxBtn.title = 'Maximize panel';
+      } else {
+        // Save current position & size, then maximize
+        gsItem.dataset.savedW = gsItem.getAttribute('gs-w') || '4';
+        gsItem.dataset.savedH = gsItem.getAttribute('gs-h') || '5';
+        gsItem.dataset.savedX = gsItem.getAttribute('gs-x') || '0';
+        gsItem.dataset.savedY = gsItem.getAttribute('gs-y') || '0';
+        panel.classList.add('maximized');
+        grid.update(gsItem, { w: 12, h: 14, x: 0, y: 0 });
+        maxBtn.textContent = '🗗';
+        maxBtn.title = 'Restore panel';
       }
     }
 
