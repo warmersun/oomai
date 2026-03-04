@@ -713,7 +713,7 @@
       margin-bottom: 10px;
       background: rgba(0, 0, 0, 0.3);
       transition: all 0.25s ease;
-      cursor: default;
+      cursor: pointer;
     }
 
     .bet-card:hover {
@@ -1710,6 +1710,7 @@
       border-radius: var(--radius-sm);
       padding: 12px 14px;
       transition: border-color 0.2s, background 0.2s;
+      cursor: pointer;
     }
 
     .conv-card:hover {
@@ -1824,6 +1825,303 @@
       .dashboard {
         padding: 0 16px 16px 16px;
       }
+    }
+
+    /* ═══════════════════════════════ CHAT PANEL ═══════════════════════════════ */
+    .chat-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-panel .panel-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-cyan) transparent;
+    }
+
+    .chat-msg {
+      max-width: 88%;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      line-height: 1.6;
+      animation: chatFadeIn 0.3s ease;
+    }
+
+    @keyframes chatFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .chat-msg.user {
+      align-self: flex-end;
+      background: rgba(0, 212, 255, 0.12);
+      border: 1px solid rgba(0, 212, 255, 0.25);
+      color: var(--text-primary);
+    }
+
+    .chat-msg.assistant {
+      align-self: flex-start;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+
+    .chat-msg.assistant h1,
+    .chat-msg.assistant h2,
+    .chat-msg.assistant h3 {
+      font-family: var(--font-mono);
+      color: var(--accent-cyan);
+      margin: 12px 0 6px 0;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+    }
+
+    .chat-msg.assistant h1:first-child,
+    .chat-msg.assistant h2:first-child,
+    .chat-msg.assistant h3:first-child {
+      margin-top: 0;
+    }
+
+    .chat-msg.assistant strong {
+      color: var(--accent-green);
+    }
+
+    .chat-msg.assistant em {
+      color: var(--accent-amber);
+      font-style: italic;
+    }
+
+    .chat-msg.assistant ul,
+    .chat-msg.assistant ol {
+      padding-left: 18px;
+      margin: 6px 0;
+    }
+
+    .chat-msg.assistant li {
+      margin-bottom: 3px;
+    }
+
+    .chat-msg.assistant code {
+      background: rgba(0, 212, 255, 0.08);
+      border: 1px solid rgba(0, 212, 255, 0.15);
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+    }
+
+    .chat-msg.assistant pre {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+
+    .chat-msg.assistant pre code {
+      background: none;
+      border: none;
+      padding: 0;
+    }
+
+    .chat-msg.assistant a {
+      color: var(--accent-cyan);
+      text-decoration: none;
+    }
+
+    .chat-msg.assistant a:hover {
+      text-decoration: underline;
+    }
+
+    .chat-msg.assistant p {
+      margin: 6px 0;
+    }
+
+    .chat-msg.assistant p:first-child {
+      margin-top: 0;
+    }
+
+    .chat-msg.assistant p:last-child {
+      margin-bottom: 0;
+    }
+
+    .chat-msg.status {
+      align-self: center;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      padding: 4px 12px;
+      text-align: center;
+    }
+
+    .chat-msg.progress {
+      align-self: flex-start;
+      background: rgba(168, 85, 247, 0.08);
+      border: 1px solid rgba(168, 85, 247, 0.2);
+      color: var(--accent-purple);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      padding: 4px 12px;
+      border-radius: 16px;
+    }
+
+    .chat-msg.error {
+      align-self: center;
+      background: rgba(255, 71, 87, 0.08);
+      border: 1px solid rgba(255, 71, 87, 0.2);
+      color: var(--accent-red);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+    }
+
+    .chat-typing {
+      align-self: flex-start;
+      display: flex;
+      gap: 5px;
+      padding: 10px 14px;
+    }
+
+    .chat-typing-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      animation: chatTyping 1.4s ease-in-out infinite;
+    }
+
+    .chat-typing-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .chat-typing-dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes chatTyping {
+
+      0%,
+      60%,
+      100% {
+        opacity: 0.3;
+        transform: scale(0.8);
+      }
+
+      30% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .chat-input-area {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .chat-input-area input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      outline: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .chat-input-area input:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: var(--glow-cyan);
+    }
+
+    .chat-input-area input::placeholder {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .chat-send-btn {
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--accent-cyan);
+      background: rgba(0, 212, 255, 0.1);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.05em;
+    }
+
+    .chat-send-btn:hover {
+      background: rgba(0, 212, 255, 0.2);
+      box-shadow: var(--glow-cyan);
+    }
+
+    .chat-send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .chat-reset-btn {
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .chat-reset-btn:hover {
+      border-color: var(--accent-red);
+      color: var(--accent-red);
+    }
+
+    .chat-welcome {
+      text-align: center;
+      padding: 30px 20px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      line-height: 1.8;
+    }
+
+    .chat-welcome .chat-welcome-icon {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      display: block;
     }
   </style>
 </head>
@@ -1980,6 +2278,30 @@
         </div>
       </section>
     </div>
+
+    <!-- Chat Panel -->
+    <div class="grid-stack-item" gs-w="4" gs-h="13" gs-x="8" gs-y="13">
+      <section class="grid-stack-item-content panel chat-panel">
+        <div class="panel-header">
+          <span class="panel-title">🤖 AI Chat</span>
+          <button class="chat-reset-btn" onclick="resetChat()" title="New conversation">🔄 New</button>
+        </div>
+        <div class="panel-body">
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-welcome">
+              <span class="chat-welcome-icon">🤖</span>
+              Ask me anything about the knowledge graph.<br>
+              I can research trends, ideas, bets, and more.
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Ask the AI…"
+              onkeydown="if(event.key==='Enter' && !event.shiftKey) sendChatMessage()">
+            <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMessage()">Send</button>
+          </div>
+        </div>
+      </section>
+    </div>
   </main>
 
   <!-- ═══════════════════════════════ MILESTONE MODAL ═══════════════════════════════ -->
@@ -2001,9 +2323,11 @@
     let mainChart = null;
     let milestonesData = [];
     let trendsData = [];
+    let betsData = [];
     let ideasData = [];
     let advancementData = [];
     let convergencesData = [];
+    let renderedConvergences = [];
     let currentTrend = null;
     let searchActive = false;
 
@@ -2133,6 +2457,7 @@
       ]);
 
       trendsData = trends;
+      betsData = bets;
       ideasData = ideas;
       advancementData = advancement;
       convergencesData = convergences;
@@ -3028,25 +3353,85 @@
           statusClass = 'pending';
         }
 
-        const desc = b.description || '';
-        const truncDesc = desc.length > 200 ? desc.slice(0, 200) + '…' : desc;
-
         return `
-      <div class="bet-card">
+      <div class="bet-card" onclick="showBetModal(${idx})">
         <span class="bet-status ${statusClass}">${status}</span>
         <div class="bet-name">${escapeHtml(b.name)}</div>
-        <div class="bet-desc">${escapeHtml(truncDesc)}</div>
+        <div class="bet-desc">${escapeHtml(b.description || '')}</div>
         ${b.placed_date ? `<div class="bet-date">Placed: ${b.placed_date}</div>` : ''}
-        <button class="bet-evaluate-btn" id="bet-eval-btn-${idx}" onclick="evaluateBet('${escapeAttr(b.name)}', ${idx})">🔍 Evaluate</button>
-        <div class="bet-eval-result" id="bet-eval-result-${idx}"></div>
       </div>
     `;
       }).join('');
     }
 
-    async function evaluateBet(name, idx) {
-      const btn = document.getElementById(`bet-eval-btn-${idx}`);
-      const resultEl = document.getElementById(`bet-eval-result-${idx}`);
+    function showBetModal(idx) {
+      const b = betsData[idx];
+      if (!b) return;
+
+      const overlay = document.getElementById('modal-overlay');
+      const titleEl = document.getElementById('modal-title');
+      const bodyEl = document.getElementById('modal-body');
+
+      titleEl.textContent = b.name || 'Active Bet';
+
+      const hasValidation = b.validations?.some(v => v.milestone);
+      const hasInvalidation = b.invalidations?.some(v => v.source);
+      let status, statusClass;
+      if (b.result) {
+        status = b.result.toLowerCase().includes('invalid') ? '❌ INVALIDATED' : '✅ VALIDATED';
+        statusClass = b.result.toLowerCase().includes('invalid') ? 'invalidated' : 'validated';
+      } else if (hasValidation) {
+        status = '✅ SIGNAL VALIDATED';
+        statusClass = 'validated';
+      } else if (hasInvalidation) {
+        status = '❌ SIGNAL AGAINST';
+        statusClass = 'invalidated';
+      } else {
+        status = '⏳ PENDING';
+        statusClass = 'pending';
+      }
+
+      const validationsHtml = b.validations && b.validations.length > 0 ? `
+        <div class="modal-section">
+          <div class="modal-section-title">Validations</div>
+          <div class="modal-section-content">${b.validations.map(v =>
+        `<div style="margin-bottom:6px;">• ${escapeHtml(v.milestone || v.source || '')}${v.date ? ` <span style="color:var(--accent-amber);font-family:var(--font-mono);font-size:0.7rem;">(${v.date})</span>` : ''}</div>`
+      ).join('')}</div>
+        </div>` : '';
+
+      const invalidationsHtml = b.invalidations && b.invalidations.length > 0 ? `
+        <div class="modal-section">
+          <div class="modal-section-title">Invalidations</div>
+          <div class="modal-section-content">${b.invalidations.map(v =>
+        `<div style="margin-bottom:6px;">• ${escapeHtml(v.source || v.milestone || '')}${v.date ? ` <span style="color:var(--accent-amber);font-family:var(--font-mono);font-size:0.7rem;">(${v.date})</span>` : ''}</div>`
+      ).join('')}</div>
+        </div>` : '';
+
+      bodyEl.innerHTML = `
+        <div class="modal-section">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <span class="bet-status ${statusClass}">${status}</span>
+            ${b.placed_date ? `<span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted);">Placed: ${b.placed_date}</span>` : ''}
+          </div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Description</div>
+          <div class="modal-section-content">${escapeHtml(b.description || 'No description available.')}</div>
+        </div>
+        ${validationsHtml}
+        ${invalidationsHtml}
+        <div class="modal-section">
+          <button class="bet-evaluate-btn" id="bet-eval-modal-btn" onclick="evaluateBetInModal('${escapeAttr(b.name)}')">🔍 Evaluate</button>
+          <div class="bet-eval-result" id="bet-eval-modal-result"></div>
+        </div>
+      `;
+
+      overlay.classList.add('visible');
+    }
+
+    async function evaluateBetInModal(name) {
+      const btn = document.getElementById('bet-eval-modal-btn');
+      const resultEl = document.getElementById('bet-eval-modal-result');
 
       btn.disabled = true;
       btn.classList.add('evaluating');
@@ -3435,8 +3820,20 @@
 
     function toggleLac(id) {
       const el = document.getElementById(id);
-      if (el) {
-        el.classList.toggle('expanded');
+      if (!el) return;
+      el.classList.toggle('expanded');
+      const isExpanded = el.classList.contains('expanded');
+      const desc = el.querySelector('.adv-lac-desc');
+      const info = el.querySelector('.adv-lac-info');
+      if (desc) {
+        desc.style.whiteSpace = isExpanded ? 'normal' : '';
+        desc.style.overflow = isExpanded ? 'visible' : '';
+        desc.style.textOverflow = isExpanded ? 'unset' : '';
+        desc.style.maxWidth = isExpanded ? 'none' : '';
+      }
+      if (info) {
+        info.style.flexDirection = isExpanded ? 'column' : '';
+        info.style.alignItems = isExpanded ? 'flex-start' : '';
       }
     }
 
@@ -3574,6 +3971,7 @@
     }
 
     function renderConvergences(convergences) {
+      renderedConvergences = convergences || [];
       const container = document.getElementById('convergences-container');
       const countEl = document.getElementById('conv-count');
 
@@ -3594,7 +3992,7 @@
           .map(e => `<span class="conv-emtech-badge">${escapeHtml(e)}</span>`)
           .join('');
 
-        return `<div class="conv-card">
+        return `<div class="conv-card" onclick="showConvergenceModal(${renderedConvergences.indexOf(c)})">
           <div class="conv-card-name">🔗 ${escapeHtml(c.name)}</div>
           ${c.description ? `<div class="conv-card-desc">${escapeHtml(c.description)}</div>` : ''}
           <div class="conv-card-meta">
@@ -3603,6 +4001,260 @@
           </div>
         </div>`;
       }).join('')}</div>`;
+    }
+
+    function showConvergenceModal(idx) {
+      const c = renderedConvergences[idx];
+      if (!c) return;
+
+      const overlay = document.getElementById('modal-overlay');
+      const titleEl = document.getElementById('modal-title');
+      const bodyEl = document.getElementById('modal-body');
+
+      titleEl.textContent = c.name || 'Convergence';
+
+      const isAccelerates = c.direction === 'ACCELERATES';
+      const dirClass = isAccelerates ? 'accelerates' : 'accelerated-by';
+      const dirLabel = isAccelerates ? '→ accelerates' : '← accelerated by';
+      const otherBadges = (c.other_emtechs || [])
+        .filter(e => e)
+        .map(e => `<span class="conv-emtech-badge">${escapeHtml(e)}</span>`)
+        .join('');
+
+      bodyEl.innerHTML = `
+        <div class="modal-section">
+          <div class="modal-section-title">Description</div>
+          <div class="modal-section-content">${escapeHtml(c.description || 'No description available.')}</div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Direction</div>
+          <div class="conv-card-meta">
+            <span class="conv-direction ${dirClass}">${dirLabel}</span>
+            ${otherBadges}
+          </div>
+        </div>
+      `;
+
+      overlay.classList.add('visible');
+    }
+
+    // ═══════════════════════════════ AI CHAT ═══════════════════════════════
+    let chatSessionId = null;
+    let chatSending = false;
+
+    function generateSessionId() {
+      return 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function renderChatMarkdown(text) {
+      if (!text) return '';
+      let html = text;
+      // Code blocks (must be first)
+      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+        `<pre><code>${escapeHtml(code.trim())}</code></pre>`);
+      // Inline code
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+      // Headings
+      html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+      html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+      html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+      // Bold+Italic
+      html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+      // Bold
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      // Italic
+      html = html.replace(/(?<!\*)\*([^\*\n]+?)\*(?!\*)/g, '<em>$1</em>');
+      // Links
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      // Horizontal rules
+      html = html.replace(/^---$/gm, '<hr>');
+      // Unordered lists
+      html = html.replace(/^[\t ]*[-*+] (.+)$/gm, '<li>$1</li>');
+      html = html.replace(/(<li>.*<\/li>\n?)+/g, m => '<ul>' + m + '</ul>');
+      // Ordered lists
+      html = html.replace(/^[\t ]*\d+\. (.+)$/gm, '<li>$1</li>');
+      // Paragraphs (double newlines)
+      html = html.replace(/\n\n+/g, '</p><p>');
+      // Single newlines within paragraphs
+      html = html.replace(/(?<![>\n])\n(?![<\n])/g, '<br>');
+      // Wrap in paragraph tags
+      if (!html.startsWith('<')) html = '<p>' + html + '</p>';
+      // Clean up empty paragraphs
+      html = html.replace(/<p><\/p>/g, '');
+      html = html.replace(/<p>(<h[123]>)/g, '$1');
+      html = html.replace(/(<\/h[123]>)<\/p>/g, '$1');
+      html = html.replace(/<p>(<ul>)/g, '$1');
+      html = html.replace(/(<\/ul>)<\/p>/g, '$1');
+      html = html.replace(/<p>(<pre>)/g, '$1');
+      html = html.replace(/(<\/pre>)<\/p>/g, '$1');
+      html = html.replace(/<p>(<hr>)<\/p>/g, '$1');
+      return html;
+    }
+
+    function addChatMessage(type, content) {
+      const container = document.getElementById('chat-messages');
+      // Remove welcome message if present
+      const welcome = container.querySelector('.chat-welcome');
+      if (welcome) welcome.remove();
+
+      const msg = document.createElement('div');
+      msg.className = `chat-msg ${type}`;
+
+      if (type === 'assistant') {
+        msg.innerHTML = renderChatMarkdown(content);
+      } else {
+        msg.textContent = content;
+      }
+
+      container.appendChild(msg);
+      container.scrollTop = container.scrollHeight;
+      return msg;
+    }
+
+    function showChatTyping() {
+      const container = document.getElementById('chat-messages');
+      const typing = document.createElement('div');
+      typing.className = 'chat-typing';
+      typing.id = 'chat-typing-indicator';
+      typing.innerHTML = `
+        <div class="chat-typing-dot"></div>
+        <div class="chat-typing-dot"></div>
+        <div class="chat-typing-dot"></div>
+      `;
+      container.appendChild(typing);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function removeChatTyping() {
+      const el = document.getElementById('chat-typing-indicator');
+      if (el) el.remove();
+    }
+
+    async function sendChatMessage() {
+      if (chatSending) return;
+      const input = document.getElementById('chat-input');
+      const message = input.value.trim();
+      if (!message) return;
+
+      const sendBtn = document.getElementById('chat-send-btn');
+      chatSending = true;
+      sendBtn.disabled = true;
+      input.value = '';
+
+      // Show user message
+      addChatMessage('user', message);
+      showChatTyping();
+
+      try {
+        const body = {
+          message: message,
+          emtech: currentEmTech,
+          session_id: chatSessionId,
+        };
+
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let lastProgressEl = null;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+
+            try {
+              const event = JSON.parse(data);
+
+              switch (event.type) {
+                case 'session':
+                  chatSessionId = event.session_id;
+                  break;
+                case 'status':
+                  removeChatTyping();
+                  // Remove previous progress messages
+                  if (lastProgressEl) {
+                    lastProgressEl.remove();
+                    lastProgressEl = null;
+                  }
+                  addChatMessage('status', event.content);
+                  showChatTyping();
+                  break;
+                case 'progress':
+                  removeChatTyping();
+                  if (lastProgressEl) {
+                    lastProgressEl.textContent = event.content;
+                  } else {
+                    lastProgressEl = addChatMessage('progress', event.content);
+                  }
+                  showChatTyping();
+                  break;
+                case 'message':
+                  removeChatTyping();
+                  if (lastProgressEl) {
+                    lastProgressEl.remove();
+                    lastProgressEl = null;
+                  }
+                  // Remove status messages
+                  document.querySelectorAll('.chat-msg.status').forEach(el => el.remove());
+                  addChatMessage('assistant', event.content);
+                  break;
+                case 'error':
+                  removeChatTyping();
+                  if (lastProgressEl) {
+                    lastProgressEl.remove();
+                    lastProgressEl = null;
+                  }
+                  addChatMessage('error', event.content);
+                  break;
+              }
+            } catch (e) {
+              // Skip non-JSON lines
+            }
+          }
+        }
+      } catch (err) {
+        removeChatTyping();
+        addChatMessage('error', `❌ Connection error: ${err.message}`);
+      } finally {
+        chatSending = false;
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    }
+
+    async function resetChat() {
+      if (chatSessionId) {
+        try {
+          await fetch('/api/chat/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: chatSessionId }),
+          });
+        } catch (e) { /* ignore */ }
+      }
+      chatSessionId = null;
+      const container = document.getElementById('chat-messages');
+      container.innerHTML = `
+        <div class="chat-welcome">
+          <span class="chat-welcome-icon">🤖</span>
+          Ask me anything about the knowledge graph.<br>
+          I can research trends, ideas, bets, and more.
+        </div>
+      `;
     }
 
   </script>

@@ -14,16 +14,32 @@ import asyncio
 import json
 import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from neo4j import AsyncGraphDatabase
 from neo4j.time import Date, DateTime
+from openai import AsyncOpenAI
 from pydantic import BaseModel
+from xai_sdk import AsyncClient as XAIAsyncClient
+from xai_sdk.chat import system as xai_system, user as xai_user, assistant as xai_assistant, tool_result as xai_tool_result
+
+# Core function tools (no Chainlit dependency)
+from function_tools.core_graph_ops import (
+    GraphOpsCtx,
+    core_execute_cypher_query,
+    core_find_node,
+    core_scan_ideas,
+    core_scan_trends,
+    core_dfs,
+)
+from function_tools.core_x_search import core_x_search
+from function_tools.tool_def import TOOLS_DEFINITIONS
 
 load_dotenv()
 
@@ -36,6 +52,53 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+USER_PARTY_NAME = os.getenv("USER_PARTY_NAME", "User")
+
+# ---------------------------------------------------------------------------
+# System prompts for chat (read-only two-step pipeline)
+# ---------------------------------------------------------------------------
+_project_root = Path(__file__).parent.parent
+
+with open(_project_root / "knowledge_graph" / "schema.md", "r") as _f:
+    _SCHEMA = _f.read()
+with open(_project_root / "knowledge_graph" / "system_prompt_readonly_step1.md", "r") as _f:
+    CHAT_SYSTEM_PROMPT_STEP1 = _f.read().format(schema=_SCHEMA, user_party_name=USER_PARTY_NAME)
+with open(_project_root / "knowledge_graph" / "system_prompt_readonly_step2.md", "r") as _f:
+    CHAT_SYSTEM_PROMPT_STEP2 = _f.read().format(schema=_SCHEMA, user_party_name=USER_PARTY_NAME)
+
+# Read-only tools for the chat (same as Chainlit read-only mode)
+CHAT_TOOLS = [
+    TOOLS_DEFINITIONS["execute_cypher_query"],
+    TOOLS_DEFINITIONS["find_node"],
+    TOOLS_DEFINITIONS["scan_ideas"],
+    TOOLS_DEFINITIONS["scan_trends"],
+    TOOLS_DEFINITIONS["dfs"],
+    TOOLS_DEFINITIONS["x_search"],
+]
+
+CHAT_FUNCTION_MAP = {
+    "execute_cypher_query": core_execute_cypher_query,
+    "find_node": core_find_node,
+    "scan_ideas": core_scan_ideas,
+    "scan_trends": core_scan_trends,
+    "dfs": core_dfs,
+    "x_search": core_x_search,
+}
+
+FUNCTIONS_WITH_CTX = [
+    "execute_cypher_query", "find_node", "scan_ideas", "scan_trends", "dfs",
+]
+
+FUNCTIONS_WITH_OPENAI = [
+    "find_node", "scan_ideas", "scan_trends",
+]
+
+FUNCTIONS_WITH_XAI_CLIENT = [
+    "x_search",
+]
+
+# In-memory chat sessions: session_id -> list of messages
+chat_sessions: Dict[str, List[Any]] = {}
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1458,6 +1521,266 @@ async def advancement_pathway(req: PathwayRequest):
     except Exception as e:
         logger.error(f"Pathway analysis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ---------------------------------------------------------------------------
+# API: AI Chat — streaming SSE endpoint (replicates Chainlit read-only mode)
+# ---------------------------------------------------------------------------
+
+class ChatRequest(BaseModel):
+    message: str
+    emtech: str | None = None
+    session_id: str | None = None
+
+
+async def _headless_generate_response(
+    xai_client: XAIAsyncClient,
+    tools: list,
+    function_map: dict,
+    ctx: GraphOpsCtx,
+    openai_client: AsyncOpenAI,
+    messages: list,
+    progress_callback=None,
+) -> Optional[str]:
+    """
+    Generates a response from the LLM, handling tool calls.
+    Headless version of chainlit_xai_util.generate_response (no Chainlit deps).
+    """
+    error_count = 0
+
+    chat = xai_client.chat.create(
+        model="grok-4-1-fast",
+        tools=tools,
+        tool_choice="auto",
+        user="dashboard-chat",
+    )
+
+    for message in messages:
+        chat.append(message)
+
+    counter = 0
+    while counter < 100:
+        counter += 1
+        logger.info(f"[CHAT] Tool call iteration: {counter}")
+
+        response = await chat.sample()
+
+        # No tool calls — we're done
+        if not hasattr(response, "tool_calls") or not response.tool_calls:
+            logger.info(f"[CHAT] Usage: {response.usage}")
+            return response.content
+
+        chat.append(response)
+
+        logger.info(f"[CHAT] Processing {len(response.tool_calls)} tool calls")
+        for tool_call in response.tool_calls:
+            try:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments)
+
+                # Send progress update
+                if progress_callback:
+                    tool_labels = {
+                        "execute_cypher_query": "Querying knowledge graph…",
+                        "find_node": "Searching for similar nodes…",
+                        "scan_ideas": "Scanning ideas and bets…",
+                        "scan_trends": "Scanning trends…",
+                        "dfs": "Exploring graph connections…",
+                        "x_search": "Searching X and web…",
+                        "plan_tasks": "Planning research steps…",
+                        "get_tasks": "Checking progress…",
+                        "mark_task_as_running": "Working on task…",
+                        "mark_task_as_done": "Task completed…",
+                    }
+                    label = tool_labels.get(function_name, f"Running {function_name}…")
+                    await progress_callback(label)
+
+                # Skip task management tools (no-op in headless mode)
+                if function_name in ("plan_tasks", "get_tasks", "mark_task_as_running", "mark_task_as_done", "mark_all_tasks_as_done"):
+                    chat.append(xai_tool_result(json.dumps({"status": "ok"})))
+                    continue
+
+                # Skip visualization tools (not supported in dashboard chat)
+                if function_name in ("display_mermaid_diagram", "display_convergence_canvas", "visualize_oom"):
+                    chat.append(xai_tool_result(json.dumps({"status": "rendered"})))
+                    continue
+
+                # Inject context for KG functions
+                if function_name in FUNCTIONS_WITH_CTX:
+                    function_args["ctx"] = ctx
+                if function_name in FUNCTIONS_WITH_OPENAI:
+                    function_args["openai_embedding_client"] = openai_client
+                if function_name in FUNCTIONS_WITH_XAI_CLIENT:
+                    function_args["xai_client"] = xai_client
+
+                result = await function_map[function_name](**function_args)
+                result_str = json.dumps(result) if not isinstance(result, str) else result
+                chat.append(xai_tool_result(result_str))
+
+            except asyncio.CancelledError:
+                logger.error("[CHAT] CancelledError during tool processing")
+                return None
+            except Exception as e:
+                logger.error(f"[CHAT] Tool error ({function_name}): {e}")
+                error_count += 1
+                if error_count >= 3:
+                    return None
+                chat.append(xai_tool_result(json.dumps({"error": str(e)})))
+                break
+
+    return None
+
+
+# Task management tools need to be in the tools list for step1 prompts
+_TASK_TOOLS = [
+    TOOLS_DEFINITIONS.get("plan_tasks"),
+    TOOLS_DEFINITIONS.get("get_tasks"),
+    TOOLS_DEFINITIONS.get("mark_task_as_running"),
+    TOOLS_DEFINITIONS.get("mark_task_as_done"),
+]
+CHAT_TOOLS_STEP1 = CHAT_TOOLS + [t for t in _TASK_TOOLS if t is not None]
+
+# Step 2 uses visualization tools + x_search
+CHAT_TOOLS_STEP2 = [
+    TOOLS_DEFINITIONS["x_search"],
+]
+
+
+@app.post("/api/chat")
+async def chat_endpoint(req: ChatRequest):
+    """Streaming AI chat endpoint — replicates Chainlit read-only two-step pipeline."""
+
+    session_id = req.session_id or str(uuid.uuid4())
+
+    async def event_stream():
+        try:
+            # Send session ID first
+            yield f"data: {json.dumps({'type': 'session', 'session_id': session_id})}\n\n"
+
+            # Get or create conversation history
+            if session_id not in chat_sessions:
+                chat_sessions[session_id] = []
+            history = chat_sessions[session_id]
+
+            # Add user message to history
+            history.append(xai_user(req.message))
+
+            # Setup
+            xai_client = XAIAsyncClient(api_key=XAI_API_KEY, timeout=3600)
+            openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+            lock = asyncio.Lock()
+            ctx = GraphOpsCtx(neo4jdriver=driver, lock=lock)
+
+            async def send_progress(label: str):
+                pass  # Progress will be sent inline below
+
+            progress_messages = []
+
+            async def collect_progress(label: str):
+                progress_messages.append(label)
+
+            # ── STEP 1: Research & Blueprinting ──
+            yield f"data: {json.dumps({'type': 'status', 'content': '🔍 Researching the knowledge graph…'})}\n\n"
+
+            step1_messages = [xai_system(CHAT_SYSTEM_PROMPT_STEP1)] + history
+
+            # Custom progress callback that yields SSE events
+            progress_queue = asyncio.Queue()
+
+            async def progress_callback_step1(label: str):
+                await progress_queue.put(label)
+
+            # Run step 1 in a task so we can yield progress concurrently
+            async def run_step1():
+                return await _headless_generate_response(
+                    xai_client, CHAT_TOOLS_STEP1, CHAT_FUNCTION_MAP,
+                    ctx, openai_client, step1_messages,
+                    progress_callback=progress_callback_step1,
+                )
+
+            step1_task = asyncio.create_task(run_step1())
+
+            # Yield progress events while step 1 runs
+            while not step1_task.done():
+                try:
+                    label = await asyncio.wait_for(progress_queue.get(), timeout=0.5)
+                    yield f"data: {json.dumps({'type': 'progress', 'content': label})}\n\n"
+                except asyncio.TimeoutError:
+                    continue
+
+            # Drain remaining progress
+            while not progress_queue.empty():
+                label = progress_queue.get_nowait()
+                yield f"data: {json.dumps({'type': 'progress', 'content': label})}\n\n"
+
+            step1_response = step1_task.result()
+
+            if not step1_response:
+                yield f"data: {json.dumps({'type': 'error', 'content': '❌ Research step failed.'})}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+
+            # Add step 1 response to history
+            history.append(xai_assistant(step1_response))
+
+            # ── STEP 2: Synthesis ──
+            yield f"data: {json.dumps({'type': 'status', 'content': '✨ Synthesizing response…'})}\n\n"
+
+            # Step 2 gets its own history (enriched prompt as input)
+            step2_key = f"{session_id}_step2"
+            if step2_key not in chat_sessions:
+                chat_sessions[step2_key] = []
+            step2_history = chat_sessions[step2_key]
+            step2_history.append(xai_user(step1_response))
+
+            step2_messages = [xai_system(CHAT_SYSTEM_PROMPT_STEP2)] + step2_history
+
+            step2_response = await _headless_generate_response(
+                xai_client, CHAT_TOOLS_STEP2,
+                {"x_search": core_x_search},
+                ctx, openai_client, step2_messages,
+            )
+
+            if not step2_response:
+                # Fallback: use step 1 response directly
+                step2_response = step1_response
+
+            # Add step 2 response to histories
+            step2_history.append(xai_assistant(step2_response))
+            history.append(xai_assistant(step2_response))
+            chat_sessions[session_id] = history
+            chat_sessions[step2_key] = step2_history
+
+            # Stream the final response
+            yield f"data: {json.dumps({'type': 'message', 'content': step2_response, 'role': 'assistant'})}\n\n"
+            yield "data: [DONE]\n\n"
+
+        except Exception as e:
+            logger.error(f"[CHAT] Stream error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'content': f'❌ Error: {str(e)}'})}\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/api/chat/reset")
+async def chat_reset(session_id: str = None):
+    """Reset a chat session."""
+    if session_id and session_id in chat_sessions:
+        del chat_sessions[session_id]
+        step2_key = f"{session_id}_step2"
+        if step2_key in chat_sessions:
+            del chat_sessions[step2_key]
+        return {"status": "reset", "session_id": session_id}
+    return {"status": "no_session"}
+
 
 # ---------------------------------------------------------------------------
 # API: filter advancement — AI-powered search of use cases (LAC)
