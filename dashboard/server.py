@@ -17,7 +17,7 @@ import os
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
@@ -25,7 +25,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from neo4j import AsyncGraphDatabase
 from neo4j.time import Date, DateTime
 from openai import AsyncOpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from xai_sdk import AsyncClient as XAIAsyncClient
 from xai_sdk.chat import system as xai_system, user as xai_user, assistant as xai_assistant, tool_result as xai_tool_result
 
@@ -340,6 +340,12 @@ async def trend_analyze(req: TrendAnalyzeRequest):
     }
 
 
+class DoublingRateEstimate(BaseModel):
+    months_per_doubling: float = Field(description="Estimated months per doubling")
+    metric: str = Field(description="What is doubling (e.g., performance, accuracy, capacity)")
+    reasoning: str = Field(description="1-2 sentences explaining your estimate")
+    confidence: Literal["high", "medium", "low"] = Field(description="Confidence level")
+
 async def _calculate_doubling_rate(trend: dict, milestones: list) -> dict:
     """Ask Grok to estimate months_per_doubling from trend data."""
     try:
@@ -368,32 +374,22 @@ async def _calculate_doubling_rate(trend: dict, milestones: list) -> dict:
             f"- Moore's Law: ~18-24 months per doubling\n"
             f"- AI compute scaling (recent): ~6-8 months per doubling\n"
             f"- Solar energy cost: ~36 months per doubling (halving of cost)\n\n"
-            f"Return ONLY a JSON object like this, no other text:\n"
-            f'{{"months_per_doubling": <number>, "metric": "<what is doubling, e.g. performance, accuracy, capacity>", '
-            f'"reasoning": "<1-2 sentences explaining your estimate>", '
-            f'"confidence": "<high|medium|low>"}}'
+            f"Extract the doubling rate metrics accurately."
         )
 
         xai_client = AsyncClient(api_key=XAI_API_KEY, timeout=60)
         chat = xai_client.chat.create(
             model="grok-4-1-fast",
             messages=[
-                system("You are a technology analyst estimating exponential growth rates. Return only valid JSON."),
+                system("You are a technology analyst estimating exponential growth rates."),
                 user(prompt),
             ],
+            response_format=DoublingRateEstimate,
         )
 
         response = await chat.sample()
-        content = response.content.strip()
-
-        # Strip code fences if present
-        if content.startswith("```"):
-            content = content.split("\n", 1)[1] if "\n" in content else content[3:]
-            if content.endswith("```"):
-                content = content[:-3].strip()
-
-        result = json.loads(content)
-        return result
+        result = DoublingRateEstimate.model_validate_json(response.content)
+        return result.model_dump()
 
     except Exception as e:
         logger.warning(f"Doubling rate calculation failed: {e}")
@@ -415,6 +411,15 @@ async def _calculate_doubling_rate(trend: dict, milestones: list) -> dict:
 # ---------------------------------------------------------------------------
 # API: spot a trend from user input (like /trend command)
 # ---------------------------------------------------------------------------
+
+class SpottedTrendDetails(BaseModel):
+    trend_name: str = Field(description="A concise, descriptive name for the trend")
+    description: str = Field(description="A 2-4 sentence description of the trend, explaining what is being observed and why")
+    capabilities: list[str] = Field(description="Array of capability names from the KG that this trend relates to")
+    evidence: list[str] = Field(description="Array of 3-5 pieces of evidence (milestones, observations) supporting this trend")
+    months_per_doubling: Optional[float] = Field(description="Estimated months per doubling (if this is an exponential trend, otherwise null)")
+    metric: Optional[str] = Field(description="What is doubling (e.g., performance, adoption, capability)")
+    prediction: str = Field(description="What this trend predicts for the next 1-2 years")
 
 class SpotTrendRequest(BaseModel):
     topic: str
@@ -464,15 +469,7 @@ async def spot_trend(req: SpotTrendRequest):
             "Trends are explanations of what we observe — they must be hard to vary, testable, and have explanatory depth.\n\n"
             "You have access to a knowledge graph with capabilities and milestones. "
             "Your task is to spot a trend related to the user's topic.\n\n"
-            "Return your analysis as a JSON object with these fields:\n"
-            '- "trend_name": A concise, descriptive name for the trend\n'
-            '- "description": A 2-4 sentence description of the trend, explaining what is being observed and why\n'
-            '- "capabilities": Array of capability names from the KG that this trend relates to\n'
-            '- "evidence": Array of 3-5 pieces of evidence (milestones, observations) supporting this trend\n'
-            '- "months_per_doubling": Estimated months per doubling (if this is an exponential trend, otherwise null)\n'
-            '- "metric": What is doubling (e.g., "performance", "adoption", "capability")\n'
-            '- "prediction": What this trend predicts for the next 1-2 years\n\n'
-            "Return ONLY valid JSON."
+            "Extract the requested trend properties accurately."
         )
 
         user_prompt = (
@@ -489,22 +486,16 @@ async def spot_trend(req: SpotTrendRequest):
                 system(system_prompt),
                 user(user_prompt),
             ],
+            response_format=SpottedTrendDetails,
         )
 
         response = await chat.sample()
-        content = response.content.strip()
-
-        # Strip code fences
-        if content.startswith("```"):
-            content = content.split("\n", 1)[1] if "\n" in content else content[3:]
-            if content.endswith("```"):
-                content = content[:-3].strip()
 
         try:
-            result = json.loads(content)
-            return {"spotted": result, "emtech": req.emtech}
-        except json.JSONDecodeError:
-            return {"spotted": {"trend_name": "Analysis", "description": content}, "emtech": req.emtech, "raw": True}
+            result = SpottedTrendDetails.model_validate_json(response.content)
+            return {"spotted": result.model_dump(), "emtech": req.emtech}
+        except Exception as e:
+            return {"spotted": {"trend_name": "Analysis", "description": str(e)}, "emtech": req.emtech, "raw": True}
 
     except Exception as e:
         logger.error(f"Trend spotting failed: {e}")
@@ -567,6 +558,16 @@ async def save_trend(req: SaveTrendRequest):
 # API: X news scan — returns a list of news items
 # ---------------------------------------------------------------------------
 
+class NewsItem(BaseModel):
+    headline: str = Field(description="A concise headline (one sentence)")
+    summary: str = Field(description="A 2-3 sentence summary of what happened")
+    source: str = Field(description="Where the news comes from (e.g., 'X/@handle', 'TechCrunch', 'Reuters')")
+    date: str = Field(description="Approximate date (e.g., '2026-03-01')")
+    significance: Literal["high", "medium", "low"] = Field(description="Significance of the news")
+
+class NewsResponse(BaseModel):
+    items: list[NewsItem] = Field(description="List of 5-12 distinct news items")
+
 class NewsRequest(BaseModel):
     emtech: str
     topic: str | None = None
@@ -583,7 +584,7 @@ async def news_search(req: NewsRequest):
         xai_client = AsyncClient(api_key=XAI_API_KEY, timeout=120)
 
         now = datetime.now(timezone.utc)
-        from_date = now - timedelta(hours=72)
+        from_date = now - timedelta(hours=24)
 
         tools = [
             web_search(excluded_domains=["wikipedia.org", "gartner.com", "weforum.com", "forbes.com", "accenture.com"]),
@@ -596,38 +597,24 @@ async def news_search(req: NewsRequest):
                 f"You are an intelligence analyst monitoring emerging technologies. "
                 f"Search X and the web for the latest news and developments specifically about: '{req.topic}' "
                 f"(in the context of the '{req.emtech}' sector). Focus on this specific topic. "
-                f"Return your findings as a JSON array of news items. Each item must be a JSON object with these fields:\n"
-                f"- \"headline\": A concise headline (one sentence)\n"
-                f"- \"summary\": A 2-3 sentence summary of what happened\n"
-                f"- \"source\": Where the news comes from (e.g., 'X/@handle', 'TechCrunch', 'Reuters')\n"
-                f"- \"date\": Approximate date (e.g., '2026-03-01')\n"
-                f"- \"significance\": One of 'high', 'medium', 'low'\n\n"
-                f"Return 5-12 distinct news items. Return ONLY the JSON array, no other text. "
-                f"Ensure the output is valid JSON."
+                f"Extract 5-12 distinct news items accurately."
             )
             user_prompt = (
                 f"Find the latest news, discussions, and expert opinions about: {req.topic}. "
                 f"Context: this relates to the {req.emtech} technology sector. "
-                f"Search both X and the web for the most recent and relevant developments. Return as JSON array."
+                f"Search both X and the web for the most recent and relevant developments."
             )
         else:
             # Original EmTech-wide scan
             system_prompt = (
                 f"You are an intelligence analyst monitoring emerging technologies. "
-                f"Search X and the web for the latest developments in '{req.emtech}' from the last 72 hours. "
-                f"Return your findings as a JSON array of news items. Each item must be a JSON object with these fields:\n"
-                f"- \"headline\": A concise headline (one sentence)\n"
-                f"- \"summary\": A 2-3 sentence summary of what happened\n"
-                f"- \"source\": Where the news comes from (e.g., 'X/@handle', 'TechCrunch', 'Reuters')\n"
-                f"- \"date\": Approximate date (e.g., '2026-03-01')\n"
-                f"- \"significance\": One of 'high', 'medium', 'low'\n\n"
-                f"Return 5-12 distinct news items. Return ONLY the JSON array, no other text. "
-                f"Ensure the output is valid JSON."
+                f"Search X and the web for the latest developments in '{req.emtech}' from the last 24 hours. "
+                f"Extract 5-12 distinct news items accurately."
             )
             user_prompt = (
                 f"What are the latest developments and news in {req.emtech}? "
                 f"Focus on breakthroughs, product launches, funding, partnerships, and expert opinions "
-                f"from the last 72 hours. Return as JSON array."
+                f"from the last 24 hours."
             )
 
         chat = xai_client.chat.create(
@@ -637,27 +624,16 @@ async def news_search(req: NewsRequest):
                 system(system_prompt),
                 user(user_prompt),
             ],
+            response_format=NewsResponse,
         )
 
         response = await chat.sample()
 
-        # Try to parse the JSON from the response
-        content = response.content.strip()
-        # Strip markdown code fences if present
-        if content.startswith("```"):
-            content = content.split("\n", 1)[1] if "\n" in content else content[3:]
-            if content.endswith("```"):
-                content = content[:-3].strip()
-
         try:
-            items = json.loads(content)
-            if isinstance(items, list):
-                return {"items": items, "emtech": req.emtech, "topic": req.topic}
-        except json.JSONDecodeError:
-            pass
-
-        # Fallback: return the raw content for the frontend to display
-        return {"items": [], "raw_content": response.content, "emtech": req.emtech, "topic": req.topic}
+            result = NewsResponse.model_validate_json(response.content)
+            return {"items": [item.model_dump() for item in result.items], "emtech": req.emtech, "topic": req.topic}
+        except Exception as e:
+            return {"items": [], "raw_content": str(e) + "\n\n" + response.content, "emtech": req.emtech, "topic": req.topic}
 
 
     except Exception as e:
@@ -689,7 +665,7 @@ async def analyze_news(req: AnalyzeRequest):
         xai_client = AsyncClient(api_key=XAI_API_KEY, timeout=180)
 
         now = datetime.now(timezone.utc)
-        from_date = now - timedelta(hours=72)
+        from_date = now - timedelta(hours=24)
 
         tools = [
             web_search(excluded_domains=["wikipedia.org", "gartner.com", "weforum.com", "forbes.com", "accenture.com"]),
