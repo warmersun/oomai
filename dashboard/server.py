@@ -63,7 +63,7 @@ with open(_project_root / "knowledge_graph" / "schema.md", "r") as _f:
     _SCHEMA = _f.read()
 with open(_project_root / "knowledge_graph" / "system_prompt_readonly_step1.md", "r") as _f:
     CHAT_SYSTEM_PROMPT_STEP1 = _f.read().format(schema=_SCHEMA, user_party_name=USER_PARTY_NAME)
-with open(_project_root / "knowledge_graph" / "system_prompt_readonly_step2.md", "r") as _f:
+with open(_project_root / "knowledge_graph" / "system_prompt_dashboard_step2.md", "r") as _f:
     CHAT_SYSTEM_PROMPT_STEP2 = _f.read().format(schema=_SCHEMA, user_party_name=USER_PARTY_NAME)
 
 # Read-only tools for the chat (same as Chainlit read-only mode)
@@ -1530,6 +1530,46 @@ class ChatRequest(BaseModel):
     message: str
     emtech: str | None = None
     session_id: str | None = None
+    context: str | None = None  # AI analysis context for follow-up
+
+
+def _tool_progress_label(function_name: str, function_args: dict) -> str:
+    """Generate a human-readable progress label from a tool call."""
+    if function_name == "execute_cypher_query":
+        q = function_args.get("query", "")
+        return f"Querying knowledge graph: `{q[:80]}{'…' if len(q) > 80 else ''}`"
+    elif function_name == "find_node":
+        nt = function_args.get("node_type", "node")
+        qt = function_args.get("query_text", "")
+        return f"Searching for {nt}: {qt[:60]}{'…' if len(qt) > 60 else ''}"
+    elif function_name == "scan_ideas":
+        probes = function_args.get("query_probes", [])
+        return f"Scanning ideas with {len(probes)} probe{'s' if len(probes) != 1 else ''}…"
+    elif function_name == "scan_trends":
+        probes = function_args.get("query_probes", [])
+        ef = function_args.get("emtech_filter")
+        suffix = f" ({ef})" if ef else ""
+        return f"Scanning trends with {len(probes)} probe{'s' if len(probes) != 1 else ''}{suffix}…"
+    elif function_name == "dfs":
+        nn = function_args.get("node_name", "")
+        depth = function_args.get("depth", 3)
+        return f"Exploring: {nn} (depth {depth})…"
+    elif function_name == "x_search":
+        p = function_args.get("prompt", "")
+        return f"Searching X and web: {p[:60]}{'…' if len(p) > 60 else ''}"
+    elif function_name == "plan_tasks":
+        tasks = function_args.get("planned_tasks", [])
+        return f"Planning {len(tasks)} research step{'s' if len(tasks) != 1 else ''}…"
+    elif function_name == "get_tasks":
+        return "Checking progress…"
+    elif function_name == "mark_task_as_running":
+        tt = function_args.get("task_title", "")
+        return f"Starting: {tt[:60]}{'…' if len(tt) > 60 else ''}"
+    elif function_name == "mark_task_as_done":
+        tt = function_args.get("task_title", "")
+        return f"✅ Done: {tt[:60]}{'…' if len(tt) > 60 else ''}"
+    else:
+        return f"Running {function_name}…"
 
 
 async def _headless_generate_response(
@@ -1579,19 +1619,7 @@ async def _headless_generate_response(
 
                 # Send progress update
                 if progress_callback:
-                    tool_labels = {
-                        "execute_cypher_query": "Querying knowledge graph…",
-                        "find_node": "Searching for similar nodes…",
-                        "scan_ideas": "Scanning ideas and bets…",
-                        "scan_trends": "Scanning trends…",
-                        "dfs": "Exploring graph connections…",
-                        "x_search": "Searching X and web…",
-                        "plan_tasks": "Planning research steps…",
-                        "get_tasks": "Checking progress…",
-                        "mark_task_as_running": "Working on task…",
-                        "mark_task_as_done": "Task completed…",
-                    }
-                    label = tool_labels.get(function_name, f"Running {function_name}…")
+                    label = _tool_progress_label(function_name, function_args)
                     await progress_callback(label)
 
                 # Skip task management tools (no-op in headless mode)
@@ -1664,6 +1692,15 @@ async def chat_endpoint(req: ChatRequest):
             # Add user message to history
             history.append(xai_user(req.message))
 
+            # If follow-up context is provided, inject it as a system context message
+            if req.context and len(history) == 1:
+                context_msg = xai_system(
+                    "The user is following up on a previous AI analysis from the dashboard. "
+                    "Here is the context they are referring to. Use this to ground your responses "
+                    "to their follow-up questions:\n\n" + req.context
+                )
+                history.insert(0, context_msg)
+
             # Setup
             xai_client = XAIAsyncClient(api_key=XAI_API_KEY, timeout=3600)
             openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
@@ -1722,6 +1759,8 @@ async def chat_endpoint(req: ChatRequest):
             # Add step 1 response to history
             history.append(xai_assistant(step1_response))
 
+            yield f"data: {json.dumps({'type': 'progress', 'content': '✅ Research complete.'})}\n\n"
+
             # ── STEP 2: Synthesis ──
             yield f"data: {json.dumps({'type': 'status', 'content': '✨ Synthesizing response…'})}\n\n"
 
@@ -1734,11 +1773,36 @@ async def chat_endpoint(req: ChatRequest):
 
             step2_messages = [xai_system(CHAT_SYSTEM_PROMPT_STEP2)] + step2_history
 
-            step2_response = await _headless_generate_response(
-                xai_client, CHAT_TOOLS_STEP2,
-                {"x_search": core_x_search},
-                ctx, openai_client, step2_messages,
-            )
+            # Run step 2 in a task with progress (same pattern as step 1)
+            progress_queue_step2 = asyncio.Queue()
+
+            async def progress_callback_step2(label: str):
+                await progress_queue_step2.put(label)
+
+            async def run_step2():
+                return await _headless_generate_response(
+                    xai_client, CHAT_TOOLS_STEP2,
+                    {"x_search": core_x_search},
+                    ctx, openai_client, step2_messages,
+                    progress_callback=progress_callback_step2,
+                )
+
+            step2_task = asyncio.create_task(run_step2())
+
+            # Yield progress events while step 2 runs
+            while not step2_task.done():
+                try:
+                    label = await asyncio.wait_for(progress_queue_step2.get(), timeout=0.5)
+                    yield f"data: {json.dumps({'type': 'progress', 'content': label})}\n\n"
+                except asyncio.TimeoutError:
+                    continue
+
+            # Drain remaining progress
+            while not progress_queue_step2.empty():
+                label = progress_queue_step2.get_nowait()
+                yield f"data: {json.dumps({'type': 'progress', 'content': label})}\n\n"
+
+            step2_response = step2_task.result()
 
             if not step2_response:
                 # Fallback: use step 1 response directly
@@ -1749,6 +1813,8 @@ async def chat_endpoint(req: ChatRequest):
             history.append(xai_assistant(step2_response))
             chat_sessions[session_id] = history
             chat_sessions[step2_key] = step2_history
+
+            yield f"data: {json.dumps({'type': 'progress', 'content': '✅ Synthesis complete.'})}\n\n"
 
             # Stream the final response
             yield f"data: {json.dumps({'type': 'message', 'content': step2_response, 'role': 'assistant'})}\n\n"
@@ -1780,6 +1846,145 @@ async def chat_reset(session_id: str = None):
             del chat_sessions[step2_key]
         return {"status": "reset", "session_id": session_id}
     return {"status": "no_session"}
+
+
+# ---------------------------------------------------------------------------
+# API: Draft X Article — turn conversation into a long-form X Article
+# ---------------------------------------------------------------------------
+
+# Load xarticle prompt template from command_sources.yaml at startup
+import yaml as _yaml
+with open(_project_root / "knowledge_graph" / "command_sources.yaml", "r") as _f:
+    _command_sources = _yaml.safe_load(_f)
+XARTICLE_PROMPT_TEMPLATE: str = _command_sources["commands"]["xarticle"]["template"]
+
+
+class XArticleRequest(BaseModel):
+    session_id: str | None = None
+    emtech: str | None = None
+    context: str | None = None  # fallback context if no session exists yet
+
+
+@app.post("/api/chat/xarticle")
+async def xarticle_endpoint(req: XArticleRequest):
+    """Draft an X Article from the current chat session's conversation history."""
+
+    session_id = req.session_id or str(uuid.uuid4())
+
+    async def event_stream():
+        try:
+            yield f"data: {json.dumps({'type': 'session', 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'type': 'status', 'content': '📝 Drafting X Article…'})}\n\n"
+
+            # 1. Collect the full conversation context from the session
+            history = chat_sessions.get(session_id, [])
+            step2_key = f"{session_id}_step2"
+            step2_history = chat_sessions.get(step2_key, [])
+
+            # Build conversation text from session messages
+            conversation_parts = []
+
+            # Include injected context (from follow-up) if present in the session
+            for msg in history:
+                role = msg.get("role", "")
+                content = msg.get("content", "")
+                if not content:
+                    continue
+                if role == "system":
+                    conversation_parts.append(f"[Context]\n{content}")
+                elif role == "user":
+                    conversation_parts.append(f"[User]\n{content}")
+                elif role == "assistant":
+                    conversation_parts.append(f"[Assistant]\n{content}")
+
+            # If no session history but context was passed directly
+            if not conversation_parts and req.context:
+                conversation_parts.append(f"[Context]\n{req.context}")
+
+            conversation_text = "\n\n---\n\n".join(conversation_parts)
+
+            if not conversation_text:
+                yield f"data: {json.dumps({'type': 'error', 'content': '❌ No conversation context available. Start an analysis first.'})}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+
+            # 2. Build the xarticle prompt
+            xarticle_prompt = XARTICLE_PROMPT_TEMPLATE.replace("{user_input}", conversation_text)
+
+            # 3. Run single-step LLM call
+            xai_client = XAIAsyncClient(api_key=XAI_API_KEY, timeout=3600)
+            openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+            lock = asyncio.Lock()
+            ctx = GraphOpsCtx(neo4jdriver=driver, lock=lock)
+
+            progress_queue = asyncio.Queue()
+
+            async def progress_callback(label: str):
+                await progress_queue.put(label)
+
+            # Use x_search as the only tool (for web evidence)
+            xarticle_messages = [
+                xai_system(
+                    "You are an excellent long-form writer specializing in content for the X platform. "
+                    "You have access to x_search to find supporting evidence and recent developments. "
+                    "Write in a clear, engaging, insightful voice — like a sharp colleague sharing deep thinking."
+                ),
+                xai_user(xarticle_prompt),
+            ]
+
+            async def run_xarticle():
+                return await _headless_generate_response(
+                    xai_client, CHAT_TOOLS_STEP2,
+                    {"x_search": core_x_search},
+                    ctx, openai_client, xarticle_messages,
+                    progress_callback=progress_callback,
+                )
+
+            xarticle_task = asyncio.create_task(run_xarticle())
+
+            # Yield progress events while it runs
+            while not xarticle_task.done():
+                try:
+                    label = await asyncio.wait_for(progress_queue.get(), timeout=0.5)
+                    yield f"data: {json.dumps({'type': 'progress', 'content': label})}\n\n"
+                except asyncio.TimeoutError:
+                    continue
+
+            # Drain remaining progress
+            while not progress_queue.empty():
+                label = progress_queue.get_nowait()
+                yield f"data: {json.dumps({'type': 'progress', 'content': label})}\n\n"
+
+            article_response = xarticle_task.result()
+
+            if not article_response:
+                yield f"data: {json.dumps({'type': 'error', 'content': '❌ Article generation failed.'})}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+
+            # 4. Append the article to the chat session so user can continue
+            history.append(xai_user("📝 Draft X Article"))
+            history.append(xai_assistant(article_response))
+            chat_sessions[session_id] = history
+
+            yield f"data: {json.dumps({'type': 'progress', 'content': '✅ Article drafted.'})}\n\n"
+            yield f"data: {json.dumps({'type': 'message', 'content': article_response, 'role': 'assistant'})}\n\n"
+            yield "data: [DONE]\n\n"
+
+        except Exception as e:
+            logger.error(f"[XARTICLE] Stream error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'content': f'❌ Error: {str(e)}'})}\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

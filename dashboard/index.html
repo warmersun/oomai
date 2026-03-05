@@ -1253,6 +1253,44 @@
       text-decoration: underline;
     }
 
+    .md-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      margin: 16px 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .md-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      text-align: left;
+    }
+
+    .md-table th,
+    .md-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .md-table th {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--accent-cyan);
+      background: rgba(0, 212, 255, 0.05);
+      border-bottom: 2px solid var(--border-active);
+    }
+
+    .md-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .md-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
     .news-content {
       font-size: 0.82rem;
       line-height: 1.7;
@@ -2210,6 +2248,115 @@
       margin-bottom: 10px;
       display: block;
     }
+
+    /* ═══════════════════════════════ FOLLOW UP IN CHAT ═══════════════════════════════ */
+    .follow-up-btn {
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--accent-purple);
+      background: rgba(168, 85, 247, 0.1);
+      color: var(--accent-purple);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    .follow-up-btn:hover {
+      background: rgba(168, 85, 247, 0.22);
+      box-shadow: 0 0 14px rgba(168, 85, 247, 0.18);
+      border-color: #c084fc;
+    }
+
+    .chat-context-badge {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(0, 212, 255, 0.06));
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--accent-purple);
+      line-height: 1.5;
+      animation: contextFadeIn 0.4s ease;
+    }
+
+    .chat-context-badge .context-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .chat-context-badge .context-text {
+      color: var(--text-secondary);
+    }
+
+    .chat-context-badge .context-title {
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    @keyframes contextFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ═══════════════════════════════ FOLLOW-UP PANEL DISABLED STATE ═══════════════════════════════ */
+    .chat-panel.disabled .panel-body {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .chat-panel.disabled .chat-reset-btn {
+      display: none;
+    }
+
+    .chat-panel.disabled .chat-xarticle-btn {
+      display: none;
+    }
+
+    .chat-xarticle-btn {
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--accent-cyan);
+      background: rgba(0, 212, 255, 0.1);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    .chat-xarticle-btn:hover {
+      background: rgba(0, 212, 255, 0.22);
+      box-shadow: var(--glow-cyan);
+      border-color: #67e8f9;
+    }
+
+    .chat-xarticle-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .chat-panel.disabled .chat-welcome {
+      color: var(--text-muted);
+    }
   </style>
 </head>
 
@@ -2246,7 +2393,7 @@
   <!-- ═══════════════════════════════ DASHBOARD ═══════════════════════════════ -->
   <main class="dashboard grid-stack">
     <!-- Chart Panel -->
-    <div class="grid-stack-item" gs-w="8" gs-h="12" gs-x="0" gs-y="0">
+    <div class="grid-stack-item" gs-w="6" gs-h="6" gs-x="0" gs-y="20">
       <section class="grid-stack-item-content panel chart-panel">
         <div class="panel-header">
           <span class="panel-title" id="chart-title">📊 Trend Explorer</span>
@@ -2308,7 +2455,7 @@
     </div>
 
     <!-- News Panel -->
-    <div class="grid-stack-item" gs-w="6" gs-h="6" gs-x="0" gs-y="20">
+    <div class="grid-stack-item" gs-w="8" gs-h="12" gs-x="0" gs-y="0">
       <section class="grid-stack-item-content panel news-panel">
         <div class="panel-header">
           <span class="panel-title">📡 Latest Intel</span>
@@ -2366,23 +2513,27 @@
       </section>
     </div>
 
-    <!-- Chat Panel -->
+    <!-- Follow-up Panel -->
     <div class="grid-stack-item" gs-w="4" gs-h="2" gs-x="8" gs-y="5" data-expanded-h="13">
-      <section class="grid-stack-item-content panel chat-panel collapsed">
+      <section class="grid-stack-item-content panel chat-panel collapsed disabled">
         <div class="panel-header">
-          <span class="panel-title">🤖 AI Chat</span>
-          <button class="chat-reset-btn" onclick="resetChat()" title="New conversation">🔄 New</button>
+          <span class="panel-title">💬 Follow-up</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button class="chat-xarticle-btn" id="chat-xarticle-btn" onclick="draftXArticle()"
+              title="Draft X Article from this analysis">📝 Draft X Article</button>
+            <button class="chat-reset-btn" onclick="resetChat()" title="Reset conversation">🔄 Reset</button>
+          </div>
         </div>
         <div class="panel-body">
           <div class="chat-messages" id="chat-messages">
             <div class="chat-welcome">
-              <span class="chat-welcome-icon">🤖</span>
-              Ask me anything about the knowledge graph.<br>
-              I can research trends, ideas, bets, and more.
+              <span class="chat-welcome-icon">💬</span>
+              Click <strong>“Follow up in AI Chat”</strong> on any<br>
+              AI analysis result to start a conversation.
             </div>
           </div>
           <div class="chat-input-area">
-            <input type="text" id="chat-input" placeholder="Ask the AI…"
+            <input type="text" id="chat-input" placeholder="Ask a follow-up question…"
               onkeydown="if(event.key==='Enter' && !event.shiftKey) sendChatMessage()">
             <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMessage()">Send</button>
           </div>
@@ -2846,6 +2997,8 @@
 
       // Store for save
       window._spottedTrend = { trend_name: name, description: desc, capabilities, emtech };
+      // Store for follow-up
+      window._spottedTrendFollowUp = { name, description: desc, evidence, capabilities, mpd, metric, prediction };
 
       chartArea.innerHTML = `
         <div class="spotted-result">
@@ -2859,6 +3012,7 @@
           <div class="trend-detail-actions">
             <button class="save-trend-btn" id="save-trend-btn" onclick="saveTrendToKG()">💾 Save to Knowledge Graph</button>
             ${mpd ? `<button class="trend-action-btn secondary" onclick="visualizeSpottedTrend(${mpd})">📈 Visualize Growth</button>` : ''}
+            <button class="follow-up-btn" onclick="followUpFromSpottedTrend()">💬 Follow up in AI Chat</button>
           </div>
         </div>
       `;
@@ -3007,10 +3161,13 @@
       // Show doubling rate badge
       const doublingInfoEl = document.getElementById('doubling-info');
       const confClass = doubling?.confidence === 'low' ? 'low-confidence' : '';
+      // Store trend analysis data for follow-up
+      window._lastTrendAnalysis = data;
       doublingInfoEl.innerHTML = `
     <span class="doubling-badge ${confClass}" title="${escapeHtml(doubling?.reasoning || '')}">
       ⚡ ${mpd} mo/doubling · ${escapeHtml(doubling?.metric || 'capability')}
     </span>
+    <button class="follow-up-btn" style="margin-left:8px;" onclick="followUpFromTrendAnalysis()">💬 Follow up in AI Chat</button>
   `;
 
       // Prepare milestone data points
@@ -3406,7 +3563,9 @@
         const data = await res.json();
 
         if (data.content) {
-          resultEl.innerHTML = `<div class="analysis-content">${markdownToHtml(data.content)}</div>`;
+          window._ideaCheckFollowUp = { name: name, content: data.content };
+          resultEl.innerHTML = `<div class="analysis-content">${markdownToHtml(data.content)}</div>
+            <button class="follow-up-btn" style="margin-top:12px;" onclick="followUpFromIdeaCheck()">💬 Follow up in AI Chat</button>`;
           btn.textContent = '✅ Checked';
         } else if (data.detail) {
           resultEl.innerHTML = `<div class="empty-state">⚠️ ${escapeHtml(data.detail)}</div>`;
@@ -3647,7 +3806,9 @@
         const data = await res.json();
 
         if (data.content) {
-          resultEl.innerHTML = `<div class="analysis-content">${markdownToHtml(data.content)}</div>`;
+          window._betEvalFollowUp = { name: name, content: data.content };
+          resultEl.innerHTML = `<div class="analysis-content">${markdownToHtml(data.content)}</div>
+            <button class="follow-up-btn" style="margin-top:12px;" onclick="followUpFromBetEval()">💬 Follow up in AI Chat</button>`;
           btn.textContent = '✅ Evaluated';
         } else if (data.detail) {
           resultEl.innerHTML = `<div class="empty-state">⚠️ ${escapeHtml(data.detail)}</div>`;
@@ -3768,8 +3929,10 @@
         const data = await res.json();
 
         if (data.content) {
+          window._newsAnalysisFollowUp = { headline: item.headline, content: data.content };
           titleEl.textContent = `🔍 Analysis: ${item.headline}`;
-          bodyEl.innerHTML = `<div class="analysis-content">${markdownToHtml(data.content)}</div>`;
+          bodyEl.innerHTML = `<div class="analysis-content">${markdownToHtml(data.content)}</div>
+            <button class="follow-up-btn" style="margin-top:16px;" onclick="followUpFromNewsAnalysis()">💬 Follow up in AI Chat</button>`;
         } else if (data.detail) {
           bodyEl.innerHTML = `<div class="empty-state">⚠️ ${escapeHtml(data.detail)}</div>`;
         }
@@ -3891,6 +4054,15 @@
         .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
         // wrap consecutive <li> in <ul>
         .replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
+        // tables
+        .replace(/^ *\|(.+)\|[ \t]*\n *\|([-:| ]+)\|[ \t]*\n((?: *\|.*\|[ \t]*(?:\n|$))*)/gm, function (match, header, separator, body) {
+          const headers = header.split('|').map(h => `<th>${h.trim()}</th>`).join('');
+          const rows = body.trim().split('\n').filter(r => r.trim()).map(row => {
+            const cells = row.replace(/^ *\||\| *$/g, '').split('|').map(c => `<td>${c.trim()}</td>`).join('');
+            return `<tr>${cells}</tr>`;
+          }).join('');
+          return `<div class="md-table-wrapper"><table class="md-table"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div>\n`;
+        })
         // line breaks
         .replace(/\n\n/g, '<br><br>')
         .replace(/\n/g, '<br>');
@@ -4144,8 +4316,10 @@
         const data = await res.json();
 
         if (data.content) {
+          window._pathwayFollowUp = { lacName: lacName, content: data.content };
           titleEl.textContent = `🛤️ Pathway: ${lacName}`;
-          bodyEl.innerHTML = `<div class="analysis-content">${markdownToHtml(data.content)}</div>`;
+          bodyEl.innerHTML = `<div class="analysis-content">${markdownToHtml(data.content)}</div>
+            <button class="follow-up-btn" style="margin-top:16px;" onclick="followUpFromPathway()">💬 Follow up in AI Chat</button>`;
         } else if (data.detail) {
           bodyEl.innerHTML = `<div class="empty-state">⚠️ ${escapeHtml(data.detail)}</div>`;
         }
@@ -4235,6 +4409,199 @@
     // ═══════════════════════════════ AI CHAT ═══════════════════════════════
     let chatSessionId = null;
     let chatSending = false;
+    let chatFollowUpContext = null; // { type, title, content }
+
+    function followUpInChat(contextType, contextTitle, contextContent) {
+      // 1. Close any open modal overlays
+      document.querySelectorAll('.modal-overlay.visible').forEach(el => el.classList.remove('visible'));
+
+      // 2. Reset the chat session (inline, not async, to avoid race condition)
+      if (chatSessionId) {
+        fetch('/api/chat/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: chatSessionId }),
+        }).catch(() => { });
+      }
+      chatSessionId = null;
+      chatFollowUpContext = null;
+
+      // 3. Store the context for the first message
+      chatFollowUpContext = {
+        type: contextType,
+        title: contextTitle,
+        content: typeof contextContent === 'string' ? contextContent : JSON.stringify(contextContent),
+      };
+
+      // 4. Show context badge in chat messages
+      const container = document.getElementById('chat-messages');
+      container.innerHTML = `
+        <div class="chat-context-badge">
+          <span class="context-icon">💬</span>
+          <div>
+            <span class="context-text">Following up on the <strong>${escapeHtml(contextType)}</strong> of</span>
+            <span class="context-title"> "${escapeHtml(contextTitle)}"</span>
+          </div>
+        </div>
+      `;
+
+      // 5. Expand the chat panel using the gridstack toggle (handles CSS + grid height)
+      const chatPanel = document.querySelector('.chat-panel');
+      // Enable the panel (remove disabled state)
+      if (chatPanel) chatPanel.classList.remove('disabled');
+      if (chatPanel && chatPanel.classList.contains('collapsed')) {
+        const gsItem = chatPanel.closest('.grid-stack-item');
+        if (gsItem) togglePanel(gsItem);
+      }
+
+      // 6. Scroll to chat panel and focus input
+      setTimeout(() => {
+        if (chatPanel) chatPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => {
+          const input = document.getElementById('chat-input');
+          if (input) input.focus();
+        }, 400);
+      }, 150);
+    }
+
+    function followUpFromSpottedTrend() {
+      const d = window._spottedTrendFollowUp;
+      if (d) followUpInChat('spotted trend', d.name, JSON.stringify(d));
+    }
+
+    function followUpFromTrendAnalysis() {
+      const d = window._lastTrendAnalysis;
+      if (d) followUpInChat('trend analysis', d.trend?.name || 'trend', JSON.stringify(d));
+    }
+
+    function followUpFromIdeaCheck() {
+      const d = window._ideaCheckFollowUp;
+      if (d) followUpInChat('idea validation', d.name, d.content);
+    }
+
+    function followUpFromBetEval() {
+      const d = window._betEvalFollowUp;
+      if (d) followUpInChat('bet evaluation', d.name, d.content);
+    }
+
+    function followUpFromNewsAnalysis() {
+      const d = window._newsAnalysisFollowUp;
+      if (d) followUpInChat('news analysis', d.headline, d.content);
+    }
+
+    function followUpFromPathway() {
+      const d = window._pathwayFollowUp;
+      if (d) followUpInChat('advancement pathway', d.lacName, d.content);
+    }
+
+    async function draftXArticle() {
+      if (chatSending) return;
+
+      const xBtn = document.getElementById('chat-xarticle-btn');
+      const sendBtn = document.getElementById('chat-send-btn');
+      chatSending = true;
+      xBtn.disabled = true;
+      sendBtn.disabled = true;
+      xBtn.textContent = '⏳ Drafting…';
+
+      // Show status in chat
+      addChatMessage('user', '📝 Draft X Article');
+      showChatTyping();
+
+      try {
+        const body = {
+          session_id: chatSessionId,
+          emtech: currentEmTech,
+        };
+
+        // If no session exists yet but we have follow-up context, include it
+        if (chatFollowUpContext) {
+          body.context = `The user is following up on a previous AI ${chatFollowUpContext.type} of "${chatFollowUpContext.title}". Here is the full analysis content:\n\n${chatFollowUpContext.content}`;
+          // Don't null out chatFollowUpContext here — keep it for future follow-up messages
+        }
+
+        const response = await fetch('/api/chat/xarticle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let lastProgressEl = null;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+
+            try {
+              const event = JSON.parse(data);
+
+              switch (event.type) {
+                case 'session':
+                  chatSessionId = event.session_id;
+                  break;
+                case 'status':
+                  removeChatTyping();
+                  if (lastProgressEl) {
+                    lastProgressEl.remove();
+                    lastProgressEl = null;
+                  }
+                  addChatMessage('status', event.content);
+                  showChatTyping();
+                  break;
+                case 'progress':
+                  removeChatTyping();
+                  if (lastProgressEl) {
+                    lastProgressEl.textContent = event.content;
+                  } else {
+                    lastProgressEl = addChatMessage('progress', event.content);
+                  }
+                  showChatTyping();
+                  break;
+                case 'message':
+                  removeChatTyping();
+                  if (lastProgressEl) {
+                    lastProgressEl.remove();
+                    lastProgressEl = null;
+                  }
+                  document.querySelectorAll('.chat-msg.status').forEach(el => el.remove());
+                  addChatMessage('assistant', event.content);
+                  break;
+                case 'error':
+                  removeChatTyping();
+                  if (lastProgressEl) {
+                    lastProgressEl.remove();
+                    lastProgressEl = null;
+                  }
+                  addChatMessage('error', event.content);
+                  break;
+              }
+            } catch (e) {
+              // Skip non-JSON lines
+            }
+          }
+        }
+      } catch (err) {
+        removeChatTyping();
+        addChatMessage('error', `❌ Connection error: ${err.message}`);
+      } finally {
+        chatSending = false;
+        xBtn.disabled = false;
+        sendBtn.disabled = false;
+        xBtn.textContent = '📝 Draft X Article';
+      }
+    }
 
     function generateSessionId() {
       return 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -4262,6 +4629,27 @@
       html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
       // Horizontal rules
       html = html.replace(/^---$/gm, '<hr>');
+
+      // Standard Tables
+      html = html.replace(/^ *\|(.+)\|[ \t]*\n *\|([-:| ]+)\|[ \t]*\n((?: *\|.*\|[ \t]*(?:\n|$))*)/gm, function (match, header, separator, body) {
+        const headers = header.replace(/^ *\||\| *$/g, '').split('|').map(h => `<th>${h.trim()}</th>`).join('');
+        const rows = body.trim().split('\n').filter(r => r.trim()).map(row => {
+          const cells = row.replace(/^ *\||\| *$/g, '').split('|').map(c => `<td>${c.trim()}</td>`).join('');
+          return `<tr>${cells}</tr>`;
+        }).join('');
+        return `</p><div class="md-table-wrapper"><table class="md-table"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div><p>\n`;
+      });
+
+      // Headerless Tables (just rows of |...|)
+      html = html.replace(/^(?: *\|.*\|[ \t]*(?:\n|$)){2,}/gm, function (match) {
+        // If it was already caught by standard tables, this regex won't match if we execute it after, 
+        // because the standard table is now HTML. So any remaining |...| blocks are headerless tables.
+        const rows = match.trim().split('\n').filter(r => r.trim()).map(row => {
+          const cells = row.replace(/^ *\||\| *$/g, '').split('|').map(c => `<td>${c.trim()}</td>`).join('');
+          return `<tr>${cells}</tr>`;
+        }).join('');
+        return `</p><div class="md-table-wrapper"><table class="md-table"><tbody>${rows}</tbody></table></div><p>\n`;
+      });
       // Unordered lists
       html = html.replace(/^[\t ]*[-*+] (.+)$/gm, '<li>$1</li>');
       html = html.replace(/(<li>.*<\/li>\n?)+/g, m => '<ul>' + m + '</ul>');
@@ -4345,6 +4733,12 @@
           emtech: currentEmTech,
           session_id: chatSessionId,
         };
+
+        // Include follow-up context on the first message
+        if (chatFollowUpContext) {
+          body.context = `The user is following up on a previous AI ${chatFollowUpContext.type} of "${chatFollowUpContext.title}". Here is the full analysis content:\n\n${chatFollowUpContext.content}`;
+          chatFollowUpContext = null;
+        }
 
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -4441,14 +4835,18 @@
         } catch (e) { /* ignore */ }
       }
       chatSessionId = null;
+      chatFollowUpContext = null;
       const container = document.getElementById('chat-messages');
       container.innerHTML = `
         <div class="chat-welcome">
-          <span class="chat-welcome-icon">🤖</span>
-          Ask me anything about the knowledge graph.<br>
-          I can research trends, ideas, bets, and more.
+          <span class="chat-welcome-icon">💬</span>
+          Click <strong>\u201cFollow up in AI Chat\u201d</strong> on any<br>
+          AI analysis result to start a conversation.
         </div>
       `;
+      // Re-disable the panel
+      const chatPanel = document.querySelector('.chat-panel');
+      if (chatPanel) chatPanel.classList.add('disabled');
     }
 
   </script>
