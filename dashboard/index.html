@@ -2426,7 +2426,10 @@
     <div class="grid-stack-item" gs-w="6" gs-h="6" gs-x="0" gs-y="20">
       <section class="grid-stack-item-content panel chart-panel">
         <div class="panel-header">
-          <span class="panel-title" id="chart-title">📊 Trend Explorer</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="panel-title" id="chart-title">📊 Trend Explorer</span>
+            <span id="trend-filter-badge" style="display:none"></span>
+          </div>
           <div style="display: flex; align-items: center; gap: 12px;">
             <span id="doubling-info"></span>
             <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted);">LOG SCALE</span>
@@ -2474,7 +2477,10 @@
     <div class="grid-stack-item" gs-w="4" gs-h="5" gs-x="8" gs-y="7">
       <section class="grid-stack-item-content panel ideas-panel">
         <div class="panel-header">
-          <span class="panel-title">💡 Ideas & Assessments</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="panel-title">💡 Ideas & Assessments</span>
+            <span id="idea-filter-badge" style="display:none"></span>
+          </div>
           <span id="idea-count"
             style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);"></span>
         </div>
@@ -2510,7 +2516,10 @@
     <div class="grid-stack-item" gs-w="6" gs-h="6" gs-x="6" gs-y="20">
       <section class="grid-stack-item-content panel convergences-panel">
         <div class="panel-header">
-          <span class="panel-title">🔗 Convergences</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="panel-title">🔗 Convergences</span>
+            <span id="conv-filter-badge" style="display:none"></span>
+          </div>
           <span id="conv-count"
             style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);"></span>
         </div>
@@ -3665,7 +3674,17 @@
         // Show search badge and clear button
         clearBtn.style.display = '';
         badge.style.display = '';
-        badge.innerHTML = `<span class="search-active-badge">🔍 "${escapeHtml(query)}"</span>`;
+        const badgeHtml = `<span class="search-active-badge">🔍 "${escapeHtml(query)}"</span>`;
+        badge.innerHTML = badgeHtml;
+
+        // Show panel filter badges
+        ['trend-filter-badge', 'idea-filter-badge', 'conv-filter-badge'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.style.display = '';
+            el.innerHTML = badgeHtml;
+          }
+        });
 
         // Render convergences from semantic search results
         const searchConv = data.convergences || [];
@@ -3689,6 +3708,12 @@
       clearBtn.style.display = 'none';
       badge.style.display = 'none';
       searchActive = false;
+
+      // Hide panel filter badges
+      ['trend-filter-badge', 'idea-filter-badge', 'conv-filter-badge'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
 
       // Restore original data if we have it
       if (currentEmTech) {
