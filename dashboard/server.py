@@ -1988,6 +1988,216 @@ async def xarticle_endpoint(req: XArticleRequest):
 
 
 # ---------------------------------------------------------------------------
+# API: Capture in KG — extract and save insights from chat session
+# ---------------------------------------------------------------------------
+
+class CaptureRequest(BaseModel):
+    session_id: str | None = None
+    emtech: str | None = None
+    context: str | None = None
+
+@app.post("/api/chat/capture")
+async def capture_endpoint(req: CaptureRequest):
+    """Capture insights from the chat session into the knowledge graph."""
+    session_id = req.session_id or str(uuid.uuid4())
+
+    async def event_stream():
+        try:
+            yield f"data: {json.dumps({'type': 'session', 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'type': 'status', 'content': '🧠 Extracting insights...'})}\n\n"
+
+            # 1. Collect conversation context
+            history = chat_sessions.get(session_id, [])
+            step2_key = f"{session_id}_step2"
+            step2_history = chat_sessions.get(step2_key, [])
+
+            conversation_parts = []
+            for msg in history:
+                role = msg.get("role", "")
+                content = msg.get("content", "")
+                if not content: continue
+                if role == "system": conversation_parts.append(f"[Context]\n{content}")
+                elif role == "user": conversation_parts.append(f"[User]\n{content}")
+                elif role == "assistant": conversation_parts.append(f"[Assistant]\n{content}")
+
+            if not conversation_parts and req.context:
+                conversation_parts.append(f"[Context]\n{req.context}")
+
+            conversation_text = "\n\n---\n\n".join(conversation_parts)
+
+            if not conversation_text:
+                yield f"data: {json.dumps({'type': 'error', 'content': '❌ No conversation context available.'})}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+
+            # 2. Build extraction prompt
+            system_prompt = (
+                "You are an expert intelligence analyst specializing in emerging technologies.\n"
+                f"Analyze the provided conversation context and extract non-obvious insights, trends, and relationships for the {req.emtech or 'Technology'} sector.\n\n"
+                "Extract items into these exact categories matching the knowledge graph schema:\n"
+                "1. Capabilities: New benchmarks, expansions, or improvements that cross thresholds.\n"
+                "2. Milestones: Significant events enabling new applications. Must include 'date' (YYYY-MM-DD or YYYY-MM if known) and 'unlocks' (list of use case strings).\n"
+                "3. Trends: Emerging patterns. Must include 'predicts' (list of Capability names) and 'looks_at' (list of Milestone names).\n"
+                "4. Ideas: Notable predictions or strategic implications. Must include 'argument' and 'assumptions'.\n"
+                "5. Convergences: Intersections with other EmTechs. Must include 'accelerates' (list of target EmTech/Capability names) and 'is_accelerated_by' (list of source names).\n\n"
+                "Return ONLY a valid JSON object with the following structure. Do not include any other text or markdown formatting:\n"
+                "{\n"
+                '  "capabilities": [{"name": "...", "description": "..."}],\n'
+                '  "milestones": [{"name": "...", "description": "...", "date": "...", "capability_name": "...", "unlocks": ["..."]}],\n'
+                '  "trends": [{"name": "...", "description": "...", "predicts": ["..."], "looks_at": ["..."]}],\n'
+                '  "ideas": [{"name": "...", "description": "...", "argument": "...", "assumptions": "..."}],\n'
+                '  "convergences": [{"name": "...", "description": "...", "accelerates": ["..."], "is_accelerated_by": ["..."]}]\n'
+                "}"
+            )
+
+            xai_client = XAIAsyncClient(api_key=XAI_API_KEY, timeout=120)
+
+            # Generate JSON directly
+            chat = xai_client.chat.create(
+                model="grok-4-1-fast",
+                messages=[
+                    xai_system(system_prompt),
+                    xai_user(f"Extract knowledge graph nodes from this context:\n\n{conversation_text}")
+                ]
+            )
+            response = await chat.sample()
+            content = response.content.strip()
+            if content.startswith("```"):
+                content = content.split("\n", 1)[1] if "\n" in content else content[3:]
+                if content.endswith("```"):
+                    content = content[:-3].strip()
+            
+            yield f"data: {json.dumps({'type': 'status', 'content': '💾 Saving to graph...'})}\n\n"
+
+            try:
+                extracted_data = json.loads(content)
+            except json.JSONDecodeError:
+                logger.error(f"[CAPTURE] Failed to parse JSON: {content}")
+                yield f"data: {json.dumps({'type': 'error', 'content': '❌ Failed to parse extracted insights.'})}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+
+            import asyncio
+            from openai import AsyncOpenAI
+            from groq import AsyncGroq
+            from function_tools.core_graph_ops import GraphOpsCtx, core_create_node, core_create_edge
+
+            groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+            openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+            ctx = GraphOpsCtx(neo4jdriver=driver, lock=asyncio.Lock())
+
+            new_nodes_payload = {
+                "capabilities": [],
+                "milestones": [],
+                "trends": [],
+                "ideas": [],
+                "convergences": []
+            }
+
+            # Helper to save and edges
+            for cap in extracted_data.get("capabilities", []):
+                actual_name = await core_create_node(ctx, "Capability", cap["name"], cap.get("description", ""), groq_client, openai_client)
+                cap["name"] = actual_name
+                # Connect Capability to EmTech
+                if req.emtech:
+                    try:
+                        await core_create_edge(ctx, req.emtech, actual_name, "ENABLES")
+                    except Exception as e:
+                        logger.warning(f"Edge creation ENABLES failed: {e}")
+                new_nodes_payload["capabilities"].append(cap)
+                yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Capability: {actual_name}'})}\n\n"
+
+            for ms in extracted_data.get("milestones", []):
+                props = {}
+                if ms.get("date"): props["milestone_reached_date"] = ms["date"]
+                actual_name = await core_create_node(ctx, "Milestone", ms["name"], ms.get("description", ""), groq_client, openai_client, properties=props)
+                ms["name"] = actual_name
+                if ms.get("capability_name"):
+                    try:
+                        await core_create_edge(ctx, ms["capability_name"], actual_name, "HAS_MILESTONE")
+                    except Exception as e:
+                        logger.warning(f"Edge creation HAS_MILESTONE failed: {e}")
+                for unlock in ms.get("unlocks", []):
+                    try:
+                        lac_name = await core_create_node(ctx, "LAC", unlock, f"Use case: {unlock}", groq_client, openai_client)
+                        await core_create_edge(ctx, actual_name, lac_name, "UNLOCKS")
+                    except Exception as e:
+                        logger.warning(f"Edge creation UNLOCKS failed: {e}")
+                new_nodes_payload["milestones"].append(ms)
+                yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Milestone: {actual_name}'})}\n\n"
+
+            for trend in extracted_data.get("trends", []):
+                actual_name = await core_create_node(ctx, "Trend", trend["name"], trend.get("description", ""), groq_client, openai_client)
+                trend["name"] = actual_name
+                for cap_name in trend.get("predicts", []):
+                    try:
+                        await core_create_edge(ctx, actual_name, cap_name, "PREDICTS")
+                    except Exception as e:
+                        logger.warning(f"Edge creation PREDICTS failed: {e}")
+                for ms_name in trend.get("looks_at", []):
+                    try:
+                        await core_create_edge(ctx, actual_name, ms_name, "LOOKS_AT")
+                    except Exception as e:
+                        logger.warning(f"Edge creation LOOKS_AT failed: {e}")
+                new_nodes_payload["trends"].append(trend)
+                yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Trend: {actual_name}'})}\n\n"
+
+            for idea in extracted_data.get("ideas", []):
+                props = {}
+                if idea.get("argument"): props["argument"] = idea["argument"]
+                if idea.get("assumptions"): props["assumptions"] = idea["assumptions"]
+                actual_name = await core_create_node(ctx, "Idea", idea["name"], idea.get("description", ""), groq_client, openai_client, properties=props)
+                idea["name"] = actual_name
+                new_nodes_payload["ideas"].append(idea)
+                yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Idea: {actual_name}'})}\n\n"
+
+            for conv in extracted_data.get("convergences", []):
+                actual_name = await core_create_node(ctx, "Convergence", conv["name"], conv.get("description", ""), groq_client, openai_client)
+                conv["name"] = actual_name
+                for target in conv.get("accelerates", []):
+                    try:
+                        await core_create_edge(ctx, actual_name, target, "ACCELERATES")
+                    except Exception as e:
+                        logger.warning(f"Edge creation ACCELERATES failed: {e}")
+                for source in conv.get("is_accelerated_by", []):
+                    try:
+                        await core_create_edge(ctx, source, actual_name, "IS_ACCELERATED_BY")
+                    except Exception as e:
+                        logger.warning(f"Edge creation IS_ACCELERATED_BY failed: {e}")
+                new_nodes_payload["convergences"].append(conv)
+                yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Convergence: {actual_name}'})}\n\n"
+
+            total_nodes = sum(len(v) for v in new_nodes_payload.values())
+            
+            # Yield structured payload
+            yield f"data: {json.dumps({'type': 'captured_nodes', 'content': new_nodes_payload})}\n\n"
+            
+            # Send completion message
+            summary_msg = f"✅ Captured **{total_nodes} new insights** into the '{req.emtech}' knowledge graph. The dashboard panels have been updated to display the new information."
+            history.append(xai_user("🧠 Capture in KG"))
+            history.append(xai_assistant(summary_msg))
+            chat_sessions[session_id] = history
+            
+            yield f"data: {json.dumps({'type': 'message', 'content': summary_msg, 'role': 'assistant'})}\n\n"
+            yield "data: [DONE]\n\n"
+
+        except Exception as e:
+            logger.error(f"[CAPTURE] Stream error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'content': f'❌ Error: {str(e)}'})}\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
 # API: filter advancement — AI-powered search of use cases (LAC)
 # ---------------------------------------------------------------------------
 

@@ -2354,6 +2354,36 @@
       cursor: not-allowed;
     }
 
+    .chat-panel.disabled .chat-capture-btn {
+      display: none;
+    }
+
+    .chat-capture-btn {
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--accent-green);
+      background: rgba(0, 255, 136, 0.1);
+      color: var(--accent-green);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    .chat-capture-btn:hover {
+      background: rgba(0, 255, 136, 0.22);
+      box-shadow: 0 0 12px rgba(0, 255, 136, 0.15);
+      border-color: #69f0ae;
+    }
+
+    .chat-capture-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
     .chat-panel.disabled .chat-welcome {
       color: var(--text-muted);
     }
@@ -2521,6 +2551,8 @@
           <div style="display: flex; align-items: center; gap: 6px;">
             <button class="chat-xarticle-btn" id="chat-xarticle-btn" onclick="draftXArticle()"
               title="Draft X Article from this analysis">📝 Draft X Article</button>
+            <button class="chat-capture-btn" id="chat-capture-btn" onclick="captureInKG()"
+              title="Extract insights to Knowledge Graph">🧠 Capture in KG</button>
             <button class="chat-reset-btn" onclick="resetChat()" title="Reset conversation">🔄 Reset</button>
           </div>
         </div>
@@ -4600,6 +4632,189 @@
         xBtn.disabled = false;
         sendBtn.disabled = false;
         xBtn.textContent = '📝 Draft X Article';
+      }
+    }
+
+    async function captureInKG() {
+      if (chatSending) return;
+
+      const captureBtn = document.getElementById('chat-capture-btn');
+      const xBtn = document.getElementById('chat-xarticle-btn');
+      const sendBtn = document.getElementById('chat-send-btn');
+      chatSending = true;
+      if (captureBtn) captureBtn.disabled = true;
+      if (xBtn) xBtn.disabled = true;
+      sendBtn.disabled = true;
+      if (captureBtn) captureBtn.textContent = '⏳ Capturing…';
+
+      // Show status in chat
+      addChatMessage('user', '🧠 Capture in KG');
+      showChatTyping();
+
+      try {
+        const body = {
+          session_id: chatSessionId,
+          emtech: currentEmTech,
+        };
+
+        if (chatFollowUpContext) {
+          body.context = `The user is following up on a previous AI ${chatFollowUpContext.type} of "${chatFollowUpContext.title}". Here is the full analysis content:\n\n${chatFollowUpContext.content}`;
+        }
+
+        const response = await fetch('/api/chat/capture', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let lastProgressEl = null;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+
+            try {
+              const event = JSON.parse(data);
+
+              switch (event.type) {
+                case 'session':
+                  chatSessionId = event.session_id;
+                  break;
+                case 'status':
+                  removeChatTyping();
+                  if (lastProgressEl) {
+                    lastProgressEl.remove();
+                    lastProgressEl = null;
+                  }
+                  addChatMessage('status', event.content);
+                  showChatTyping();
+                  break;
+                case 'progress':
+                  removeChatTyping();
+                  if (lastProgressEl) {
+                    lastProgressEl.textContent = event.content;
+                  } else {
+                    lastProgressEl = addChatMessage('progress', event.content);
+                  }
+                  showChatTyping();
+                  break;
+                case 'captured_nodes':
+                  const payload = event.content;
+                  if (payload.trends) {
+                    trendsData = payload.trends.map(t => ({
+                      name: t.name,
+                      description: t.description,
+                      parties: t.parties || []
+                    }));
+                    renderTrendList(trendsData);
+                  }
+
+                  if (payload.ideas) {
+                    ideasData = payload.ideas.map(i => ({
+                      name: i.name,
+                      description: i.description
+                    }));
+                    renderIdeas(ideasData);
+                  }
+
+                  if (payload.convergences) {
+                    convergencesData = payload.convergences.map(c => ({
+                      name: c.name,
+                      description: c.description,
+                      accelerates: c.accelerates || [],
+                      is_accelerated_by: c.is_accelerated_by || []
+                    }));
+                    renderConvergences(convergencesData);
+                  }
+
+                  if (payload.capabilities || payload.milestones) {
+                    const advancements = [];
+                    const newCaps = payload.capabilities || [];
+                    for (const cap of newCaps) {
+                      advancements.push({
+                        capability: cap.name,
+                        capability_desc: cap.description,
+                        milestones: (payload.milestones || []).filter(m => m.capability_name === cap.name).map(m => ({
+                          name: m.name,
+                          description: m.description,
+                          date: m.date,
+                          unlocks: (m.unlocks || []).map(u => ({ lac_name: u }))
+                        })),
+                        bets: []
+                      });
+                    }
+                    const oldCapsMilestones = (payload.milestones || []).filter(m => !newCaps.find(c => c.name === m.capability_name));
+                    if (oldCapsMilestones.length > 0) {
+                      const capMap = {};
+                      for (const m of oldCapsMilestones) {
+                        const cName = m.capability_name || "Assorted Milestones";
+                        if (!capMap[cName]) capMap[cName] = [];
+                        capMap[cName].push({
+                          name: m.name,
+                          description: m.description,
+                          date: m.date,
+                          unlocks: (m.unlocks || []).map(u => ({ lac_name: u }))
+                        });
+                      }
+                      for (const cName in capMap) {
+                        advancements.push({
+                          capability: cName,
+                          capability_desc: "Existing Capability",
+                          milestones: capMap[cName],
+                          bets: []
+                        });
+                      }
+                    }
+                    advancementData = advancements;
+                    renderAdvancement(advancementData);
+                  }
+                  break;
+                case 'message':
+                  removeChatTyping();
+                  if (lastProgressEl) {
+                    lastProgressEl.remove();
+                    lastProgressEl = null;
+                  }
+                  document.querySelectorAll('.chat-msg.status').forEach(el => el.remove());
+                  addChatMessage('assistant', event.content);
+                  break;
+                case 'error':
+                  removeChatTyping();
+                  if (lastProgressEl) {
+                    lastProgressEl.remove();
+                    lastProgressEl = null;
+                  }
+                  addChatMessage('error', event.content);
+                  break;
+              }
+            } catch (e) {
+              // Skip non-JSON
+            }
+          }
+        }
+      } catch (err) {
+        removeChatTyping();
+        addChatMessage('error', `❌ Connection error: ${err.message}`);
+      } finally {
+        chatSending = false;
+        if (captureBtn) {
+          captureBtn.disabled = false;
+          captureBtn.textContent = '🧠 Capture in KG';
+        }
+        if (xBtn) xBtn.disabled = false;
+        sendBtn.disabled = false;
       }
     }
 
