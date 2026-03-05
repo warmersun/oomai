@@ -3916,7 +3916,7 @@
       container.innerHTML = items.map((item, idx) => {
         const sig = (item.significance || 'medium').toLowerCase();
         return `
-      <div class="news-item" onclick="analyzeNewsItem(${idx})">
+      <div class="news-item" onclick="viewNewsItem(${idx})">
         <div class="news-item-header">
           <div class="news-item-headline">${escapeHtml(item.headline)}</div>
           <span class="news-item-sig ${sig}">${sig}</span>
@@ -3924,11 +3924,43 @@
         <div class="news-item-summary">${escapeHtml(item.summary)}</div>
         <div class="news-item-meta">
           <span>${escapeHtml(item.source || '')}${item.date ? ' · ' + item.date : ''}</span>
-          <span class="news-item-analyze">ANALYZE →</span>
+          <span class="news-item-analyze">VIEW →</span>
         </div>
       </div>
     `;
       }).join('');
+    }
+
+    function viewNewsItem(idx) {
+      const item = newsItems[idx];
+      if (!item) return;
+
+      const overlay = document.getElementById('modal-overlay');
+      const titleEl = document.getElementById('modal-title');
+      const bodyEl = document.getElementById('modal-body');
+
+      titleEl.textContent = `📡 ${item.headline}`;
+
+      let html = `<div class="modal-section" style="margin-bottom: 20px;">
+        <div class="modal-section-title" style="color: var(--accent-cyan); font-weight: 600; margin-bottom: 8px;">Summary</div>
+        <div class="modal-section-content" style="color: var(--text-primary); line-height: 1.5; font-size: 0.9rem;">${escapeHtml(item.summary || 'No summary available.')}</div>
+      </div>`;
+
+      if (item.source || item.date) {
+        html += `<div class="modal-section" style="margin-bottom: 20px;">
+          <div class="modal-section-title" style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">Source</div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary);">${escapeHtml(item.source || '')}${item.date ? ' · ' + escapeHtml(item.date) : ''}</div>
+        </div>`;
+      }
+
+      html += `<div style="display: flex; gap: 12px; margin-top: 24px;">
+        <button class="trend-action-btn primary" onclick="analyzeNewsItem(${idx})" style="padding: 10px 20px; font-size: 0.85rem;">
+          🔍 Analyze Intelligence
+        </button>
+      </div>`;
+
+      bodyEl.innerHTML = html;
+      overlay.classList.add('visible');
     }
 
     async function analyzeNewsItem(idx) {
