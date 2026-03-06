@@ -1862,8 +1862,8 @@ async def xarticle_endpoint(req: XArticleRequest):
 
             # Include injected context (from follow-up) if present in the session
             for msg in history:
-                role = msg.get("role", "")
-                content = msg.get("content", "")
+                role = msg.get("role", "") if isinstance(msg, dict) else getattr(msg, "role", "")
+                content = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", "")
                 if not content:
                     continue
                 if role == "system":
@@ -1989,8 +1989,8 @@ async def capture_endpoint(req: CaptureRequest):
 
             conversation_parts = []
             for msg in history:
-                role = msg.get("role", "")
-                content = msg.get("content", "")
+                role = msg.get("role", "") if isinstance(msg, dict) else getattr(msg, "role", "")
+                content = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", "")
                 if not content: continue
                 if role == "system": conversation_parts.append(f"[Context]\n{content}")
                 elif role == "user": conversation_parts.append(f"[User]\n{content}")
