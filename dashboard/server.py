@@ -2087,76 +2087,101 @@ async def capture_endpoint(req: CaptureRequest):
 
             # Helper to save and edges
             for cap in extracted_data.get("capabilities", []):
-                actual_name = await core_create_node(ctx, "Capability", cap["name"], cap.get("description", ""), groq_client, openai_client)
-                cap["name"] = actual_name
-                # Connect Capability to EmTech
-                if req.emtech:
-                    try:
-                        await core_create_edge(ctx, req.emtech, actual_name, "ENABLES")
-                    except Exception as e:
-                        logger.warning(f"Edge creation ENABLES failed: {e}")
-                new_nodes_payload["capabilities"].append(cap)
-                yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Capability: {actual_name}'})}\n\n"
+                try:
+                    actual_name = await core_create_node(ctx, "Capability", cap["name"], cap.get("description", ""), groq_client, openai_client)
+                    cap["name"] = actual_name
+                    # Connect Capability to EmTech
+                    if req.emtech:
+                        try:
+                            await core_create_edge(ctx, req.emtech, actual_name, "ENABLES")
+                        except Exception as e:
+                            logger.warning(f"Edge creation ENABLES failed: {e}")
+                    new_nodes_payload["capabilities"].append(cap)
+                    yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Capability: {actual_name}'})}\n\n"
+                except Exception as e:
+                    cap_name = cap.get('name')
+                    logger.error(f"Failed to create Capability '{cap_name}': {e}")
+                    yield f"data: {json.dumps({'type': 'progress', 'content': f'⚠️ Skipped Capability {cap_name}: Already exists or error'})}\n\n"
 
             for ms in extracted_data.get("milestones", []):
-                props = {}
-                if ms.get("date"): props["milestone_reached_date"] = ms["date"]
-                actual_name = await core_create_node(ctx, "Milestone", ms["name"], ms.get("description", ""), groq_client, openai_client, properties=props)
-                ms["name"] = actual_name
-                if ms.get("capability_name"):
-                    try:
-                        await core_create_edge(ctx, ms["capability_name"], actual_name, "HAS_MILESTONE")
-                    except Exception as e:
-                        logger.warning(f"Edge creation HAS_MILESTONE failed: {e}")
-                for unlock in ms.get("unlocks", []):
-                    try:
-                        lac_name = await core_create_node(ctx, "LAC", unlock, f"Use case: {unlock}", groq_client, openai_client)
-                        await core_create_edge(ctx, actual_name, lac_name, "UNLOCKS")
-                    except Exception as e:
-                        logger.warning(f"Edge creation UNLOCKS failed: {e}")
-                new_nodes_payload["milestones"].append(ms)
-                yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Milestone: {actual_name}'})}\n\n"
+                try:
+                    props = {}
+                    if ms.get("date"): props["milestone_reached_date"] = ms["date"]
+                    actual_name = await core_create_node(ctx, "Milestone", ms["name"], ms.get("description", ""), groq_client, openai_client, properties=props)
+                    ms["name"] = actual_name
+                    if ms.get("capability_name"):
+                        try:
+                            await core_create_edge(ctx, ms["capability_name"], actual_name, "HAS_MILESTONE")
+                        except Exception as e:
+                            logger.warning(f"Edge creation HAS_MILESTONE failed: {e}")
+                    for unlock in ms.get("unlocks", []):
+                        try:
+                            lac_name = await core_create_node(ctx, "LAC", unlock, f"Use case: {unlock}", groq_client, openai_client)
+                            await core_create_edge(ctx, actual_name, lac_name, "UNLOCKS")
+                        except Exception as e:
+                            logger.warning(f"Edge creation UNLOCKS failed: {e}")
+                    new_nodes_payload["milestones"].append(ms)
+                    yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Milestone: {actual_name}'})}\n\n"
+                except Exception as e:
+                    ms_name = ms.get('name')
+                    logger.error(f"Failed to create Milestone '{ms_name}': {e}")
+                    yield f"data: {json.dumps({'type': 'progress', 'content': f'⚠️ Skipped Milestone {ms_name}: Already exists or error'})}\n\n"
 
             for trend in extracted_data.get("trends", []):
-                actual_name = await core_create_node(ctx, "Trend", trend["name"], trend.get("description", ""), groq_client, openai_client)
-                trend["name"] = actual_name
-                for cap_name in trend.get("predicts", []):
-                    try:
-                        await core_create_edge(ctx, actual_name, cap_name, "PREDICTS")
-                    except Exception as e:
-                        logger.warning(f"Edge creation PREDICTS failed: {e}")
-                for ms_name in trend.get("looks_at", []):
-                    try:
-                        await core_create_edge(ctx, actual_name, ms_name, "LOOKS_AT")
-                    except Exception as e:
-                        logger.warning(f"Edge creation LOOKS_AT failed: {e}")
-                new_nodes_payload["trends"].append(trend)
-                yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Trend: {actual_name}'})}\n\n"
+                try:
+                    actual_name = await core_create_node(ctx, "Trend", trend["name"], trend.get("description", ""), groq_client, openai_client)
+                    trend["name"] = actual_name
+                    for cap_name in trend.get("predicts", []):
+                        try:
+                            await core_create_edge(ctx, actual_name, cap_name, "PREDICTS")
+                        except Exception as e:
+                            logger.warning(f"Edge creation PREDICTS failed: {e}")
+                    for ms_name in trend.get("looks_at", []):
+                        try:
+                            await core_create_edge(ctx, actual_name, ms_name, "LOOKS_AT")
+                        except Exception as e:
+                            logger.warning(f"Edge creation LOOKS_AT failed: {e}")
+                    new_nodes_payload["trends"].append(trend)
+                    yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Trend: {actual_name}'})}\n\n"
+                except Exception as e:
+                    trend_name = trend.get('name')
+                    logger.error(f"Failed to create Trend '{trend_name}': {e}")
+                    yield f"data: {json.dumps({'type': 'progress', 'content': f'⚠️ Skipped Trend {trend_name}: Already exists or error'})}\n\n"
 
             for idea in extracted_data.get("ideas", []):
-                props = {}
-                if idea.get("argument"): props["argument"] = idea["argument"]
-                if idea.get("assumptions"): props["assumptions"] = idea["assumptions"]
-                actual_name = await core_create_node(ctx, "Idea", idea["name"], idea.get("description", ""), groq_client, openai_client, properties=props)
-                idea["name"] = actual_name
-                new_nodes_payload["ideas"].append(idea)
-                yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Idea: {actual_name}'})}\n\n"
+                try:
+                    props = {}
+                    if idea.get("argument"): props["argument"] = idea["argument"]
+                    if idea.get("assumptions"): props["assumptions"] = idea["assumptions"]
+                    actual_name = await core_create_node(ctx, "Idea", idea["name"], idea.get("description", ""), groq_client, openai_client, properties=props)
+                    idea["name"] = actual_name
+                    new_nodes_payload["ideas"].append(idea)
+                    yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Idea: {actual_name}'})}\n\n"
+                except Exception as e:
+                    idea_name = idea.get('name')
+                    logger.error(f"Failed to create Idea '{idea_name}': {e}")
+                    yield f"data: {json.dumps({'type': 'progress', 'content': f'⚠️ Skipped Idea {idea_name}: Already exists or error'})}\n\n"
 
             for conv in extracted_data.get("convergences", []):
-                actual_name = await core_create_node(ctx, "Convergence", conv["name"], conv.get("description", ""), groq_client, openai_client)
-                conv["name"] = actual_name
-                for target in conv.get("accelerates", []):
-                    try:
-                        await core_create_edge(ctx, actual_name, target, "ACCELERATES")
-                    except Exception as e:
-                        logger.warning(f"Edge creation ACCELERATES failed: {e}")
-                for source in conv.get("is_accelerated_by", []):
-                    try:
-                        await core_create_edge(ctx, source, actual_name, "IS_ACCELERATED_BY")
-                    except Exception as e:
-                        logger.warning(f"Edge creation IS_ACCELERATED_BY failed: {e}")
-                new_nodes_payload["convergences"].append(conv)
-                yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Convergence: {actual_name}'})}\n\n"
+                try:
+                    actual_name = await core_create_node(ctx, "Convergence", conv["name"], conv.get("description", ""), groq_client, openai_client)
+                    conv["name"] = actual_name
+                    for target in conv.get("accelerates", []):
+                        try:
+                            await core_create_edge(ctx, actual_name, target, "ACCELERATES")
+                        except Exception as e:
+                            logger.warning(f"Edge creation ACCELERATES failed: {e}")
+                    for source in conv.get("is_accelerated_by", []):
+                        try:
+                            await core_create_edge(ctx, source, actual_name, "IS_ACCELERATED_BY")
+                        except Exception as e:
+                            logger.warning(f"Edge creation IS_ACCELERATED_BY failed: {e}")
+                    new_nodes_payload["convergences"].append(conv)
+                    yield f"data: {json.dumps({'type': 'progress', 'content': f'✅ Convergence: {actual_name}'})}\n\n"
+                except Exception as e:
+                    conv_name = conv.get('name')
+                    logger.error(f"Failed to create Convergence '{conv_name}': {e}")
+                    yield f"data: {json.dumps({'type': 'progress', 'content': f'⚠️ Skipped Convergence {conv_name}: Already exists or error'})}\n\n"
 
             total_nodes = sum(len(v) for v in new_nodes_payload.values())
             
