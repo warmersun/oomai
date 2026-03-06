@@ -5130,8 +5130,45 @@
       `;
       // Re-disable the panel
       const chatPanel = document.querySelector('.chat-panel');
-      if (chatPanel) chatPanel.classList.add('disabled');
     }
+
+    // ═══════════════════════════════ GLOBAL PASTE ═══════════════════════════════
+    document.addEventListener('paste', (e) => {
+      // Don't intercept if user is typing in an input/textarea (except intel-topic-input)
+      const tagName = e.target.tagName.toLowerCase();
+      if ((tagName === 'input' || tagName === 'textarea') && e.target.id !== 'intel-topic-input') {
+        return;
+      }
+
+      const text = e.clipboardData.getData('text').trim();
+      
+      // Basic URL fuzzy check
+      if (text.startsWith('http://') || text.startsWith('https://')) {
+        e.preventDefault();
+        
+        if (!currentEmTech) {
+          // Provide a visual cue that an EmTech needs to be selected
+          document.getElementById('status-text').textContent = '⚠️ SELECT AN EMTECH FIRST';
+          setTimeout(() => {
+             document.getElementById('status-text').textContent = `ONLINE — ${document.querySelectorAll('.tab').length} EMTECHS`;
+          }, 3000);
+          return;
+        }
+
+        // Populate the input and trigger the scan
+        const topicInput = document.getElementById('intel-topic-input');
+        topicInput.value = text;
+        
+        // Scroll smoothly to the news panel
+        const newsPanel = topicInput.closest('.grid-stack-item');
+        if (newsPanel) {
+          newsPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // Trigger scan
+        scanNews();
+      }
+    });
 
   </script>
 </body>
