@@ -1860,10 +1860,17 @@ async def xarticle_endpoint(req: XArticleRequest):
             # Build conversation text from session messages
             conversation_parts = []
 
-            # Include injected context (from follow-up) if present in the session
+            from xai_sdk.proto import chat_pb2
             for msg in history:
-                role = msg.get("role", "") if isinstance(msg, dict) else getattr(msg, "role", "")
-                content = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", "")
+                if isinstance(msg, dict):
+                    role = msg.get("role", "")
+                    content = msg.get("content", "")
+                else:
+                    role_enum = getattr(msg, "role", 0)
+                    role = chat_pb2.MessageRole.Name(role_enum).replace("ROLE_", "").lower() if role_enum else ""
+                    content_parts = getattr(msg, "content", [])
+                    content = "".join([getattr(c, "text", "") for c in content_parts])
+                    
                 if not content:
                     continue
                 if role == "system":
@@ -1987,10 +1994,18 @@ async def capture_endpoint(req: CaptureRequest):
             step2_key = f"{session_id}_step2"
             step2_history = chat_sessions.get(step2_key, [])
 
+            from xai_sdk.proto import chat_pb2
             conversation_parts = []
             for msg in history:
-                role = msg.get("role", "") if isinstance(msg, dict) else getattr(msg, "role", "")
-                content = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", "")
+                if isinstance(msg, dict):
+                    role = msg.get("role", "")
+                    content = msg.get("content", "")
+                else:
+                    role_enum = getattr(msg, "role", 0)
+                    role = chat_pb2.MessageRole.Name(role_enum).replace("ROLE_", "").lower() if role_enum else ""
+                    content_parts = getattr(msg, "content", [])
+                    content = "".join([getattr(c, "text", "") for c in content_parts])
+                    
                 if not content: continue
                 if role == "system": conversation_parts.append(f"[Context]\n{content}")
                 elif role == "user": conversation_parts.append(f"[User]\n{content}")
