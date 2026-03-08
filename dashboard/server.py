@@ -21,7 +21,7 @@ from typing import Optional, List, Dict, Any, Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, FileResponse
 from neo4j import AsyncGraphDatabase
 from neo4j.time import Date, DateTime
 from openai import AsyncOpenAI
@@ -168,6 +168,15 @@ EMTECH_ICONS = {
     "virtual reality": "🕶️",
     "synthetic biology": "🧬",
 }
+
+
+@app.get("/app.js")
+async def dashboard_app_js():
+    return FileResponse(Path(__file__).parent / "app.js", media_type="application/javascript")
+
+@app.get("/styles.css")
+async def dashboard_styles_css():
+    return FileResponse(Path(__file__).parent / "styles.css", media_type="text/css")
 
 @app.get("/api/emtechs")
 async def list_emtechs():
