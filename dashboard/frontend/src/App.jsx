@@ -125,9 +125,10 @@ export default function App() {
                 maxBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); maximizePanel(header.closest('.grid-stack-item')); });
                 controls.appendChild(maxBtn);
 
+                const isInitiallyCollapsed = header.closest('.panel')?.classList.contains('collapsed');
                 const colBtn = document.createElement('button');
                 colBtn.className = 'panel-collapse-btn';
-                colBtn.title = 'Collapse panel';
+                colBtn.title = isInitiallyCollapsed ? 'Expand panel' : 'Collapse panel';
                 colBtn.innerHTML = '<span class="chevron">▼</span>';
                 colBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); togglePanel(header.closest('.grid-stack-item')); });
                 controls.appendChild(colBtn);
@@ -466,8 +467,8 @@ export default function App() {
                 </div>
 
                 {/* Follow-up Panel */}
-                <div className="grid-stack-item" gs-w="4" gs-h="13" gs-x="8" gs-y="5">
-                    <section className="grid-stack-item-content panel chat-panel">
+                <div className="grid-stack-item" gs-w="4" gs-h="2" gs-x="8" gs-y="5" data-expanded-h="13">
+                    <section className="grid-stack-item-content panel chat-panel collapsed">
                         <ChainlitChatPanel
                             currentEmTech={currentEmTech}
                             followUpContext={followUpContext}
