@@ -171,9 +171,32 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
     const messagesEndRef = useRef(null);
     const hasConnected = useRef(false);
     const commandMenuRef = useRef(null);
+    const reconnectTimeoutRef = useRef(null);
+
+    const connectRef = useRef(connect);
+    const disconnectRef = useRef(disconnect);
+    const setChatProfileRef = useRef(setChatProfile);
 
     const isConnected = connected === true;
     const chatProfiles = config?.chatProfiles || [];
+
+    const getReadOnlyProfile = useCallback(() => {
+        const readOnly = chatProfiles.find(p => p.name === 'Read-Only');
+        if (readOnly) return readOnly.name;
+        return chatProfiles[0]?.name || 'Read-Only';
+    }, [chatProfiles]);
+
+    useEffect(() => {
+        connectRef.current = connect;
+    }, [connect]);
+
+    useEffect(() => {
+        disconnectRef.current = disconnect;
+    }, [disconnect]);
+
+    useEffect(() => {
+        setChatProfileRef.current = setChatProfile;
+    }, [setChatProfile]);
 
     // --- Derived data (memoised) ---
     const filteredCommands = useMemo(() => {
@@ -197,11 +220,15 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
     useEffect(() => {
         if (!hasConnected.current) {
             hasConnected.current = true;
-            connect({ userEnv: {} });
-            setTimeout(() => setChatProfile('Read-Only'), 500);
+            setChatProfileRef.current(getReadOnlyProfile());
+            connectRef.current({ userEnv: {} });
         }
         return () => {
-            disconnect();
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+                reconnectTimeoutRef.current = null;
+            }
+            disconnectRef.current();
             hasConnected.current = false;
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -245,14 +272,30 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     // --- Event handlers ---
 
-    const handleNewChat = useCallback(() => {
+    const restartSession = useCallback((profileName) => {
+        if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+        }
+
         setMessages([]);
-        disconnect();
-        setTimeout(() => {
-            connect({ userEnv: {} });
-            setTimeout(() => setChatProfile('Read-Only'), 500);
+        disconnectRef.current();
+
+        reconnectTimeoutRef.current = setTimeout(() => {
+            setChatProfileRef.current(profileName);
+            connectRef.current({ userEnv: {} });
+            reconnectTimeoutRef.current = null;
         }, 200);
-    }, [setMessages, disconnect, connect, setChatProfile]);
+    }, [setMessages]);
+
+    const handleNewChat = useCallback(() => {
+        restartSession(chatProfile || getReadOnlyProfile());
+    }, [restartSession, chatProfile, getReadOnlyProfile]);
+
+    const handleProfileSwitch = useCallback((profileName) => {
+        if (chatProfile === profileName) return;
+        restartSession(profileName);
+    }, [chatProfile, restartSession]);
 
     // Clear session when a new follow-up context is received.
     useEffect(() => {
@@ -339,7 +382,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
                     {chatProfiles.length > 1 && (
                         <div style={{ display: 'flex', gap: '4px' }}>
                             {chatProfiles.map(p => (
-                                <button key={p.name} onClick={() => setChatProfile(p.name)} style={{
+                                <button key={p.name} onClick={() => handleProfileSwitch(p.name)} style={{
                                     padding: '3px 8px', fontSize: '0.65rem', fontFamily: 'var(--font-mono)',
                                     borderRadius: '4px', cursor: 'pointer', transition: 'all 0.2s',
                                     border: chatProfile === p.name ? '1px solid var(--accent-cyan)' : '1px solid var(--border)',
