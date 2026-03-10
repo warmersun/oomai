@@ -231,7 +231,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
             disconnectRef.current();
             hasConnected.current = false;
         };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [connect, disconnect, setChatProfile, getReadOnlyProfile]);
 
     // Auto-scroll within the chat container (not the whole page)
     useEffect(() => {
@@ -287,6 +287,15 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
             reconnectTimeoutRef.current = null;
         }, 200);
     }, [setMessages]);
+
+    const handleNewChat = useCallback(() => {
+        restartSession(chatProfile || getReadOnlyProfile());
+    }, [restartSession, chatProfile, getReadOnlyProfile]);
+
+    const handleProfileSwitch = useCallback((profileName) => {
+        if (chatProfile === profileName) return;
+        restartSession(profileName);
+    }, [chatProfile, restartSession]);
 
     const handleNewChat = useCallback(() => {
         restartSession(chatProfile || getReadOnlyProfile());
