@@ -172,6 +172,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
     const hasConnected = useRef(false);
     const commandMenuRef = useRef(null);
     const reconnectTimeoutRef = useRef(null);
+    const lastFollowUpContextRef = useRef(null);
 
     const connectRef = useRef(connect);
     const disconnectRef = useRef(disconnect);
@@ -297,20 +298,18 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         restartSession(profileName);
     }, [chatProfile, restartSession]);
 
-    const handleNewChat = useCallback(() => {
-        restartSession(chatProfile || getReadOnlyProfile());
-    }, [restartSession, chatProfile, getReadOnlyProfile]);
-
-    const handleProfileSwitch = useCallback((profileName) => {
-        if (chatProfile === profileName) return;
-        restartSession(profileName);
-    }, [chatProfile, restartSession]);
-
-    // Clear session when a new follow-up context is received.
+    // Clear session only when follow-up context meaningfully changes.
     useEffect(() => {
-        if (followUpContext) {
-            handleNewChat();
+        if (!followUpContext) {
+            lastFollowUpContextRef.current = null;
+            return;
         }
+
+        const contextKey = `${followUpContext.type}:${followUpContext.title}:${followUpContext.content}`;
+        if (lastFollowUpContextRef.current === contextKey) return;
+
+        lastFollowUpContextRef.current = contextKey;
+        handleNewChat();
     }, [followUpContext, handleNewChat]);
 
     const handleSend = useCallback((commandId) => {
