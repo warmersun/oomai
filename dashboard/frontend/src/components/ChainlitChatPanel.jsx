@@ -156,6 +156,8 @@ function ActiveToolIndicator({ text }) {
 // ---------------------------------------------------------------------------
 
 export default function ChainlitChatPanel({ currentEmTech, followUpContext, onClearFollowUp }) {
+    const READ_ONLY_PROFILE = 'Read-Only';
+
     // --- Chainlit hooks ---
     const { connect, disconnect, chatProfile, setChatProfile } = useChatSession();
     const { messages } = useChatMessages();
@@ -168,9 +170,11 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
     // --- Local state ---
     const [inputValue, setInputValue] = useState('');
     const [showCommands, setShowCommands] = useState(false);
+    const [targetProfile, setTargetProfile] = useState(READ_ONLY_PROFILE);
     const messagesEndRef = useRef(null);
     const hasConnected = useRef(false);
     const commandMenuRef = useRef(null);
+    const sessionResetInFlight = useRef(false);
 
     const isConnected = connected === true;
     const chatProfiles = config?.chatProfiles || [];
@@ -198,13 +202,18 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         if (!hasConnected.current) {
             hasConnected.current = true;
             connect({ userEnv: {} });
-            setTimeout(() => setChatProfile('Read-Only'), 500);
         }
         return () => {
             disconnect();
             hasConnected.current = false;
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Keep Chainlit profile synced with the selected profile.
+    useEffect(() => {
+        if (!targetProfile || chatProfile === targetProfile) return;
+        setChatProfile(targetProfile);
+    }, [targetProfile, chatProfile, setChatProfile]);
 
     // Auto-scroll within the chat container (not the whole page)
     useEffect(() => {
@@ -245,14 +254,28 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     // --- Event handlers ---
 
-    const handleNewChat = useCallback(() => {
+    const handleNewChat = useCallback((profileOverride) => {
+        if (sessionResetInFlight.current) return;
+        const profileToUse = profileOverride || targetProfile;
+        sessionResetInFlight.current = true;
         setMessages([]);
         disconnect();
         setTimeout(() => {
             connect({ userEnv: {} });
-            setTimeout(() => setChatProfile('Read-Only'), 500);
+            setTimeout(() => {
+                setChatProfile(profileToUse);
+                sessionResetInFlight.current = false;
+            }, 250);
         }, 200);
-    }, [setMessages, disconnect, connect, setChatProfile]);
+    }, [setMessages, disconnect, connect, setChatProfile, targetProfile]);
+
+    const handleProfileSelect = useCallback((profileName) => {
+        if (!profileName) return;
+        setTargetProfile(profileName);
+        if (profileName !== chatProfile) {
+            handleNewChat(profileName);
+        }
+    }, [chatProfile, handleNewChat]);
 
     // Clear session when a new follow-up context is received.
     useEffect(() => {
@@ -263,7 +286,13 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     const handleSend = useCallback((commandId) => {
         const text = inputValue.trim();
-        if (!text || loading) return;
+        if (!text || loading || sessionResetInFlight.current) return;
+
+        // Ensure sent messages use the intended Chainlit profile/session.
+        if (chatProfile !== targetProfile) {
+            handleNewChat();
+            return;
+        }
 
         setInputValue('');
         setShowCommands(false);
@@ -271,7 +300,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         const msg = { name: 'user', type: 'user_message', output: buildOutput(text) };
         if (commandId) msg.command = commandId;
         sendMessage(msg, []);
-    }, [inputValue, loading, buildOutput, sendMessage]);
+    }, [inputValue, loading, buildOutput, sendMessage, chatProfile, targetProfile, handleNewChat]);
 
     const handleCommandSelect = useCallback((command) => {
         const trailing = inputValue.replace(/^\/\S*\s*/, '').trim();
@@ -279,6 +308,10 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         setShowCommands(false);
 
         if (trailing) {
+            if (loading || sessionResetInFlight.current || chatProfile !== targetProfile) {
+                handleNewChat();
+                return;
+            }
             sendMessage({
                 name: 'user', type: 'user_message',
                 output: buildOutput(trailing), command: command.id,
@@ -286,7 +319,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         } else {
             setInputValue(`/${command.id} `);
         }
-    }, [inputValue, buildOutput, sendMessage]);
+    }, [inputValue, buildOutput, sendMessage, loading, chatProfile, targetProfile, handleNewChat]);
 
     const handleKeyDown = useCallback((e) => {
         if (e.key !== 'Enter' || e.shiftKey) return;
@@ -299,6 +332,10 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
                 const [, cmdId, content] = parts;
                 const matched = commands.find(c => c.id === cmdId);
                 if (matched && content) {
+                    if (loading || sessionResetInFlight.current || chatProfile !== targetProfile) {
+                        handleNewChat();
+                        return;
+                    }
                     setInputValue('');
                     setShowCommands(false);
                     sendMessage({
@@ -310,7 +347,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
             }
         }
         handleSend();
-    }, [inputValue, commands, buildOutput, sendMessage, handleSend]);
+    }, [inputValue, commands, buildOutput, sendMessage, handleSend, loading, chatProfile, targetProfile, handleNewChat]);
 
     // --- Render ---
 
@@ -338,8 +375,8 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
                     {chatProfiles.length > 1 && (
                         <div style={{ display: 'flex', gap: '4px' }}>
-                            {chatProfiles.map(p => (
-                                <button key={p.name} onClick={() => setChatProfile(p.name)} style={{
+                                    {chatProfiles.map(p => (
+                                <button key={p.name} onClick={() => handleProfileSelect(p.name)} style={{
                                     padding: '3px 8px', fontSize: '0.65rem', fontFamily: 'var(--font-mono)',
                                     borderRadius: '4px', cursor: 'pointer', transition: 'all 0.2s',
                                     border: chatProfile === p.name ? '1px solid var(--accent-cyan)' : '1px solid var(--border)',
