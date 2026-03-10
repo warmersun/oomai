@@ -169,11 +169,18 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
     const [inputValue, setInputValue] = useState('');
     const [showCommands, setShowCommands] = useState(false);
     const messagesEndRef = useRef(null);
-    const hasConnected = useRef(false);
+    const hasInitializedSession = useRef(false);
     const commandMenuRef = useRef(null);
+    const lastFollowUpContextRef = useRef(null);
 
     const isConnected = connected === true;
     const chatProfiles = config?.chatProfiles || [];
+
+    const getReadOnlyProfile = useCallback(() => {
+        const readOnly = chatProfiles.find(p => p.name === 'Read-Only');
+        if (readOnly) return readOnly.name;
+        return chatProfiles[0]?.name || 'Read-Only';
+    }, [chatProfiles]);
 
     // --- Derived data (memoised) ---
     const filteredCommands = useMemo(() => {
@@ -193,18 +200,19 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     // --- Effects ---
 
-    // Connect on mount, disconnect on unmount
+    // Connect once when profiles are available, disconnect on unmount.
     useEffect(() => {
-        if (!hasConnected.current) {
-            hasConnected.current = true;
+        if (!hasInitializedSession.current && chatProfiles.length > 0) {
+            hasInitializedSession.current = true;
+            setChatProfile(getReadOnlyProfile());
             connect({ userEnv: {} });
-            setTimeout(() => setChatProfile('Read-Only'), 500);
         }
+
         return () => {
             disconnect();
-            hasConnected.current = false;
+            hasInitializedSession.current = false;
         };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [chatProfiles.length, connect, disconnect, getReadOnlyProfile, setChatProfile]);
 
     // Auto-scroll within the chat container (not the whole page)
     useEffect(() => {
@@ -247,19 +255,27 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     const handleNewChat = useCallback(() => {
         setMessages([]);
-        disconnect();
-        setTimeout(() => {
-            connect({ userEnv: {} });
-            setTimeout(() => setChatProfile('Read-Only'), 500);
-        }, 200);
-    }, [setMessages, disconnect, connect, setChatProfile]);
+    }, [setMessages]);
 
-    // Clear session when a new follow-up context is received.
+    const handleProfileSwitch = useCallback((profileName) => {
+        if (chatProfile === profileName) return;
+        setChatProfile(profileName);
+        setMessages([]);
+    }, [chatProfile, setChatProfile, setMessages]);
+
+    // Clear visible chat only when follow-up context meaningfully changes.
     useEffect(() => {
-        if (followUpContext) {
-            handleNewChat();
+        if (!followUpContext) {
+            lastFollowUpContextRef.current = null;
+            return;
         }
-    }, [followUpContext, handleNewChat]);
+
+        const contextKey = `${followUpContext.type}:${followUpContext.title}:${followUpContext.content}`;
+        if (lastFollowUpContextRef.current === contextKey) return;
+
+        lastFollowUpContextRef.current = contextKey;
+        setMessages([]);
+    }, [followUpContext, setMessages]);
 
     const handleSend = useCallback((commandId) => {
         const text = inputValue.trim();
@@ -339,7 +355,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
                     {chatProfiles.length > 1 && (
                         <div style={{ display: 'flex', gap: '4px' }}>
                             {chatProfiles.map(p => (
-                                <button key={p.name} onClick={() => setChatProfile(p.name)} style={{
+                                <button key={p.name} onClick={() => handleProfileSwitch(p.name)} style={{
                                     padding: '3px 8px', fontSize: '0.65rem', fontFamily: 'var(--font-mono)',
                                     borderRadius: '4px', cursor: 'pointer', transition: 'all 0.2s',
                                     border: chatProfile === p.name ? '1px solid var(--accent-cyan)' : '1px solid var(--border)',
