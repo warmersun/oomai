@@ -175,6 +175,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
     const hasConnected = useRef(false);
     const commandMenuRef = useRef(null);
     const sessionResetInFlight = useRef(false);
+    const lastFollowUpContextRef = useRef(null);
 
     const isConnected = connected === true;
     const chatProfiles = config?.chatProfiles || [];
@@ -256,7 +257,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     const handleNewChat = useCallback((profileOverride) => {
         if (sessionResetInFlight.current) return;
-        const profileToUse = profileOverride || targetProfile;
+        const profileToUse = typeof profileOverride === 'string' ? profileOverride : targetProfile;
         sessionResetInFlight.current = true;
         setMessages([]);
         disconnect();
@@ -277,11 +278,22 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         }
     }, [chatProfile, handleNewChat]);
 
-    // Clear session when a new follow-up context is received.
+    // Clear session once when a new follow-up context is received.
     useEffect(() => {
-        if (followUpContext) {
-            handleNewChat();
+        if (!followUpContext) {
+            lastFollowUpContextRef.current = null;
+            return;
         }
+
+        const contextKey = JSON.stringify({
+            type: followUpContext.type,
+            title: followUpContext.title,
+            content: followUpContext.content,
+        });
+
+        if (lastFollowUpContextRef.current === contextKey) return;
+        lastFollowUpContextRef.current = contextKey;
+        handleNewChat();
     }, [followUpContext, handleNewChat]);
 
     const handleSend = useCallback((commandId) => {
@@ -363,7 +375,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button onClick={handleNewChat} style={{
+                    <button onClick={() => handleNewChat()} style={{
                         padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px',
                         background: 'rgba(255,255,255,0.05)', color: 'var(--text)',
                         border: '1px solid var(--border)', cursor: 'pointer',
