@@ -198,7 +198,15 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     // --- Effects ---
 
-    // Connect on mount, disconnect on unmount
+    // Disconnect only on unmount.
+    useEffect(() => {
+        return () => {
+            disconnect();
+            hasConnected.current = false;
+        };
+    }, [disconnect]);
+
+    // Connect once after the intended profile is selected.
     useEffect(() => {
         if (hasConnected.current) return;
 
@@ -211,12 +219,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
         hasConnected.current = true;
         connect({ userEnv: {} });
-
-        return () => {
-            disconnect();
-            hasConnected.current = false;
-        };
-    }, [connect, disconnect, chatProfile, targetProfile, setChatProfile]);
+    }, [connect, chatProfile, targetProfile, setChatProfile]);
 
     // Keep Chainlit profile synced with the selected profile.
     useEffect(() => {
