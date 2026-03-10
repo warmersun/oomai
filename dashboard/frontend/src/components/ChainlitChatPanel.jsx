@@ -171,6 +171,11 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
     const messagesEndRef = useRef(null);
     const hasConnected = useRef(false);
     const commandMenuRef = useRef(null);
+    const reconnectTimeoutRef = useRef(null);
+
+    const connectRef = useRef(connect);
+    const disconnectRef = useRef(disconnect);
+    const setChatProfileRef = useRef(setChatProfile);
 
     const isConnected = connected === true;
     const chatProfiles = config?.chatProfiles || [];
@@ -180,6 +185,18 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         if (readOnly) return readOnly.name;
         return chatProfiles[0]?.name || 'Read-Only';
     }, [chatProfiles]);
+
+    useEffect(() => {
+        connectRef.current = connect;
+    }, [connect]);
+
+    useEffect(() => {
+        disconnectRef.current = disconnect;
+    }, [disconnect]);
+
+    useEffect(() => {
+        setChatProfileRef.current = setChatProfile;
+    }, [setChatProfile]);
 
     // --- Derived data (memoised) ---
     const filteredCommands = useMemo(() => {
@@ -203,11 +220,15 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
     useEffect(() => {
         if (!hasConnected.current) {
             hasConnected.current = true;
-            setChatProfile(getReadOnlyProfile());
-            connect({ userEnv: {} });
+            setChatProfileRef.current(getReadOnlyProfile());
+            connectRef.current({ userEnv: {} });
         }
         return () => {
-            disconnect();
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+                reconnectTimeoutRef.current = null;
+            }
+            disconnectRef.current();
             hasConnected.current = false;
         };
     }, [connect, disconnect, setChatProfile, getReadOnlyProfile]);
@@ -252,13 +273,29 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
     // --- Event handlers ---
 
     const restartSession = useCallback((profileName) => {
+        if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+        }
+
         setMessages([]);
-        disconnect();
-        setTimeout(() => {
-            setChatProfile(profileName);
-            connect({ userEnv: {} });
+        disconnectRef.current();
+
+        reconnectTimeoutRef.current = setTimeout(() => {
+            setChatProfileRef.current(profileName);
+            connectRef.current({ userEnv: {} });
+            reconnectTimeoutRef.current = null;
         }, 200);
-    }, [setMessages, disconnect, connect, setChatProfile]);
+    }, [setMessages]);
+
+    const handleNewChat = useCallback(() => {
+        restartSession(chatProfile || getReadOnlyProfile());
+    }, [restartSession, chatProfile, getReadOnlyProfile]);
+
+    const handleProfileSwitch = useCallback((profileName) => {
+        if (chatProfile === profileName) return;
+        restartSession(profileName);
+    }, [chatProfile, restartSession]);
 
     const handleNewChat = useCallback(() => {
         restartSession(chatProfile || getReadOnlyProfile());
