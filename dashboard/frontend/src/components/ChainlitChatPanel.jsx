@@ -200,15 +200,23 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     // Connect on mount, disconnect on unmount
     useEffect(() => {
-        if (!hasConnected.current) {
-            hasConnected.current = true;
-            connect({ userEnv: {} });
+        if (hasConnected.current) return;
+
+        // Chainlit only applies the selected profile at socket connect time.
+        // Ensure profile state is set first to avoid connecting with stale mode.
+        if (targetProfile && chatProfile !== targetProfile) {
+            setChatProfile(targetProfile);
+            return;
         }
+
+        hasConnected.current = true;
+        connect({ userEnv: {} });
+
         return () => {
             disconnect();
             hasConnected.current = false;
         };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [connect, disconnect, chatProfile, targetProfile, setChatProfile]);
 
     // Keep Chainlit profile synced with the selected profile.
     useEffect(() => {
@@ -261,14 +269,14 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         sessionResetInFlight.current = true;
         setMessages([]);
         disconnect();
+        if (profileToUse && chatProfile !== profileToUse) {
+            setChatProfile(profileToUse);
+        }
         setTimeout(() => {
             connect({ userEnv: {} });
-            setTimeout(() => {
-                setChatProfile(profileToUse);
-                sessionResetInFlight.current = false;
-            }, 250);
+            sessionResetInFlight.current = false;
         }, 200);
-    }, [setMessages, disconnect, connect, setChatProfile, targetProfile]);
+    }, [setMessages, disconnect, connect, setChatProfile, targetProfile, chatProfile]);
 
     const handleProfileSelect = useCallback((profileName) => {
         if (!profileName) return;
