@@ -133,17 +133,29 @@ async def lifespan(app: FastAPI):
     await driver.close()
     logger.info("Neo4j closed")
 
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse as _FileResponse
+
 app = FastAPI(title="EmTech Situation Dashboard", lifespan=lifespan)
 
 # ---------------------------------------------------------------------------
-# Static page
+# Static page — serve React build from frontend/dist/ (fallback: index.html)
 # ---------------------------------------------------------------------------
 
-INDEX_HTML = (Path(__file__).parent / "index.html").read_text()
+_dashboard_dir = Path(__file__).parent
+_react_dist = _dashboard_dir / "frontend" / "dist"
+
+# Mount built assets if they exist
+if (_react_dist / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=str(_react_dist / "assets")), name="static-assets")
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return INDEX_HTML
+    react_index = _react_dist / "index.html"
+    if react_index.is_file():
+        return react_index.read_text()
+    # Fallback to original monolithic dashboard
+    return (_dashboard_dir / "index.html").read_text()
 
 # ---------------------------------------------------------------------------
 # API: list top-level EmTechs
