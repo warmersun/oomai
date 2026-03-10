@@ -169,14 +169,9 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
     const [inputValue, setInputValue] = useState('');
     const [showCommands, setShowCommands] = useState(false);
     const messagesEndRef = useRef(null);
-    const hasConnected = useRef(false);
+    const hasInitializedSession = useRef(false);
     const commandMenuRef = useRef(null);
-    const reconnectTimeoutRef = useRef(null);
     const lastFollowUpContextRef = useRef(null);
-
-    const connectRef = useRef(connect);
-    const disconnectRef = useRef(disconnect);
-    const setChatProfileRef = useRef(setChatProfile);
 
     const isConnected = connected === true;
     const chatProfiles = config?.chatProfiles || [];
@@ -186,18 +181,6 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         if (readOnly) return readOnly.name;
         return chatProfiles[0]?.name || 'Read-Only';
     }, [chatProfiles]);
-
-    useEffect(() => {
-        connectRef.current = connect;
-    }, [connect]);
-
-    useEffect(() => {
-        disconnectRef.current = disconnect;
-    }, [disconnect]);
-
-    useEffect(() => {
-        setChatProfileRef.current = setChatProfile;
-    }, [setChatProfile]);
 
     // --- Derived data (memoised) ---
     const filteredCommands = useMemo(() => {
@@ -217,22 +200,19 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     // --- Effects ---
 
-    // Connect on mount, disconnect on unmount
+    // Connect once when profiles are available, disconnect on unmount.
     useEffect(() => {
-        if (!hasConnected.current) {
-            hasConnected.current = true;
-            setChatProfileRef.current(getReadOnlyProfile());
-            connectRef.current({ userEnv: {} });
+        if (!hasInitializedSession.current && chatProfiles.length > 0) {
+            hasInitializedSession.current = true;
+            setChatProfile(getReadOnlyProfile());
+            connect({ userEnv: {} });
         }
+
         return () => {
-            if (reconnectTimeoutRef.current) {
-                clearTimeout(reconnectTimeoutRef.current);
-                reconnectTimeoutRef.current = null;
-            }
-            disconnectRef.current();
-            hasConnected.current = false;
+            disconnect();
+            hasInitializedSession.current = false;
         };
-    }, [connect, disconnect, setChatProfile, getReadOnlyProfile]);
+    }, [chatProfiles.length, connect, disconnect, getReadOnlyProfile, setChatProfile]);
 
     // Auto-scroll within the chat container (not the whole page)
     useEffect(() => {
@@ -280,25 +260,15 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         }
 
         setMessages([]);
-        disconnectRef.current();
-
-        reconnectTimeoutRef.current = setTimeout(() => {
-            setChatProfileRef.current(profileName);
-            connectRef.current({ userEnv: {} });
-            reconnectTimeoutRef.current = null;
-        }, 200);
     }, [setMessages]);
-
-    const handleNewChat = useCallback(() => {
-        restartSession(chatProfile || getReadOnlyProfile());
-    }, [restartSession, chatProfile, getReadOnlyProfile]);
 
     const handleProfileSwitch = useCallback((profileName) => {
         if (chatProfile === profileName) return;
-        restartSession(profileName);
-    }, [chatProfile, restartSession]);
+        setChatProfile(profileName);
+        setMessages([]);
+    }, [chatProfile, setChatProfile, setMessages]);
 
-    // Clear session only when follow-up context meaningfully changes.
+    // Clear visible chat only when follow-up context meaningfully changes.
     useEffect(() => {
         if (!followUpContext) {
             lastFollowUpContextRef.current = null;
@@ -309,8 +279,8 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         if (lastFollowUpContextRef.current === contextKey) return;
 
         lastFollowUpContextRef.current = contextKey;
-        handleNewChat();
-    }, [followUpContext, handleNewChat]);
+        setMessages([]);
+    }, [followUpContext, setMessages]);
 
     const handleSend = useCallback((commandId) => {
         const text = inputValue.trim();
