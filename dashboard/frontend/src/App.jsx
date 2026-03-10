@@ -243,6 +243,19 @@ export default function App() {
     const handleFollowUp = (ctx) => {
         closeModal();
         setFollowUpContext(ctx);
+        if (gridRef.current && gridElRef.current) {
+            const chatItem = gridElRef.current.querySelector('.chat-panel')?.closest('.grid-stack-item');
+            if (chatItem) {
+                const panel = chatItem.querySelector('.panel');
+                if (panel && panel.classList.contains('collapsed')) {
+                    const savedH = parseInt(chatItem.dataset.expandedH) || 13;
+                    panel.classList.remove('collapsed');
+                    gridRef.current.update(chatItem, { h: savedH });
+                    const collapseBtn = chatItem.querySelector('.panel-collapse-btn');
+                    if (collapseBtn) collapseBtn.title = 'Collapse panel';
+                }
+            }
+        }
     };
 
     // Render modal body based on type

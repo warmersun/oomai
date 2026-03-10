@@ -254,6 +254,13 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         }, 200);
     }, [setMessages, disconnect, connect, setChatProfile]);
 
+    // Clear session when a new follow-up context is received.
+    useEffect(() => {
+        if (followUpContext) {
+            handleNewChat();
+        }
+    }, [followUpContext, handleNewChat]);
+
     const handleSend = useCallback((commandId) => {
         const text = inputValue.trim();
         if (!text || loading) return;
