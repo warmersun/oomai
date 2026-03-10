@@ -206,7 +206,22 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
             disconnect();
             hasConnected.current = false;
         };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [disconnect]);
+
+    // Connect once after the intended profile is selected.
+    useEffect(() => {
+        if (hasConnected.current) return;
+
+        // Chainlit only applies the selected profile at socket connect time.
+        // Ensure profile state is set first to avoid connecting with stale mode.
+        if (targetProfile && chatProfile !== targetProfile) {
+            setChatProfile(targetProfile);
+            return;
+        }
+
+        hasConnected.current = true;
+        connect({ userEnv: {} });
+    }, [connect, chatProfile, targetProfile, setChatProfile]);
 
     // Connect once after the intended profile is selected.
     useEffect(() => {
