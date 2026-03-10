@@ -232,7 +232,7 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
             disconnectRef.current();
             hasConnected.current = false;
         };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [connect, disconnect, setChatProfile, getReadOnlyProfile]);
 
     // Auto-scroll within the chat container (not the whole page)
     useEffect(() => {
