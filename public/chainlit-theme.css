@@ -1,0 +1,64 @@
+:root {
+  --oom-bg: #0a0f1c;
+  --oom-surface: #121a2d;
+  --oom-text: #e6edf7;
+  --oom-muted: #93a3b8;
+  --oom-border: #1f2a44;
+}
+
+/* Keep Chainlit close to dashboard colors only: solid bg + readable text */
+:root,
+body,
+#root {
+  --background: var(--oom-bg);
+  --foreground: var(--oom-text);
+  --card: var(--oom-surface);
+  --card-foreground: var(--oom-text);
+  --popover: var(--oom-surface);
+  --popover-foreground: var(--oom-text);
+  --secondary: var(--oom-surface);
+  --secondary-foreground: var(--oom-text);
+  --muted: var(--oom-surface);
+  --muted-foreground: var(--oom-muted);
+  --border: var(--oom-border);
+  --input: var(--oom-border);
+}
+
+body,
+main,
+header,
+aside,
+section,
+article,
+[role="banner"],
+[role="complementary"],
+[data-testid="chat-header"],
+.MuiAppBar-root,
+.MuiPaper-root,
+[data-testid="message"] {
+  background: var(--oom-bg) !important;
+  color: var(--oom-text) !important;
+  border-color: var(--oom-border) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+textarea,
+input,
+.MuiInputBase-root,
+.MuiOutlinedInput-root,
+[role="listbox"],
+[role="menu"],
+[role="dialog"] {
+  background: var(--oom-surface) !important;
+  color: var(--oom-text) !important;
+  border-color: var(--oom-border) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+small,
+.text-muted,
+[class*="muted"] {
+  color: var(--oom-muted) !important;
+}
