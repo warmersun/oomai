@@ -157,7 +157,7 @@ function ActiveToolIndicator({ text }) {
 
 export default function ChainlitChatPanel({ currentEmTech, followUpContext, onClearFollowUp }) {
     // --- Chainlit hooks ---
-    const { connect, disconnect, chatProfile, setChatProfile } = useChatSession();
+    const { connect, disconnect, chatProfile, setChatProfile, session } = useChatSession();
     const { messages } = useChatMessages();
     const { sendMessage, stopTask } = useChatInteract();
     const { loading, connected, elements } = useChatData();
@@ -200,19 +200,25 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     // --- Effects ---
 
-    // Connect once when profiles are available, disconnect on unmount.
+    // Connect once when profiles are available
     useEffect(() => {
         if (!hasInitializedSession.current && chatProfiles.length > 0) {
             hasInitializedSession.current = true;
-            setChatProfile(getReadOnlyProfile());
+            const readOnly = chatProfiles.find(p => p.name === 'Read-Only') || chatProfiles[0];
+            const startProfile = readOnly ? readOnly.name : 'Read-Only';
+            
+            setChatProfile(startProfile);
             connect({ userEnv: {} });
         }
+    }, [chatProfiles.length]); // Intentionally omitting volatile function dependencies!
 
+    // Disconnect purely on unmount
+    useEffect(() => {
         return () => {
             disconnect();
             hasInitializedSession.current = false;
         };
-    }, [chatProfiles.length, connect, disconnect, getReadOnlyProfile, setChatProfile]);
+    }, []); // Empty dependency array ensures this is strictly component mount/unmount
 
     // Auto-scroll within the chat container (not the whole page)
     useEffect(() => {
@@ -253,20 +259,18 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     // --- Event handlers ---
 
-    const restartSession = useCallback((profileName) => {
-        if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = null;
-        }
-
-        setMessages([]);
-    }, [setMessages]);
-
     const handleProfileSwitch = useCallback((profileName) => {
         if (chatProfile === profileName) return;
         setChatProfile(profileName);
+        session?.socket?.emit('clear_session');
         setMessages([]);
-    }, [chatProfile, setChatProfile, setMessages]);
+    }, [chatProfile, setChatProfile, setMessages, session]);
+
+    const handleNewChat = useCallback(() => {
+        session?.socket?.emit('clear_session');
+        setMessages([]);
+        setChatProfile(getReadOnlyProfile());
+    }, [setMessages, setChatProfile, getReadOnlyProfile, session]);
 
     // Clear visible chat only when follow-up context meaningfully changes.
     useEffect(() => {
@@ -279,8 +283,10 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         if (lastFollowUpContextRef.current === contextKey) return;
 
         lastFollowUpContextRef.current = contextKey;
+        session?.socket?.emit('clear_session');
         setMessages([]);
-    }, [followUpContext, setMessages]);
+        setChatProfile(getReadOnlyProfile());
+    }, [followUpContext, session]);
 
     const handleSend = useCallback((commandId) => {
         const text = inputValue.trim();
