@@ -48,56 +48,32 @@ with open("knowledge_graph/schema.md", "r") as f:
     schema = f.read()
 with open("knowledge_graph/schema_population_guidance.md", "r") as f:
     schema_population_guidance = f.read()
-with open("knowledge_graph/system_prompt_grok4.md", "r") as f:
-    system_prompt_edit_template = f.read()
 with open("knowledge_graph/system_prompt_grok4_readonly.md", "r") as f:
     system_prompt_readonly_template = f.read()
-SYSTEM_PROMPT_EDIT = system_prompt_edit_template.format(schema=schema, schema_population_guidance=schema_population_guidance, user_party_name=USER_PARTY_NAME)
 SYSTEM_PROMPT_READONLY = system_prompt_readonly_template.format(schema=schema, user_party_name=USER_PARTY_NAME)
 with open("knowledge_graph/system_prompt_readonly_step1.md", "r") as f:
     SYSTEM_PROMPT_READONLY_STEP1 = f.read().format(schema=schema, user_party_name=USER_PARTY_NAME)
 with open("knowledge_graph/system_prompt_readonly_step2.md", "r") as f:
     SYSTEM_PROMPT_READONLY_STEP2 = f.read().format(schema=schema, user_party_name=USER_PARTY_NAME)
+with open("knowledge_graph/system_prompt_capture_step2.md", "r") as f:
+    SYSTEM_PROMPT_CAPTURE_STEP2 = f.read().format(
+        schema=schema,
+        user_party_name=USER_PARTY_NAME,
+        schema_population_guidance=schema_population_guidance,
+    )
 
 with open("knowledge_graph/command_sources.yaml", "r") as f:
     config = yaml.safe_load(f)
 COMMAND_DATA = config['commands']
 
-# Create filtered command lists based on mode flags in YAML
-commands_edit = [{
-    "id": command_id,
-    "icon": data['icon'],
-    "description": data['description']
-} for command_id, data in COMMAND_DATA.items()
-                 if 'edit' in data.get('modes', [])]
-
+# Create command list for single-mode app
 commands_readonly = [{
     "id": command_id,
     "icon": data['icon'],
     "description": data['description']
-} for command_id, data in COMMAND_DATA.items()
-                     if 'readonly' in data.get('modes', [])]
+} for command_id, data in COMMAND_DATA.items()]
 
 
-
-# Define the tools (functions) - flattened structure for Responses API
-TOOLS_EDIT = [
-    TOOLS_DEFINITIONS["execute_cypher_query"],
-    TOOLS_DEFINITIONS["create_node"],
-    TOOLS_DEFINITIONS["create_edge"],
-    TOOLS_DEFINITIONS["find_node"],
-    TOOLS_DEFINITIONS["scan_ideas"],
-    TOOLS_DEFINITIONS["scan_trends"],
-    TOOLS_DEFINITIONS["dfs"],
-    TOOLS_DEFINITIONS["plan_tasks"],
-    TOOLS_DEFINITIONS["get_tasks"],
-    TOOLS_DEFINITIONS["mark_task_as_running"],
-    TOOLS_DEFINITIONS["mark_task_as_done"],
-    TOOLS_DEFINITIONS["display_mermaid_diagram"],
-    TOOLS_DEFINITIONS["display_convergence_canvas"],
-    TOOLS_DEFINITIONS["visualize_oom"],
-    TOOLS_DEFINITIONS["x_search"],
-]
 
 TOOLS_READONLY = [
     TOOLS_DEFINITIONS["execute_cypher_query"],
@@ -114,26 +90,6 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
 ]
-
-
-
-AVAILABLE_FUNCTIONS_EDIT = {
-    "execute_cypher_query": execute_cypher_query,
-    "create_node": create_node,
-    "create_edge": create_edge,
-    "find_node": find_node,
-    "scan_ideas": scan_ideas,
-    "scan_trends": scan_trends,
-    "dfs": dfs,
-    "plan_tasks": plan_tasks,
-    "get_tasks": get_tasks,
-    "mark_task_as_running": mark_task_as_running,
-    "mark_task_as_done": mark_task_as_done,
-    "display_mermaid_diagram": display_mermaid_diagram,
-    "display_convergence_canvas": display_convergence_canvas,
-    "visualize_oom": visualize_oom,
-    "x_search": x_search,
-}
 
 AVAILABLE_FUNCTIONS_READONLY = {
     "execute_cypher_query": execute_cypher_query,
@@ -165,10 +121,33 @@ AVAILABLE_FUNCTIONS_VISUALIZATION = {
     "x_search": x_search,
 }
 
+TOOLS_STEP2_CAPTURE = [
+    TOOLS_DEFINITIONS["execute_cypher_query"],
+    TOOLS_DEFINITIONS["find_node"],
+    TOOLS_DEFINITIONS["scan_ideas"],
+    TOOLS_DEFINITIONS["scan_trends"],
+    TOOLS_DEFINITIONS["display_mermaid_diagram"],
+    TOOLS_DEFINITIONS["display_convergence_canvas"],
+    TOOLS_DEFINITIONS["visualize_oom"],
+    TOOLS_DEFINITIONS["x_search"],
+    TOOLS_DEFINITIONS["create_node"],
+    TOOLS_DEFINITIONS["create_edge"],
+]
 
+AVAILABLE_FUNCTIONS_STEP2_CAPTURE = {
+    "execute_cypher_query": execute_cypher_query,
+    "find_node": find_node,
+    "scan_ideas": scan_ideas,
+    "scan_trends": scan_trends,
+    "display_mermaid_diagram": display_mermaid_diagram,
+    "display_convergence_canvas": display_convergence_canvas,
+    "visualize_oom": visualize_oom,
+    "x_search": x_search,
+    "create_node": create_node,
+    "create_edge": create_edge,
+}
 
-READ_ONLY_PROFILE = "Read-Only"
-READ_EDIT_PROFILE = "Read/Edit"
+READ_ONLY_PROFILE = "Knowledge Graph Assistant"
 
 
 def _parse_window_payload(message) -> Optional[dict]:
@@ -192,16 +171,11 @@ def _parse_window_payload(message) -> Optional[dict]:
 
 @cl.set_chat_profiles
 async def set_chat_profile(current_user: cl.User):
-    profiles = [
-        cl.ChatProfile(
-            name=READ_ONLY_PROFILE,
-            markdown_description="Query the knowledge graph in read-only mode.",
-        ),
-        cl.ChatProfile(
-            name=READ_EDIT_PROFILE,
-            markdown_description="Query and update the knowledge graph.",
-        )
-    ]
+    profiles = [cl.ChatProfile(
+        name=READ_ONLY_PROFILE,
+        markdown_description="Query the knowledge graph.",
+        default=True,
+    )]
     return profiles
 
 
@@ -261,24 +235,16 @@ async def start():
         ),
     ]).send()
     cl.user_session.set("debug_settings", settings["debug"])
-    chat_profile = cl.user_session.get("chat_profile")
-    if chat_profile == READ_EDIT_PROFILE:
-        cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_EDIT)])
-        cl.user_session.set("tools", TOOLS_EDIT)
-        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_EDIT)
-        # only edit mode has commands
-        await cl.context.emitter.set_commands(commands_edit)
-    else:
-        cl.user_session.set("system_messages",
-                            [system(SYSTEM_PROMPT_READONLY)])
-        cl.user_session.set("tools", TOOLS_READONLY)
-        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
-        await cl.context.emitter.set_commands(commands_readonly)
+    cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_READONLY)])
+    cl.user_session.set("tools", TOOLS_READONLY)
+    cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
+    await cl.context.emitter.set_commands(commands_readonly)
     functions_with_ctx = [
         "create_node", "create_edge", "find_node", "scan_ideas", "scan_trends", "dfs",
         "execute_cypher_query"
     ]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
+    cl.user_session.set("capture_mode", False)
 
 
 @cl.on_settings_update
@@ -370,132 +336,109 @@ async def on_message(message: cl.Message):
             if mode == "readonly":
                 tools = TOOLS_READONLY
                 function_map = AVAILABLE_FUNCTIONS_READONLY
-            elif mode == "visualization":
+            elif mode == "capture":
+                tools = TOOLS_STEP2_CAPTURE
+                function_map = AVAILABLE_FUNCTIONS_STEP2_CAPTURE
+            else:
                 tools = TOOLS_VISUALIZATION
                 function_map = AVAILABLE_FUNCTIONS_VISUALIZATION
-            else: # edit
-                tools = TOOLS_EDIT
-                function_map = AVAILABLE_FUNCTIONS_EDIT
             return xai_client, tools, function_map, functions_with_ctx
 
         async with cl.Step(name="the Knowledge Graph",
                            type="tool",
                            default_open=True) as step:
-            # Check if we are in Read-Only mode for the two-step process
-            chat_profile = cl.user_session.get("chat_profile")
-            
+            capture_mode = cl.user_session.get("capture_mode") is True
+
             # Common session vars
             user_and_assistant_messages = cl.user_session.get("user_and_assistant_messages")
             # Append user input to main history
             user_and_assistant_messages.append(user(processed_message))
 
-            if chat_profile == READ_ONLY_PROFILE:
-                # STEP 1: Research & Blueprinting
-                xai_client, tools, function_map, functions_with_ctx = get_session_vars("readonly")
-                
-                # Construct messages for Step 1
-                step1_messages = [system(SYSTEM_PROMPT_READONLY_STEP1)] + user_and_assistant_messages
-                
-                # Run step 1
-                step1_response = await generate_response(
-                    xai_client, tools, function_map, functions_with_ctx, ctx, step1_messages
-                )
-                await mark_all_tasks_as_done()
-                
-                if step1_response:
-                    # Append Step 1 response to main history
-                    user_and_assistant_messages.append(assistant(step1_response))
-                    cl.user_session.set("user_and_assistant_messages", user_and_assistant_messages)
+            # STEP 1: Research & Blueprinting
+            xai_client, tools, function_map, functions_with_ctx = get_session_vars("readonly")
 
-                    # display the enriched prompt
-                    elements = [
-                        cl.Text(name="prompt", content=f"```\n{step1_response}\n```", display="page")
-                    ]
-                    await cl.Message(content="Enriched prompt", elements=elements).send()
-                    
-                    # The content of blueprint_message is now the PROMPT for Step 2
-                    step2_prompt = step1_response
-                    
-                    # STEP 2: Visualization / Inference
-                    xai_client, tools, function_map, functions_with_ctx = get_session_vars("visualization")
-                    
-                    # Show a task for Step 2 so the user knows what's happening
-                    step2_task_title = "Synthesizing response from enriched context and questions"
-                    task_list = cl.user_session.get('task_list')
-                    if task_list is None:
-                        task_list = cl.TaskList()
-                        cl.user_session.set('task_list', task_list)
-                    step2_task = cl.Task(title=step2_task_title, status=cl.TaskStatus.RUNNING)
-                    await task_list.add_task(step2_task)
-                    tasks_dict = cl.user_session.get('tasks', {})
-                    tasks_dict[step2_task_title] = step2_task
-                    cl.user_session.set('tasks', tasks_dict)
-                    await task_list.send()
+            # Construct messages for Step 1
+            step1_messages = [system(SYSTEM_PROMPT_READONLY_STEP1)] + user_and_assistant_messages
 
-                    # Retrieve Step 2 specific history
-                    step2_messages = cl.user_session.get("step2_messages")
-                    if step2_messages is None:
-                        step2_messages = []
-                    
-                    # Append input (Enriched Prompt) to Step 2 history
-                    step2_messages.append(user(step2_prompt))
+            # Run step 1
+            step1_response = await generate_response(
+                xai_client, tools, function_map, functions_with_ctx, ctx, step1_messages
+            )
+            await mark_all_tasks_as_done()
 
-                    # Construct messages for Step 2
-                    step2_input_messages = [system(SYSTEM_PROMPT_READONLY_STEP2)] + step2_messages
+            if step1_response:
+                # Append Step 1 response to main history
+                user_and_assistant_messages.append(assistant(step1_response))
+                cl.user_session.set("user_and_assistant_messages", user_and_assistant_messages)
 
-                    # We pass the step2_prompt as the input to the second step
-                    # But we want the final output to be in 'output_message'
-                    await output_message.send()
-                    
-                    step2_response = await generate_response(
-                        xai_client, tools, function_map, functions_with_ctx, ctx, step2_input_messages
-                    )
+                # display the enriched prompt
+                elements = [
+                    cl.Text(name="prompt", content=f"```\n{step1_response}\n```", display="page")
+                ]
+                await cl.Message(content="Enriched prompt", elements=elements).send()
 
-                    # Mark step 2 task as done
-                    step2_task.status = cl.TaskStatus.DONE
-                    await task_list.send()
+                # The content of blueprint_message is now the PROMPT for Step 2
+                step2_prompt = step1_response
 
-                    if step2_response:
-                        # Append Step 2 response to Step 2 history
-                        step2_messages.append(assistant(step2_response))
-                        cl.user_session.set("step2_messages", step2_messages)
-                        
-                        # Also append to main history so it's consistent
-                        user_and_assistant_messages.append(assistant(step2_response))
-                        cl.user_session.set("user_and_assistant_messages", user_and_assistant_messages)
+                # STEP 2: Visualization / Inference (+ optional capture mode)
+                step2_mode = "capture" if capture_mode else "visualization"
+                xai_client, tools, function_map, functions_with_ctx = get_session_vars(step2_mode)
 
-                        output_message.content = step2_response
-                        await output_message.update()
-                        success = True
-                    else:
-                        success = False
-                else:
-                     await cl.Message(content="❌ Error during research step.", type="system_message").send()
-                     success = False
-            
-            else:
-                # Normal Edit Mode (Single Step)
-                xai_client, tools, function_map, functions_with_ctx = get_session_vars("edit")
-                
-                # Construct messages
-                edit_messages = [system(SYSTEM_PROMPT_EDIT)] + user_and_assistant_messages
+                # Show a task for Step 2 so the user knows what's happening
+                step2_task_title = "Synthesizing response from enriched context and questions"
+                task_list = cl.user_session.get('task_list')
+                if task_list is None:
+                    task_list = cl.TaskList()
+                    cl.user_session.set('task_list', task_list)
+                step2_task = cl.Task(title=step2_task_title, status=cl.TaskStatus.RUNNING)
+                await task_list.add_task(step2_task)
+                tasks_dict = cl.user_session.get('tasks', {})
+                tasks_dict[step2_task_title] = step2_task
+                cl.user_session.set('tasks', tasks_dict)
+                await task_list.send()
 
+                # Retrieve Step 2 specific history
+                step2_messages = cl.user_session.get("step2_messages")
+                if step2_messages is None:
+                    step2_messages = []
+
+                # Append input (Enriched Prompt) to Step 2 history
+                step2_messages.append(user(step2_prompt))
+
+                step2_system_prompt = SYSTEM_PROMPT_CAPTURE_STEP2 if capture_mode else SYSTEM_PROMPT_READONLY_STEP2
+                # Construct messages for Step 2
+                step2_input_messages = [system(step2_system_prompt)] + step2_messages
+
+                # We pass the step2_prompt as the input to the second step
+                # But we want the final output to be in 'output_message'
                 await output_message.send()
-                response_content = await generate_response(
-                    xai_client, tools, function_map, functions_with_ctx, ctx, edit_messages
+
+                step2_response = await generate_response(
+                    xai_client, tools, function_map, functions_with_ctx, ctx, step2_input_messages
                 )
-                await mark_all_tasks_as_done()
-                
-                if response_content:
-                    # Append to history
-                    user_and_assistant_messages.append(assistant(response_content))
+
+                # Mark step 2 task as done
+                step2_task.status = cl.TaskStatus.DONE
+                await task_list.send()
+
+                if step2_response:
+                    # Append Step 2 response to Step 2 history
+                    step2_messages.append(assistant(step2_response))
+                    cl.user_session.set("step2_messages", step2_messages)
+
+                    # Also append to main history so it's consistent
+                    user_and_assistant_messages.append(assistant(step2_response))
                     cl.user_session.set("user_and_assistant_messages", user_and_assistant_messages)
-                    
-                    output_message.content = response_content
+
+                    output_message.content = step2_response
                     await output_message.update()
                     success = True
                 else:
                     success = False
+            else:
+                 await cl.Message(content="❌ Error during research step.", type="system_message").send()
+                 success = False
+
 
         if success:
             # process visualizations
@@ -684,6 +627,8 @@ async def tts(action: cl.Action):
 
 
 def _process_command(message: cl.Message) -> str:
+    capture_mode = message.command == "capture"
+    cl.user_session.set("capture_mode", capture_mode)
     if message.command:
         if message.command in COMMAND_DATA:
             template = COMMAND_DATA[message.command]['template']
@@ -784,19 +729,10 @@ async def on_chat_resume(thread: ThreadDict):
         ),
     ]).send()
     cl.user_session.set("debug_settings", settings["debug"])
-    chat_profile = cl.user_session.get("chat_profile")
-    if chat_profile == READ_EDIT_PROFILE:
-        cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_EDIT)])
-        cl.user_session.set("tools", TOOLS_EDIT)
-        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_EDIT)
-        # only edit mode has commands
-        await cl.context.emitter.set_commands(commands_edit)
-    else:
-        cl.user_session.set("system_messages",
-                            [system(SYSTEM_PROMPT_READONLY)])
-        cl.user_session.set("tools", TOOLS_READONLY)
-        cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
-        await cl.context.emitter.set_commands(commands_readonly)
+    cl.user_session.set("system_messages", [system(SYSTEM_PROMPT_READONLY)])
+    cl.user_session.set("tools", TOOLS_READONLY)
+    cl.user_session.set("function_map", AVAILABLE_FUNCTIONS_READONLY)
+    await cl.context.emitter.set_commands(commands_readonly)
     functions_with_ctx = [
         "create_node", "create_edge", "find_node", "scan_ideas", "scan_trends", "dfs",
         "execute_cypher_query"
@@ -804,8 +740,7 @@ async def on_chat_resume(thread: ThreadDict):
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
     cl.user_session.set("task_list", None)
     cl.user_session.set("tasks", {})
+    cl.user_session.set("capture_mode", False)
 
 
 # Auth
-
-
