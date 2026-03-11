@@ -66,13 +66,14 @@ with open("knowledge_graph/command_sources.yaml", "r") as f:
     config = yaml.safe_load(f)
 COMMAND_DATA = config['commands']
 
-# Create filtered command list based on mode flags in YAML
+# Create command list (single-mode app): include commands without explicit mode
+# and keep backward compatibility for commands still tagged as readonly.
 commands_readonly = [{
     "id": command_id,
     "icon": data['icon'],
     "description": data['description']
 } for command_id, data in COMMAND_DATA.items()
-                     if 'readonly' in data.get('modes', [])]
+                     if not data.get('modes') or 'readonly' in data.get('modes', [])]
 
 
 

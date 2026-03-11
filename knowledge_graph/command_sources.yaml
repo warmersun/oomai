@@ -33,7 +33,6 @@ commands:
   capture:
     icon: database
     description: "capture in KG"
-    modes: [readonly]
     template: |
       Capture the following information in the knowledge graph.
       First gather context and avoid duplicates. Then create the right concepts and relationships.
