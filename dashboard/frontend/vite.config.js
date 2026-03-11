@@ -11,24 +11,12 @@ export default defineConfig({
                 target: 'http://localhost:8050',
                 changeOrigin: true,
             },
-            // Chainlit WebSocket
-            '/ws/socket.io': {
+            // Chainlit API + WebSocket (single prefix to avoid CORS in dev)
+            '/chainlit': {
                 target: 'http://localhost:8000',
                 changeOrigin: true,
                 ws: true,
-            },
-            // Chainlit REST API
-            '/project': {
-                target: 'http://localhost:8000',
-                changeOrigin: true,
-            },
-            '/auth': {
-                target: 'http://localhost:8000',
-                changeOrigin: true,
-            },
-            '/message': {
-                target: 'http://localhost:8000',
-                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/chainlit/, ''),
             },
         },
     },
