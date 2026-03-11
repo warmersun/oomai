@@ -10,6 +10,9 @@ import {
 } from '@chainlit/react-client';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import { markdownToHtml } from '../utils';
+import MermaidDiagram from './visualizers/MermaidDiagram';
+import Pathway from './visualizers/Pathway';
+import OomVisualizer from './visualizers/OomVisualizer';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -111,28 +114,13 @@ function CustomElement({ el }) {
     if (el.type !== 'custom') return null;
 
     if (el.name === 'MermaidDiagram' && el.props?.diagram) {
-        return (
-            <div className="mermaid-container" style={{ margin: '12px 0' }}>
-                <pre className="mermaid">{el.props.diagram}</pre>
-            </div>
-        );
+        return <MermaidDiagram diagram={el.props.diagram} />;
     }
     if (el.name === 'Pathway' && el.props?.data) {
-        return (
-            <div className="pathway-container" style={{ margin: '12px 0' }}>
-                <div className="analysis-content"
-                    dangerouslySetInnerHTML={{ __html: markdownToHtml(JSON.stringify(el.props.data, null, 2)) }} />
-            </div>
-        );
+        return <Pathway data={el.props.data} />;
     }
     if (el.name === 'OomVisualizer' && el.props?.monthsPerDoubling) {
-        return (
-            <div className="oom-visualizer" style={{ margin: '12px 0', padding: '12px', background: 'rgba(0,212,255,0.05)', borderRadius: '8px', border: '1px solid rgba(0,212,255,0.15)' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-cyan)' }}>
-                    📊 OOM Doubling Rate: {el.props.monthsPerDoubling} months
-                </div>
-            </div>
-        );
+        return <OomVisualizer monthsPerDoubling={el.props.monthsPerDoubling} />;
     }
     return null;
 }
