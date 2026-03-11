@@ -8,7 +8,7 @@ import { LoadingSpinner, EmptyState } from './shared';
 Chart.register(...registerables);
 
 export default function TrendExplorer({
-    trends, loading, currentEmTech, filterBadge, onFollowUp
+    trends, loading, currentEmTech, filterBadge, onClearFilter, onFollowUp
 }) {
     const [spotTopic, setSpotTopic] = useState('');
     const [spotting, setSpotting] = useState(false);
@@ -262,7 +262,20 @@ export default function TrendExplorer({
                         {currentEmTech ? `📊 ${currentEmTech.toUpperCase()} — TREND EXPLORER` : '📊 Trend Explorer'}
                     </span>
                     {filterBadge && (
-                        <span className="search-active-badge" dangerouslySetInnerHTML={{ __html: filterBadge }} />
+                        <span className="search-active-badge">
+                            <span dangerouslySetInnerHTML={{ __html: filterBadge }} />
+                            {onClearFilter && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onClearFilter(); }}
+                                    style={{
+                                        background: 'none', border: 'none', color: 'inherit',
+                                        cursor: 'pointer', marginLeft: '6px', padding: '0 2px',
+                                        fontSize: '0.8rem', opacity: 0.8
+                                    }}
+                                    title="Clear filter"
+                                >✕</button>
+                            )}
+                        </span>
                     )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

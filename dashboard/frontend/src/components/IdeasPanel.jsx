@@ -2,14 +2,27 @@ import React from 'react';
 import { escapeHtml } from '../utils';
 import { LoadingSpinner, EmptyState } from './shared';
 
-export default function IdeasPanel({ ideas, loading, filterBadge, onOpenModal }) {
+export default function IdeasPanel({ ideas, loading, filterBadge, onClearFilter, onOpenModal }) {
     return (
         <>
             <div className="panel-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="panel-title">💡 Ideas & Assessments</span>
                     {filterBadge && (
-                        <span className="search-active-badge" dangerouslySetInnerHTML={{ __html: filterBadge }} />
+                        <span className="search-active-badge">
+                            <span dangerouslySetInnerHTML={{ __html: filterBadge }} />
+                            {onClearFilter && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onClearFilter(); }}
+                                    style={{
+                                        background: 'none', border: 'none', color: 'inherit',
+                                        cursor: 'pointer', marginLeft: '6px', padding: '0 2px',
+                                        fontSize: '0.8rem', opacity: 0.8
+                                    }}
+                                    title="Clear filter"
+                                >✕</button>
+                            )}
+                        </span>
                     )}
                 </div>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-muted)' }}>

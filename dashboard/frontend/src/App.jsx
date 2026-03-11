@@ -238,6 +238,7 @@ export default function App() {
         setTrends(origData.current.trends);
         setIdeas(origData.current.ideas);
         setConvergences(origData.current.convergences);
+        setBets(origData.current.bets);
     }, []);
 
     // Modal handlers
@@ -245,37 +246,14 @@ export default function App() {
         console.log("🔥 [DEBUG] handleCapturedNodes FIRED with data:", new_nodes);
         setFilterBadge("✨ Newly captured");
 
-        if (new_nodes.trends && new_nodes.trends.length > 0) {
-            setTrends(prev => {
-                const existing = prev || [];
-                // add new ones to top
-                return [...new_nodes.trends, ...existing];
-            });
-        }
-        
-        if (new_nodes.ideas && new_nodes.ideas.length > 0) {
-            setIdeas(prev => {
-                const existing = prev || [];
-                return [...new_nodes.ideas, ...existing];
-            });
-        }
-        
-        if (new_nodes.convergences && new_nodes.convergences.length > 0) {
-            setConvergences(prev => {
-                const existing = prev || [];
-                return [...new_nodes.convergences, ...existing];
-            });
-        }
-        
-        if (new_nodes.bets && new_nodes.bets.length > 0) {
-            setBets(prev => {
-                const existing = prev || [];
-                return [...new_nodes.bets, ...existing];
-            });
-        }
-        
-        // We do not have visual columns for Capabilities & Milestones,
-        // but they are available in new_nodes if needed in the future.
+        // Replace panel data with only the new nodes (filter view).
+        // Empty the panel if there are no new nodes of that type.
+        setTrends(new_nodes.trends || []);
+        setIdeas(new_nodes.ideas || []);
+        setConvergences(new_nodes.convergences || []);
+        setBets(new_nodes.bets || []);
+        // Capabilities & Milestones are available in new_nodes
+        // but have no dedicated dashboard panels currently.
     }, []);
 
     const openBetModal = async (bet) => {
@@ -537,14 +515,14 @@ export default function App() {
                 {/* Bets Panel */}
                 <div className="grid-stack-item" gs-w="4" gs-h="5" gs-x="8" gs-y="0">
                     <section className="grid-stack-item-content panel bets-panel">
-                        <BetsPanel bets={bets} loading={loadingBets} onOpenModal={handleOpenModal} />
+                        <BetsPanel bets={bets} loading={loadingBets} filterBadge={filterBadge} onClearFilter={handleClearSearch} onOpenModal={handleOpenModal} />
                     </section>
                 </div>
 
                 {/* Ideas Panel */}
                 <div className="grid-stack-item" gs-w="4" gs-h="5" gs-x="8" gs-y="7">
                     <section className="grid-stack-item-content panel ideas-panel">
-                        <IdeasPanel ideas={ideas} loading={loadingIdeas} filterBadge={filterBadge} onOpenModal={handleOpenModal} />
+                        <IdeasPanel ideas={ideas} loading={loadingIdeas} filterBadge={filterBadge} onClearFilter={handleClearSearch} onOpenModal={handleOpenModal} />
                     </section>
                 </div>
 
@@ -574,7 +552,7 @@ export default function App() {
                     <section className="grid-stack-item-content panel chart-panel">
                         <TrendExplorer
                             trends={trends} loading={loadingTrends} currentEmTech={currentEmTech}
-                            filterBadge={filterBadge} onFollowUp={handleFollowUp}
+                            filterBadge={filterBadge} onClearFilter={handleClearSearch} onFollowUp={handleFollowUp}
                         />
                     </section>
                 </div>
@@ -582,7 +560,7 @@ export default function App() {
                 {/* Convergences Panel */}
                 <div className="grid-stack-item" gs-w="6" gs-h="6" gs-x="6" gs-y="20">
                     <section className="grid-stack-item-content panel convergences-panel">
-                        <ConvergencesPanel convergences={convergences} loading={loadingConv} filterBadge={filterBadge} onOpenModal={handleOpenModal} />
+                        <ConvergencesPanel convergences={convergences} loading={loadingConv} filterBadge={filterBadge} onClearFilter={handleClearSearch} onOpenModal={handleOpenModal} />
                     </section>
                 </div>
             </main>

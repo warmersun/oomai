@@ -43,11 +43,12 @@ async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: 
 
         # Track the newly created node for frontend dashboard filtering
         new_nodes = cl.user_session.get("new_nodes")
-        if new_nodes is not None and "Created new node" in output:
+        if new_nodes is not None and isinstance(output, str) and output:
             key_map = {
                 "Trend": "trends",
                 "Idea": "ideas",
                 "Convergence": "convergences",
+                "Bet": "bets",
                 "Capability": "capabilities",
                 "Milestone": "milestones"
             }
@@ -55,8 +56,8 @@ async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: 
             if category:
                 # We extract the basic properties from the function inputs to pass back
                 new_nodes[category].append({
-                    "id": name,
-                    "name": name,
+                    "id": output,
+                    "name": output,
                     "description": description,
                     "type": node_type
                 })
