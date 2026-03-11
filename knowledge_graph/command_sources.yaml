@@ -1,42 +1,13 @@
 commands:
-  book:
-    icon: book
-    description: "Capture ideas from a book summary:"
-    template: |
-      Capture ideas from this preprocessed book in the knowledge graph.
-      Make sure to relate them to existing ideas and concepts.
-      There is no need to ask for confirmation, but you can use `display_mermaid_diagram` tool to show the nodes and edges added.
-      ---
-      {user_input}
-
-  articles:
-    icon: newspaper
-    description: "Capture ideas from article:"
-    template: |
-      Capture ideas from the article in the knowledge graph.
-      Make sure to relate them to existing ideas and concepts.
-      There is no need to ask for confirmation, but you can use `display_mermaid_diagram` tool to show the nodes and edges added.
-      ---
-      {user_input}
-
-  link:
-    icon: link-2
-    description: "Capture ideas from URL:"
-    template: |
-      Visit the following URL: {user_input}.
-      Process the contents. 
-      Extract information and capture it in the knowledge graph. Make sure to relate new nodes to existing ones.
-      There is no need to ask for confirmation, but you can use `display_mermaid_diagram` tool to show the nodes and edges added.
   capture:
     icon: database
     description: "capture in KG"
     template: |
-      Capture the following information in the knowledge graph.
+      Process the conversation and capture it in the knowledge graph.
       First gather context and avoid duplicates. Then create the right concepts and relationships.
-      Use create_node and create_edge when needed.
-      ---
+      Use `create_node` and `create_edge` tools when needed.
+      The **emphasis** is on what the user is asking:
       {user_input}
-
   trend:
     icon: trending-up
     description: "Spot a trend related to..."
