@@ -241,6 +241,43 @@ export default function App() {
     }, []);
 
     // Modal handlers
+    const handleCapturedNodes = useCallback((new_nodes) => {
+        console.log("🔥 [DEBUG] handleCapturedNodes FIRED with data:", new_nodes);
+        setFilterBadge("✨ Newly captured");
+
+        if (new_nodes.trends && new_nodes.trends.length > 0) {
+            setTrends(prev => {
+                const existing = prev || [];
+                // add new ones to top
+                return [...new_nodes.trends, ...existing];
+            });
+        }
+        
+        if (new_nodes.ideas && new_nodes.ideas.length > 0) {
+            setIdeas(prev => {
+                const existing = prev || [];
+                return [...new_nodes.ideas, ...existing];
+            });
+        }
+        
+        if (new_nodes.convergences && new_nodes.convergences.length > 0) {
+            setConvergences(prev => {
+                const existing = prev || [];
+                return [...new_nodes.convergences, ...existing];
+            });
+        }
+        
+        if (new_nodes.bets && new_nodes.bets.length > 0) {
+            setBets(prev => {
+                const existing = prev || [];
+                return [...new_nodes.bets, ...existing];
+            });
+        }
+        
+        // We do not have visual columns for Capabilities & Milestones,
+        // but they are available in new_nodes if needed in the future.
+    }, []);
+
     const openBetModal = async (bet) => {
         setModal({ visible: true, title: bet.name || 'Active Bet', content: { type: 'bet', data: bet, loading: false, evalResult: null } });
     };
@@ -519,6 +556,7 @@ export default function App() {
                                 currentEmTech={currentEmTech}
                                 followUpContext={followUpContext}
                                 onClearFollowUp={() => setFollowUpContext(null)}
+                                onCapturedNodes={handleCapturedNodes}
                             />
                         </ChatPanelErrorBoundary>
                     </section>

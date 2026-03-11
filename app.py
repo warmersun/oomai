@@ -313,6 +313,14 @@ async def on_message(message: cl.Message):
         cl.user_session.set("diagrams", [])
         cl.user_session.set("convergence_canvases", [])
         cl.user_session.set("oom_visualizers", [])
+        cl.user_session.set("new_nodes", {
+            "trends": [], 
+            "ideas": [], 
+            "convergences": [], 
+            "bets": [], 
+            "capabilities": [], 
+            "milestones": []
+        })
 
         # Helper to get session vars
         def get_session_vars(mode="readonly"):
@@ -488,6 +496,12 @@ async def on_message(message: cl.Message):
         debug = cl.user_session.get("debug_settings")
         if not debug:
             await step.remove()
+
+        # Emit captured nodes to the frontend if any were created
+        new_nodes = cl.user_session.get("new_nodes")
+        has_new_nodes = any(len(nodes) > 0 for nodes in new_nodes.values())
+        if has_new_nodes:
+            await cl.context.emitter.emit("captured_nodes", new_nodes)
 
         cl.user_session.set("last_message", output_message.content)
 

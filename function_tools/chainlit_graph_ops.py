@@ -41,6 +41,26 @@ async def create_node(ctx: GraphOpsCtx, node_type: str, name: str, description: 
         output = await core_create_node(ctx, node_type, name, description, groq_client, openai_embedding_client,
                                         properties)
 
+        # Track the newly created node for frontend dashboard filtering
+        new_nodes = cl.user_session.get("new_nodes")
+        if new_nodes is not None and "Created new node" in output:
+            key_map = {
+                "Trend": "trends",
+                "Idea": "ideas",
+                "Convergence": "convergences",
+                "Capability": "capabilities",
+                "Milestone": "milestones"
+            }
+            category = key_map.get(node_type)
+            if category:
+                # We extract the basic properties from the function inputs to pass back
+                new_nodes[category].append({
+                    "id": name,
+                    "name": name,
+                    "description": description,
+                    "type": node_type
+                })
+
         step.output = output
         debug = cl.user_session.get("debug_settings")
         if not debug:

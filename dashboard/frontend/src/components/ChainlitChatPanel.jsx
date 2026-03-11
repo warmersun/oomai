@@ -155,11 +155,11 @@ function ActiveToolIndicator({ text }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export default function ChainlitChatPanel({ currentEmTech, followUpContext, onClearFollowUp }) {
+export default function ChainlitChatPanel({ currentEmTech, followUpContext, onClearFollowUp, onCapturedNodes }) {
     // --- Chainlit hooks ---
     const { connect, disconnect, chatProfile, setChatProfile, session } = useChatSession();
     const { messages } = useChatMessages();
-    const { sendMessage, stopTask } = useChatInteract();
+    const { clear, sendMessage, stopTask } = useChatInteract();
     const { loading, connected, elements } = useChatData();
     const { config } = useConfig();
     const commands = useRecoilValue(commandsState);
@@ -212,6 +212,28 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         }
     }, [chatProfiles.length]); // Intentionally omitting volatile function dependencies!
 
+    // Listen for custom captured nodes emitted directly from backend SSE/sockets
+    useEffect(() => {
+        if (!session?.socket) return;
+        
+        console.log("🔥 [DEBUG] Binding captured_nodes socket event");
+        
+        const handleCaptured = (data) => {
+            console.log("🔥 [DEBUG] socket.on handleCaptured FIRED!", data);
+            if (onCapturedNodes) {
+                onCapturedNodes(data);
+            }
+        };
+
+        // Remove existing to avoid dupes
+        session.socket.off('captured_nodes');
+        session.socket.on('captured_nodes', handleCaptured);
+        
+        return () => {
+            session.socket.off('captured_nodes', handleCaptured);
+        };
+    }, [session?.socket, onCapturedNodes]);
+
     // Disconnect purely on unmount
     useEffect(() => {
         return () => {
@@ -258,19 +280,32 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
     );
 
     // --- Event handlers ---
+    const pendingReconnectRef = useRef(false);
+
+    useEffect(() => {
+        if (pendingReconnectRef.current) {
+            pendingReconnectRef.current = false;
+            clear();
+            setTimeout(() => connect({ userEnv: {} }), 50);
+        }
+    }, [chatProfile, connect, clear]);
 
     const handleProfileSwitch = useCallback((profileName) => {
         if (chatProfile === profileName) return;
         setChatProfile(profileName);
-        session?.socket?.emit('clear_session');
-        setMessages([]);
-    }, [chatProfile, setChatProfile, setMessages, session]);
+        pendingReconnectRef.current = true;
+    }, [chatProfile, setChatProfile]);
 
     const handleNewChat = useCallback(() => {
-        session?.socket?.emit('clear_session');
-        setMessages([]);
-        setChatProfile(getReadOnlyProfile());
-    }, [setMessages, setChatProfile, getReadOnlyProfile, session]);
+        const rop = getReadOnlyProfile();
+        if (chatProfile !== rop) {
+            setChatProfile(rop);
+            pendingReconnectRef.current = true;
+        } else {
+            clear();
+            setTimeout(() => connect({ userEnv: {} }), 50);
+        }
+    }, [chatProfile, setChatProfile, getReadOnlyProfile, clear, connect]);
 
     // Clear visible chat only when follow-up context meaningfully changes.
     useEffect(() => {
@@ -283,10 +318,15 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
         if (lastFollowUpContextRef.current === contextKey) return;
 
         lastFollowUpContextRef.current = contextKey;
-        session?.socket?.emit('clear_session');
-        setMessages([]);
-        setChatProfile(getReadOnlyProfile());
-    }, [followUpContext, session]);
+        const rop = getReadOnlyProfile();
+        if (chatProfile !== rop) {
+            setChatProfile(rop);
+            pendingReconnectRef.current = true;
+        } else {
+            clear();
+            setTimeout(() => connect({ userEnv: {} }), 50);
+        }
+    }, [followUpContext, getReadOnlyProfile, setChatProfile, chatProfile, clear, connect]);
 
     const handleSend = useCallback((commandId) => {
         const text = inputValue.trim();
