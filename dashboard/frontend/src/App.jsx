@@ -19,6 +19,38 @@ import {
 } from './api';
 import { escapeHtml, markdownToHtml } from './utils';
 
+class ChatPanelErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+
+    componentDidCatch(error) {
+        console.error('ChainlitChatPanel crashed:', error);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <>
+                    <div className="panel-header">
+                        <span className="panel-title">💬 Follow-up</span>
+                    </div>
+                    <div className="panel-body" style={{ padding: '12px', color: 'var(--text-muted)' }}>
+                        Chat is temporarily unavailable. Dashboard data is still available.
+                    </div>
+                </>
+            );
+        }
+
+        return this.props.children;
+    }
+}
+
 export default function App() {
     // Global state
     const [emtechs, setEmtechs] = useState([]);
@@ -482,11 +514,13 @@ export default function App() {
                 {/* Follow-up Panel */}
                 <div className="grid-stack-item" gs-w="4" gs-h="2" gs-x="8" gs-y="5" data-expanded-h="13">
                     <section className="grid-stack-item-content panel chat-panel collapsed">
-                        <ChainlitChatPanel
-                            currentEmTech={currentEmTech}
-                            followUpContext={followUpContext}
-                            onClearFollowUp={() => setFollowUpContext(null)}
-                        />
+                        <ChatPanelErrorBoundary>
+                            <ChainlitChatPanel
+                                currentEmTech={currentEmTech}
+                                followUpContext={followUpContext}
+                                onClearFollowUp={() => setFollowUpContext(null)}
+                            />
+                        </ChatPanelErrorBoundary>
                     </section>
                 </div>
 
