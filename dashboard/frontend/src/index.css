@@ -1949,6 +1949,17 @@
       overflow: hidden;
     }
 
+    .chainlit-iframe-wrap {
+      gap: 10px;
+    }
+
+    .chainlit-iframe {
+      flex: 1;
+      width: 100%;
+      border: none;
+      background: transparent;
+    }
+
     .chat-messages {
       flex: 1;
       overflow-y: auto;

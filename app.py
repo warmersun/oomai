@@ -171,6 +171,25 @@ READ_ONLY_PROFILE = "Read-Only"
 READ_EDIT_PROFILE = "Read/Edit"
 
 
+def _parse_window_payload(message) -> Optional[dict]:
+    """Parse Chainlit window messages from iframe/client postMessage bridge."""
+    if isinstance(message, dict):
+        return message
+    if not isinstance(message, str):
+        return None
+
+    payload = message.strip()
+    if payload.startswith("Client:"):
+        payload = payload.split(":", 1)[1].strip()
+
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+
+    return parsed if isinstance(parsed, dict) else None
+
+
 @cl.set_chat_profiles
 async def set_chat_profile(current_user: cl.User):
     profiles = [
@@ -267,6 +286,23 @@ async def on_settings_update(settings):
     cl.user_session.set("debug_settings", settings["debug"])
 
 
+@cl.on_window_message
+async def on_window_message(message: str):
+    payload = _parse_window_payload(message)
+    if not payload:
+        return
+
+    if payload.get("type") == "follow_up_context":
+        prompt = payload.get("prompt") or ""
+        if not prompt.strip():
+            return
+
+        cl.user_session.set("follow_up_context", prompt.strip())
+        await cl.send_window_message("Server: " + json.dumps({
+            "type": "follow_up_context_ack"
+        }))
+
+
 @cl.on_chat_end
 async def end_chat():
     await _neo4j_disconnect()
@@ -286,6 +322,11 @@ async def on_message(message: cl.Message):
             await last_tts_action.remove()
         # process command
         processed_message = _process_command(message)
+
+        follow_up_context = cl.user_session.get("follow_up_context")
+        if follow_up_context:
+            processed_message = f"{follow_up_context} {processed_message}".strip()
+            cl.user_session.set("follow_up_context", None)
 
         # get drivers from session
         neo4jdriver = cl.user_session.get("neo4jdriver")
@@ -502,6 +543,10 @@ async def on_message(message: cl.Message):
         has_new_nodes = any(len(nodes) > 0 for nodes in new_nodes.values())
         if has_new_nodes:
             await cl.context.emitter.emit("captured_nodes", new_nodes)
+            await cl.send_window_message("Server: " + json.dumps({
+                "type": "captured_nodes",
+                "data": new_nodes,
+            }, cls=Neo4jDateEncoder))
 
         cl.user_session.set("last_message", output_message.content)
 
