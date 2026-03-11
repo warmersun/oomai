@@ -81,6 +81,7 @@ export default function AdvancementPanel({ advancement, loading, currentEmTech, 
                     displayData.length === 0 ? <EmptyState>No advancement data for this sector</EmptyState> :
                         displayData.map((cap, ci) => (
                             <div key={ci} className="adv-capability-group">
+                                <div className="adv-label" style={{ marginBottom: '4px' }}>Capability</div>
                                 <div className="adv-capability-header">
                                     <span className="adv-capability-title">{cap.capability}</span>
                                     {cap.capability_desc && <span className="adv-capability-desc">{cap.capability_desc}</span>}
@@ -88,7 +89,7 @@ export default function AdvancementPanel({ advancement, loading, currentEmTech, 
                                 {cap.milestones?.map((ms, mi) => {
                                     const unlocksHtml = ms.unlocks && ms.unlocks.length > 0 ? (
                                         <div className="adv-unlocks-container">
-                                            <div className="adv-unlocks-title">Unlocks Use Cases</div>
+                                            <div className="adv-label">Unlocks Use Cases</div>
                                             {ms.unlocks.map((lac, li) => {
                                                 const lacId = `lac-${ci}-${mi}-${li}`;
                                                 const isExpanded = expandedLacs.has(lacId);
@@ -158,6 +159,7 @@ export default function AdvancementPanel({ advancement, loading, currentEmTech, 
                                         <div key={mi} className="adv-timeline">
                                             <div className="adv-milestone-card">
                                                 <div className="adv-milestone-dot"></div>
+                                                <div className="adv-label" style={{ marginBottom: '4px' }}>Reaches Milestone</div>
                                                 <div className="adv-milestone-header">
                                                     <div className="adv-milestone-title">{ms.name}</div>
                                                     {ms.date && <div className="adv-milestone-date">{ms.date}</div>}

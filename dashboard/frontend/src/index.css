@@ -1420,7 +1420,7 @@
       border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    .adv-unlocks-title {
+    .adv-label {
       font-family: var(--font-mono);
       font-size: 0.65rem;
       color: var(--text-muted);
