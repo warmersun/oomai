@@ -30,6 +30,17 @@ commands:
       Process the contents. 
       Extract information and capture it in the knowledge graph. Make sure to relate new nodes to existing ones.
       There is no need to ask for confirmation, but you can use `display_mermaid_diagram` tool to show the nodes and edges added.
+  capture:
+    icon: database
+    description: "Capture in KG:"
+    modes: [readonly]
+    template: |
+      Capture the following information in the knowledge graph.
+      First gather context and avoid duplicates. Then create the right concepts and relationships.
+      Use create_node and create_edge when needed.
+      ---
+      {user_input}
+
   trend:
     icon: trending-up
     description: "Spot a trend related to..."
