@@ -55,8 +55,8 @@ with open("knowledge_graph/system_prompt_readonly_step1.md", "r") as f:
     SYSTEM_PROMPT_READONLY_STEP1 = f.read().format(schema=schema, user_party_name=USER_PARTY_NAME)
 with open("knowledge_graph/system_prompt_readonly_step2.md", "r") as f:
     SYSTEM_PROMPT_READONLY_STEP2 = f.read().format(schema=schema, user_party_name=USER_PARTY_NAME)
-with open("knowledge_graph/system_prompt_readonly_step2_capture.md", "r") as f:
-    SYSTEM_PROMPT_READONLY_STEP2_CAPTURE = f.read().format(
+with open("knowledge_graph/system_prompt_capture_step2.md", "r") as f:
+    SYSTEM_PROMPT_CAPTURE_STEP2 = f.read().format(
         schema=schema,
         user_party_name=USER_PARTY_NAME,
         schema_population_guidance=schema_population_guidance,
@@ -122,13 +122,28 @@ AVAILABLE_FUNCTIONS_VISUALIZATION = {
     "x_search": x_search,
 }
 
-TOOLS_STEP2_CAPTURE = TOOLS_VISUALIZATION + [
+TOOLS_STEP2_CAPTURE = [
+    TOOLS_DEFINITIONS["execute_cypher_query"],
+    TOOLS_DEFINITIONS["find_node"],
+    TOOLS_DEFINITIONS["scan_ideas"],
+    TOOLS_DEFINITIONS["scan_trends"],
+    TOOLS_DEFINITIONS["display_mermaid_diagram"],
+    TOOLS_DEFINITIONS["display_convergence_canvas"],
+    TOOLS_DEFINITIONS["visualize_oom"],
+    TOOLS_DEFINITIONS["x_search"],
     TOOLS_DEFINITIONS["create_node"],
     TOOLS_DEFINITIONS["create_edge"],
 ]
 
 AVAILABLE_FUNCTIONS_STEP2_CAPTURE = {
-    **AVAILABLE_FUNCTIONS_VISUALIZATION,
+    "execute_cypher_query": execute_cypher_query,
+    "find_node": find_node,
+    "scan_ideas": scan_ideas,
+    "scan_trends": scan_trends,
+    "display_mermaid_diagram": display_mermaid_diagram,
+    "display_convergence_canvas": display_convergence_canvas,
+    "visualize_oom": visualize_oom,
+    "x_search": x_search,
     "create_node": create_node,
     "create_edge": create_edge,
 }
@@ -391,7 +406,7 @@ async def on_message(message: cl.Message):
                 # Append input (Enriched Prompt) to Step 2 history
                 step2_messages.append(user(step2_prompt))
 
-                step2_system_prompt = SYSTEM_PROMPT_READONLY_STEP2_CAPTURE if capture_mode else SYSTEM_PROMPT_READONLY_STEP2
+                step2_system_prompt = SYSTEM_PROMPT_CAPTURE_STEP2 if capture_mode else SYSTEM_PROMPT_READONLY_STEP2
                 # Construct messages for Step 2
                 step2_input_messages = [system(step2_system_prompt)] + step2_messages
 

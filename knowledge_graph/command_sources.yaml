@@ -32,7 +32,7 @@ commands:
       There is no need to ask for confirmation, but you can use `display_mermaid_diagram` tool to show the nodes and edges added.
   capture:
     icon: database
-    description: "Capture in KG:"
+    description: "capture in KG"
     modes: [readonly]
     template: |
       Capture the following information in the knowledge graph.
