@@ -2,7 +2,6 @@ commands:
   book:
     icon: book
     description: "Capture ideas from a book summary:"
-    modes: [edit]
     template: |
       Capture ideas from this preprocessed book in the knowledge graph.
       Make sure to relate them to existing ideas and concepts.
@@ -13,7 +12,6 @@ commands:
   articles:
     icon: newspaper
     description: "Capture ideas from article:"
-    modes: [edit]
     template: |
       Capture ideas from the article in the knowledge graph.
       Make sure to relate them to existing ideas and concepts.
@@ -24,7 +22,6 @@ commands:
   link:
     icon: link-2
     description: "Capture ideas from URL:"
-    modes: [edit]
     template: |
       Visit the following URL: {user_input}.
       Process the contents. 
@@ -43,7 +40,6 @@ commands:
   trend:
     icon: trending-up
     description: "Spot a trend related to..."
-    modes: [edit, readonly]
     template: |
       Query the knowledge graph for capabilities and milestones related to {user_input}. 
       Look at milestones over time. Look at new capabilities emerging and the use cases they unlock. 
@@ -64,7 +60,6 @@ commands:
   check:
     icon: check-check
     description: "Check if the prediction is valid:"
-    modes: [edit, readonly]
     template: |
       start by gathering data:
       1. Search the knowledge graph for an idea or trend related to {user_input}
@@ -77,7 +72,6 @@ commands:
   map:
     icon: map
     description: "Map ideas, and predictions to..."
-    modes: [edit, readonly]
     template: |
       Find ideas and trends related to {user_input}
       Start by gathering data:
@@ -97,7 +91,6 @@ commands:
   tool:
     icon: wrench
     description: "find toolset for:"
-    modes: [edit, readonly]
     template: |
       Find toolset for {user_input}
       Work backwards. Start by gathering data:
@@ -108,7 +101,6 @@ commands:
   pathway:
     icon: route
     description: "build a pathway with..."
-    modes: [edit, readonly]
     template: |
       # Why should we care about {user_input}?
 
@@ -174,7 +166,6 @@ commands:
   strategy:
     icon: notebook-text
     description: "Read webpage and create AI strategy for:"
-    modes: [edit, readonly]
     template: |
       Act like an AI strategy consultant from a leading global consulting firm, specializing in emerging technologies and digital transformation.  
       Your task is to develop a comprehensive AI strategy recommendation for a company based on its website. The input parameter is the company's website URL: {user_input}.
@@ -258,7 +249,6 @@ commands:
   gaps:
     icon: search
     description: "Find gaps in thinking about..."
-    modes: [edit, readonly]
     template: |
       Perform a structural gap analysis on the knowledge graph related to {user_input}.
 
@@ -281,7 +271,6 @@ commands:
   stale:
     icon: clock
     description: "Find stale assessments about..."
-    modes: [edit, readonly]
     template: |
       Find assessments and bets in the knowledge graph related to {user_input} that may be outdated.
 
@@ -298,7 +287,6 @@ commands:
   validate:
     icon: check-circle
     description: "Validate bet about..."
-    modes: [edit, readonly]
     template: |
       Validate the following bet against current evidence: {user_input}
 
@@ -318,7 +306,6 @@ commands:
   contradict:
     icon: alert-triangle
     description: "Find contradictions in thinking about..."
-    modes: [edit, readonly]
     template: |
       Find contradictions and tensions in existing positions related to {user_input}.
 
@@ -336,7 +323,6 @@ commands:
   analyze:
     icon: scan-search
     description: "Analyze news event:"
-    modes: [edit, readonly]
     template: |
       Analyze the following news event and provide a structured, multi-dimensional assessment: {user_input}
 
@@ -365,7 +351,6 @@ commands:
   xarticle:
     icon: file-text
     description: "Turn our entire prior discussion into a polished long-form X Article (not a thread)"
-    modes: [edit, readonly]
     template: |
       You are an excellent long-form writer specializing in content for the X platform.
 
