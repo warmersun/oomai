@@ -253,7 +253,12 @@ export default function ChainlitChatPanel({ currentEmTech, followUpContext, onCl
 
     // --- Event handlers ---
 
-    const handleNewChat = useCallback(() => {
+    const restartSession = useCallback((profileName) => {
+        if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+        }
+
         setMessages([]);
     }, [setMessages]);
 
