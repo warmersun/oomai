@@ -361,6 +361,25 @@ export default function App() {
 
         if (c.type === 'bet') {
             const b = c.data;
+            const applyBetEvaluation = (updates) => {
+                const nextData = {
+                    ...b,
+                    validations: updates.validations ?? b.validations,
+                    invalidations: updates.invalidations ?? b.invalidations,
+                    result: updates.result ?? b.result,
+                };
+                setModal((prev) => ({ ...prev, content: { ...prev.content, data: nextData } }));
+                setBets((prevBets) => prevBets.map((item) => (
+                    item.name === b.name
+                        ? {
+                            ...item,
+                            validations: updates.validations ?? item.validations,
+                            invalidations: updates.invalidations ?? item.invalidations,
+                            result: updates.result ?? item.result,
+                        }
+                        : item
+                )));
+            };
             const hasValidation = b.validations?.some(v => v.milestone);
             const hasInvalidation = b.invalidations?.some(v => v.source);
             let status, statusClass;
@@ -407,7 +426,7 @@ export default function App() {
                             </div>
                         </div>
                     )}
-                    <BetEvalSection betName={b.name} currentEmTech={currentEmTech} onFollowUp={handleFollowUp} />
+                    <BetEvalSection betName={b.name} currentEmTech={currentEmTech} onFollowUp={handleFollowUp} onEvaluationApplied={applyBetEvaluation} />
                 </>
             );
         }
@@ -665,7 +684,7 @@ export default function App() {
 
 /* ─── Inline sub-components for modal actions ─── */
 
-function BetEvalSection({ betName, currentEmTech, onFollowUp }) {
+function BetEvalSection({ betName, currentEmTech, onFollowUp, onEvaluationApplied }) {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
 
@@ -674,6 +693,13 @@ function BetEvalSection({ betName, currentEmTech, onFollowUp }) {
         try {
             const data = await postBetEval({ bet_name: betName, emtech: currentEmTech });
             if (data.content) setResult(data.content);
+            if (onEvaluationApplied) {
+                onEvaluationApplied({
+                    validations: data.validations || [],
+                    invalidations: data.invalidations || [],
+                    result: data.result || null,
+                });
+            }
         } catch (err) {
             setResult(`⚠️ Evaluation failed: ${err.message}`);
         } finally {
