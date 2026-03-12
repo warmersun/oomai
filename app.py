@@ -90,7 +90,6 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
-    TOOLS_DEFINITIONS["multi_agent_research"],
 ]
 
 AVAILABLE_FUNCTIONS_READONLY = {
@@ -107,7 +106,6 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
-    "multi_agent_research": multi_agent_research,
 }
 
 TOOLS_VISUALIZATION = [
@@ -115,7 +113,6 @@ TOOLS_VISUALIZATION = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
-    TOOLS_DEFINITIONS["multi_agent_research"],
 ]
 
 AVAILABLE_FUNCTIONS_VISUALIZATION = {
@@ -123,7 +120,6 @@ AVAILABLE_FUNCTIONS_VISUALIZATION = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
-    "multi_agent_research": multi_agent_research,
 }
 
 TOOLS_STEP2_CAPTURE = [
@@ -135,7 +131,6 @@ TOOLS_STEP2_CAPTURE = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
-    TOOLS_DEFINITIONS["multi_agent_research"],
     TOOLS_DEFINITIONS["create_node"],
     TOOLS_DEFINITIONS["create_edge"],
 ]
@@ -149,10 +144,12 @@ AVAILABLE_FUNCTIONS_STEP2_CAPTURE = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
-    "multi_agent_research": multi_agent_research,
     "create_node": create_node,
     "create_edge": create_edge,
 }
+
+RESEARCH_TOOL_DEFINITION = TOOLS_DEFINITIONS["multi_agent_research"]
+RESEARCH_TOOL_FUNCTIONS = {"multi_agent_research": multi_agent_research}
 
 READ_ONLY_PROFILE = "Knowledge Graph Assistant"
 
@@ -341,15 +338,22 @@ async def on_message(message: cl.Message):
         def get_session_vars(mode="readonly"):
             xai_client = cl.user_session.get("xai_client")
             functions_with_ctx = cl.user_session.get("functions_with_ctx")
+            research_mode = cl.user_session.get("research_mode") is True
+
             if mode == "readonly":
-                tools = TOOLS_READONLY
-                function_map = AVAILABLE_FUNCTIONS_READONLY
+                tools = list(TOOLS_READONLY)
+                function_map = dict(AVAILABLE_FUNCTIONS_READONLY)
             elif mode == "capture":
-                tools = TOOLS_STEP2_CAPTURE
-                function_map = AVAILABLE_FUNCTIONS_STEP2_CAPTURE
+                tools = list(TOOLS_STEP2_CAPTURE)
+                function_map = dict(AVAILABLE_FUNCTIONS_STEP2_CAPTURE)
             else:
-                tools = TOOLS_VISUALIZATION
-                function_map = AVAILABLE_FUNCTIONS_VISUALIZATION
+                tools = list(TOOLS_VISUALIZATION)
+                function_map = dict(AVAILABLE_FUNCTIONS_VISUALIZATION)
+
+            if research_mode:
+                tools.append(RESEARCH_TOOL_DEFINITION)
+                function_map.update(RESEARCH_TOOL_FUNCTIONS)
+
             return xai_client, tools, function_map, functions_with_ctx
 
         async with cl.Step(name="the Knowledge Graph",
