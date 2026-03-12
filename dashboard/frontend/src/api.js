@@ -38,6 +38,7 @@ export const postBetEval = (body) => postJSON(`${BASE}/api/bet/evaluate`, body);
 export const postIdeaCheck = (body) => postJSON(`${BASE}/api/idea/check`, body);
 export const postMap = (body) => postJSON(`${BASE}/api/map`, body);
 export const postAdvFilter = (body) => postJSON(`${BASE}/api/advancement/filter`, body);
+export const postPathway = (body) => postJSON(`${BASE}/api/advancement/pathway`, body);
 export const postChatReset = (body) => postJSON(`${BASE}/api/chat/reset`, body);
 
 // SSE streaming endpoints — return the raw fetch response for streaming
