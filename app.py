@@ -39,6 +39,7 @@ from function_tools import (
     visualize_oom,
     TOOLS_DEFINITIONS,
     x_search,
+    multi_agent_research,
 )
 from chainlit_xai_util import generate_response
 from utils import Neo4jDateEncoder
@@ -147,6 +148,9 @@ AVAILABLE_FUNCTIONS_STEP2_CAPTURE = {
     "create_edge": create_edge,
 }
 
+RESEARCH_TOOL_DEFINITION = TOOLS_DEFINITIONS["multi_agent_research"]
+RESEARCH_TOOL_FUNCTIONS = {"multi_agent_research": multi_agent_research}
+
 READ_ONLY_PROFILE = "Knowledge Graph Assistant"
 
 
@@ -245,6 +249,7 @@ async def start():
     ]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
     cl.user_session.set("capture_mode", False)
+    cl.user_session.set("research_mode", False)
 
 
 @cl.on_settings_update
@@ -333,15 +338,22 @@ async def on_message(message: cl.Message):
         def get_session_vars(mode="readonly"):
             xai_client = cl.user_session.get("xai_client")
             functions_with_ctx = cl.user_session.get("functions_with_ctx")
+            research_mode = cl.user_session.get("research_mode") is True
+
             if mode == "readonly":
-                tools = TOOLS_READONLY
-                function_map = AVAILABLE_FUNCTIONS_READONLY
+                tools = list(TOOLS_READONLY)
+                function_map = dict(AVAILABLE_FUNCTIONS_READONLY)
             elif mode == "capture":
-                tools = TOOLS_STEP2_CAPTURE
-                function_map = AVAILABLE_FUNCTIONS_STEP2_CAPTURE
+                tools = list(TOOLS_STEP2_CAPTURE)
+                function_map = dict(AVAILABLE_FUNCTIONS_STEP2_CAPTURE)
             else:
-                tools = TOOLS_VISUALIZATION
-                function_map = AVAILABLE_FUNCTIONS_VISUALIZATION
+                tools = list(TOOLS_VISUALIZATION)
+                function_map = dict(AVAILABLE_FUNCTIONS_VISUALIZATION)
+
+            if research_mode:
+                tools.append(RESEARCH_TOOL_DEFINITION)
+                function_map.update(RESEARCH_TOOL_FUNCTIONS)
+
             return xai_client, tools, function_map, functions_with_ctx
 
         async with cl.Step(name="the Knowledge Graph",
@@ -628,11 +640,12 @@ async def tts(action: cl.Action):
 
 def _process_command(message: cl.Message) -> str:
     capture_mode = message.command == "capture"
+    research_mode = message.command == "research"
     cl.user_session.set("capture_mode", capture_mode)
-    if message.command:
-        if message.command in COMMAND_DATA:
-            template = COMMAND_DATA[message.command]['template']
-            return template.format(user_input=message.content)
+    cl.user_session.set("research_mode", research_mode)
+    if message.command and message.command in COMMAND_DATA:
+        template = COMMAND_DATA[message.command]['template']
+        return template.format(user_input=message.content)
     return message.content
 
 
@@ -741,6 +754,7 @@ async def on_chat_resume(thread: ThreadDict):
     cl.user_session.set("task_list", None)
     cl.user_session.set("tasks", {})
     cl.user_session.set("capture_mode", False)
+    cl.user_session.set("research_mode", False)
 
 
 # Auth

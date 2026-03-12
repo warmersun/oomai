@@ -436,9 +436,10 @@ TOOLS_DEFINITIONS = {
                      "default": [],
                  },
                  "last_24hrs": {
-                     "type": "boolean",
+                     "type": "integer",
                      "description": "When true, restricts X search to posts from the last 24 hours only. Use for breaking news, real-time developments, or when the user asks about 'latest' or 'today's' events. Web search is unaffected by this filter.",
-                     "default": False,
+                     "enum": [4, 16],
+                     "default": 4,
                  },
                  "system_prompt": {
                      "type": "string",
@@ -457,6 +458,68 @@ TOOLS_DEFINITIONS = {
                      "type": "boolean",
                      "description": "When true, enables video understanding. The search agent will watch and transcribe video content found in X posts or web pages.",
                      "default": False,
+                 },
+             },
+             "required": ["prompt"]
+         }),
+    "multi_agent_research":
+    tool(name="multi_agent_research",
+         description="""
+        Runs Grok's multi-agent research mode using the beta model `grok-4.20-multi-agent-beta-0309`.
+
+        This launches a team of collaborating agents (leader + sub-agents) that can simultaneously:
+        - search and gather from web and X,
+        - cross-check findings,
+        - synthesize a final, cited answer.
+
+        Use this when the task needs deeper, multi-step research rather than a quick search.
+
+        Prompting Guide
+
+        Getting the most out of multi-agent research starts with how you frame your request. Here are patterns that work well:
+
+        **Set the scope and depth explicitly**
+
+        Rather than asking a broad question, tell the agents exactly what dimensions to cover:
+
+        ```text
+        ❌  "Tell me about electric vehicles."
+        ✅  "Compare the top 3 EV manufacturers by battery technology, range, charging infrastructure, and 2025 sales projections."
+        ```
+
+        **Ask for structured output**
+
+        Multi-agent research excels when you request organized, structured responses:
+
+        ```text
+        ✅  "Research the pros and cons of microservices vs monolithic architecture. Present your findings as a comparison table with categories: scalability, complexity, deployment, and team size requirements."
+        ```
+
+        **Specify sources or perspectives**
+
+        Guide the agents toward the types of evidence you value:
+
+        ```text
+        ✅  "Analyze the environmental impact of large language model training, citing recent academic papers and industry reports from 2024-2025."
+        ```
+        """,
+         parameters={
+             "type": "object",
+             "properties": {
+                 "prompt": {
+                     "type": "string",
+                     "description": "Detailed research brief for the multi-agent team.",
+                 },
+                 "system_prompt": {
+                     "type": "string",
+                     "description": "Optional system instruction controlling format and priorities.",
+                     "default": "Research on X and the web, then return a detailed, cited summary.",
+                 },
+                 "agent_count": {
+                     "type": "integer",
+                     "description": "Number of agents to use for multi-agent research. Must be either 4 (faster) or 16 (deeper).",
+                     "enum": [4, 16],
+                     "default": 4,
                  },
              },
              "required": ["prompt"]
