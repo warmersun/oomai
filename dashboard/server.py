@@ -1139,7 +1139,61 @@ async def evaluate_bet(req: EvaluateBetRequest):
         )
 
         response = await chat.sample()
-        return {"content": response.content, "bet_name": req.bet_name, "emtech": req.emtech}
+        content = response.content
+
+        # 6. Persist latest evaluation snapshot on the Bet node so UI/state can
+        # immediately reflect the most recent validation and invalidation signals.
+        # Keep both `validations` and legacy typo `vallidations` for compatibility.
+        evaluation_result = None
+        content_lower = content.lower()
+        if "maintained" in content_lower:
+            evaluation_result = "maintained"
+        elif "revised" in content_lower:
+            evaluation_result = "revised"
+        elif "closed" in content_lower:
+            evaluation_result = "closed"
+
+        update_query = """
+        MATCH (b:Bet {name: $name})
+        SET b.validations = $validations,
+            b.vallidations = $validations,
+            b.invalidations = $invalidations,
+            b.last_evaluated_at = datetime(),
+            b.last_evaluation = $evaluation
+        FOREACH (_ IN CASE WHEN $result IS NULL THEN [] ELSE [1] END |
+            SET b.result = $result
+        )
+        RETURN b.name AS name,
+               b.result AS result,
+               b.validations AS validations,
+               b.invalidations AS invalidations
+        """
+
+        async with driver.session() as session:
+            update_result = await session.run(update_query, {
+                "name": req.bet_name,
+                "validations": valid,
+                "invalidations": invalid,
+                "evaluation": content,
+                "result": evaluation_result,
+            })
+            updated_bet = await update_result.single()
+
+        updated_payload = neo4j_to_json(dict(updated_bet)) if updated_bet else {
+            "name": req.bet_name,
+            "result": evaluation_result,
+            "validations": valid,
+            "invalidations": invalid,
+        }
+
+        return {
+            "content": content,
+            "bet_name": req.bet_name,
+            "emtech": req.emtech,
+            "validations": updated_payload.get("validations", valid),
+            "invalidations": updated_payload.get("invalidations", invalid),
+            "result": updated_payload.get("result", evaluation_result),
+        }
 
     except HTTPException:
         raise
