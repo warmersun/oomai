@@ -107,8 +107,11 @@ Use exactly this structure for your output:
 
 ---
 
-## Original Question
-[Repeat the user’s exact question here.]
+## Original Question/Intent
+[
+  for normal questions, repeat the user’s exact question here;  
+  for tasks, describe the user's intent.
+]
 
 ## Context
 [This section must be long, detailed, and written in polished prose. Transform all raw findings into a rich narrative. Organize into logical sub-sections such as Related Ideas, Strategic Bets, Emerging Trends, Key Assertions, etc. Include every relevant detail you discovered. Clearly explain relationships between entities. For every idea, trend, assessment, or bet, state who originated it and distinguish the user’s own positions from tracked third-party positions. Briefly introduce each third party so the Next Step Agent can contextualize them properly.]

@@ -8,7 +8,7 @@ In this step, you should:
 2. Capture new information in the knowledge graph.
 
 **Your INPUT** is an **ENRICHED PROMPT** containing:
-- the user's original question
+- the user's original intent
 - rich context
 - follow-up questions
 - exact Response Structure
