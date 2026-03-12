@@ -15,7 +15,7 @@ import ChainlitChatPanel from './components/ChainlitChatPanel';
 import Modal from './components/Modal';
 import {
     fetchEmTechs, fetchTrends, fetchBets, fetchIdeas, fetchAdvancement, fetchConvergences,
-    fetchIdeaDetail, fetchMilestoneDetail, postBetEval, postIdeaCheck, postAnalyze
+    fetchIdeaDetail, fetchMilestoneDetail, postBetEval, postIdeaCheck, postAnalyze, postPathway
 } from './api';
 import { escapeHtml, markdownToHtml } from './utils';
 
@@ -274,6 +274,47 @@ export default function App() {
         setModal({ visible: true, title: info.title, content: { type: 'news', data: info.content, allItems: info.allItems, idx: info.idx, currentEmTech: info.currentEmTech, analyzeResult: null } });
     };
 
+    const openPathwayModal = async ({ lacName, lacDesc, milestone, capability }) => {
+        setModal({
+            visible: true,
+            title: `🛤️ Pathway: ${lacName}`,
+            content: { type: 'pathway', loading: true, lacName }
+        });
+
+        try {
+            const data = await postPathway({ lac_name: lacName, emtech: currentEmTech });
+            setModal({
+                visible: true,
+                title: `🛤️ Pathway: ${lacName}`,
+                content: {
+                    type: 'pathway',
+                    loading: false,
+                    lacName,
+                    lacDesc,
+                    milestone,
+                    capability,
+                    result: data.content || null,
+                    error: data.detail || null,
+                }
+            });
+        } catch (err) {
+            setModal({
+                visible: true,
+                title: `🛤️ Pathway: ${lacName}`,
+                content: {
+                    type: 'pathway',
+                    loading: false,
+                    lacName,
+                    lacDesc,
+                    milestone,
+                    capability,
+                    result: null,
+                    error: `Analysis failed: ${err.message}`,
+                }
+            });
+        }
+    };
+
     const handleOpenModal = (info) => {
         if (info.type === 'bet') openBetModal(info.data);
         else if (info.type === 'idea') openIdeaModal(info.name);
@@ -303,6 +344,14 @@ export default function App() {
                 }
             }
         }
+    };
+
+    const onFollowUpFromPathway = (pathwayContent) => {
+        handleFollowUp({
+            type: 'advancement pathway',
+            title: pathwayContent.lacName,
+            content: pathwayContent.result,
+        });
     };
 
     // Render modal body based on type
@@ -359,6 +408,48 @@ export default function App() {
                         </div>
                     )}
                     <BetEvalSection betName={b.name} currentEmTech={currentEmTech} onFollowUp={handleFollowUp} />
+                </>
+            );
+        }
+
+
+        if (c.type === 'pathway') {
+            if (c.loading) {
+                return (
+                    <div className="loading-container">
+                        <div className="loading-spinner" style={{ borderTopColor: 'var(--accent-purple)' }}></div>
+                        <div className="loading-text" style={{ color: 'var(--accent-purple)' }}>
+                            GENERATING PATHWAY…<br />
+                            Mapping use case to global problems via AI
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <>
+                    {(c.lacDesc || c.milestone || c.capability) && (
+                        <div className="modal-section">
+                            <div className="modal-section-title">Context</div>
+                            <div className="modal-section-content">
+                                {c.lacDesc && <div><strong>Description:</strong> {c.lacDesc}</div>}
+                                {c.milestone && <div><strong>Milestone:</strong> {c.milestone}</div>}
+                                {c.capability && <div><strong>Capability:</strong> {c.capability}</div>}
+                            </div>
+                        </div>
+                    )}
+                    {c.result ? (
+                        <div className="modal-section">
+                            <div className="analysis-content" dangerouslySetInnerHTML={{ __html: markdownToHtml(c.result) }} />
+                            <button className="follow-up-btn" style={{ marginTop: '12px' }} onClick={() => onFollowUpFromPathway(c)}>
+                                💬 Follow up in AI Chat
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="modal-section">
+                            <div className="empty-state">⚠️ {c.error || 'No pathway content returned.'}</div>
+                        </div>
+                    )}
                 </>
             );
         }
@@ -543,7 +634,7 @@ export default function App() {
                 {/* Advancement Panel */}
                 <div className="grid-stack-item" gs-w="12" gs-h="8" gs-x="0" gs-y="12">
                     <section className="grid-stack-item-content panel advancement-panel">
-                        <AdvancementPanel advancement={advancement} loading={loadingAdv} currentEmTech={currentEmTech} onFollowUp={handleFollowUp} />
+                        <AdvancementPanel advancement={advancement} loading={loadingAdv} currentEmTech={currentEmTech} onPathway={openPathwayModal} />
                     </section>
                 </div>
 

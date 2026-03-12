@@ -3,7 +3,7 @@ import { postAdvFilter } from '../api';
 import { escapeHtml } from '../utils';
 import { LoadingSpinner, EmptyState } from './shared';
 
-export default function AdvancementPanel({ advancement, loading, currentEmTech, onFollowUp }) {
+export default function AdvancementPanel({ advancement, loading, currentEmTech, onPathway }) {
     const [filterQuery, setFilterQuery] = useState('');
     const [filteredLacs, setFilteredLacs] = useState(null);
     const [filtering, setFiltering] = useState(false);
@@ -137,10 +137,11 @@ export default function AdvancementPanel({ advancement, loading, currentEmTech, 
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                                                 <button className="pathway-btn" onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    onFollowUp && onFollowUp({
-                                                                        type: 'advancement pathway',
-                                                                        title: lac.lac_name,
-                                                                        content: `Use case: ${lac.lac_name}\nDescription: ${lac.lac_desc || ''}\nMilestone: ${ms.name}\nCapability: ${cap.capability}`
+                                                                    onPathway && onPathway({
+                                                                        lacName: lac.lac_name,
+                                                                        lacDesc: lac.lac_desc || '',
+                                                                        milestone: ms.name,
+                                                                        capability: cap.capability
                                                                     });
                                                                 }}>
                                                                     🛤️ Pathway
