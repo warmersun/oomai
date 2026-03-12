@@ -36,3 +36,14 @@ commands:
       {user_input}
 
       Now write the full X Article.      
+
+  research:
+    icon: search
+    description: "run multi-agent Grok research"
+    template: |
+      **Task**: Run a focused multi-agent research pass using the `multi_agent_research` tool before drafting your final answer.
+      - This tool uses the 16-agent setup by default for deep research.
+      - Return a structured synthesis with citations and clearly separated findings vs conclusions.
+
+      User request:
+      {user_input}

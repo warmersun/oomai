@@ -39,6 +39,7 @@ from function_tools import (
     visualize_oom,
     TOOLS_DEFINITIONS,
     x_search,
+    multi_agent_research,
 )
 from chainlit_xai_util import generate_response
 from utils import Neo4jDateEncoder
@@ -60,6 +61,11 @@ with open("knowledge_graph/system_prompt_capture_step2.md", "r") as f:
         schema=schema,
         user_party_name=USER_PARTY_NAME,
         schema_population_guidance=schema_population_guidance,
+    )
+with open("knowledge_graph/system_prompt_research_step2.md", "r") as f:
+    SYSTEM_PROMPT_RESEARCH_STEP2 = f.read().format(
+        schema=schema,
+        user_party_name=USER_PARTY_NAME,
     )
 
 with open("knowledge_graph/command_sources.yaml", "r") as f:
@@ -146,6 +152,9 @@ AVAILABLE_FUNCTIONS_STEP2_CAPTURE = {
     "create_node": create_node,
     "create_edge": create_edge,
 }
+
+RESEARCH_TOOL_DEFINITION = TOOLS_DEFINITIONS["multi_agent_research"]
+RESEARCH_TOOL_FUNCTIONS = {"multi_agent_research": multi_agent_research}
 
 READ_ONLY_PROFILE = "Knowledge Graph Assistant"
 
@@ -245,6 +254,7 @@ async def start():
     ]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
     cl.user_session.set("capture_mode", False)
+    cl.user_session.set("research_mode", False)
 
 
 @cl.on_settings_update
@@ -330,24 +340,31 @@ async def on_message(message: cl.Message):
         })
 
         # Helper to get session vars
-        def get_session_vars(mode="readonly"):
+        def get_session_vars(mode="readonly", enable_research_tool=False):
             xai_client = cl.user_session.get("xai_client")
             functions_with_ctx = cl.user_session.get("functions_with_ctx")
+
             if mode == "readonly":
-                tools = TOOLS_READONLY
-                function_map = AVAILABLE_FUNCTIONS_READONLY
+                tools = list(TOOLS_READONLY)
+                function_map = dict(AVAILABLE_FUNCTIONS_READONLY)
             elif mode == "capture":
-                tools = TOOLS_STEP2_CAPTURE
-                function_map = AVAILABLE_FUNCTIONS_STEP2_CAPTURE
+                tools = list(TOOLS_STEP2_CAPTURE)
+                function_map = dict(AVAILABLE_FUNCTIONS_STEP2_CAPTURE)
             else:
-                tools = TOOLS_VISUALIZATION
-                function_map = AVAILABLE_FUNCTIONS_VISUALIZATION
+                tools = list(TOOLS_VISUALIZATION)
+                function_map = dict(AVAILABLE_FUNCTIONS_VISUALIZATION)
+
+            if enable_research_tool:
+                tools.append(RESEARCH_TOOL_DEFINITION)
+                function_map.update(RESEARCH_TOOL_FUNCTIONS)
+
             return xai_client, tools, function_map, functions_with_ctx
 
         async with cl.Step(name="the Knowledge Graph",
                            type="tool",
                            default_open=True) as step:
             capture_mode = cl.user_session.get("capture_mode") is True
+            research_mode = cl.user_session.get("research_mode") is True
 
             # Common session vars
             user_and_assistant_messages = cl.user_session.get("user_and_assistant_messages")
@@ -355,7 +372,7 @@ async def on_message(message: cl.Message):
             user_and_assistant_messages.append(user(processed_message))
 
             # STEP 1: Research & Blueprinting
-            xai_client, tools, function_map, functions_with_ctx = get_session_vars("readonly")
+            xai_client, tools, function_map, functions_with_ctx = get_session_vars("readonly", enable_research_tool=False)
 
             # Construct messages for Step 1
             step1_messages = [system(SYSTEM_PROMPT_READONLY_STEP1)] + user_and_assistant_messages
@@ -382,7 +399,7 @@ async def on_message(message: cl.Message):
 
                 # STEP 2: Visualization / Inference (+ optional capture mode)
                 step2_mode = "capture" if capture_mode else "visualization"
-                xai_client, tools, function_map, functions_with_ctx = get_session_vars(step2_mode)
+                xai_client, tools, function_map, functions_with_ctx = get_session_vars(step2_mode, enable_research_tool=research_mode)
 
                 # Show a task for Step 2 so the user knows what's happening
                 step2_task_title = "Synthesizing response from enriched context and questions"
@@ -405,7 +422,12 @@ async def on_message(message: cl.Message):
                 # Append input (Enriched Prompt) to Step 2 history
                 step2_messages.append(user(step2_prompt))
 
-                step2_system_prompt = SYSTEM_PROMPT_CAPTURE_STEP2 if capture_mode else SYSTEM_PROMPT_READONLY_STEP2
+                if capture_mode:
+                    step2_system_prompt = SYSTEM_PROMPT_CAPTURE_STEP2
+                elif research_mode:
+                    step2_system_prompt = SYSTEM_PROMPT_RESEARCH_STEP2
+                else:
+                    step2_system_prompt = SYSTEM_PROMPT_READONLY_STEP2
                 # Construct messages for Step 2
                 step2_input_messages = [system(step2_system_prompt)] + step2_messages
 
@@ -628,11 +650,12 @@ async def tts(action: cl.Action):
 
 def _process_command(message: cl.Message) -> str:
     capture_mode = message.command == "capture"
+    research_mode = message.command == "research"
     cl.user_session.set("capture_mode", capture_mode)
-    if message.command:
-        if message.command in COMMAND_DATA:
-            template = COMMAND_DATA[message.command]['template']
-            return template.format(user_input=message.content)
+    cl.user_session.set("research_mode", research_mode)
+    if message.command and message.command in COMMAND_DATA:
+        template = COMMAND_DATA[message.command]['template']
+        return template.format(user_input=message.content)
     return message.content
 
 
@@ -741,6 +764,7 @@ async def on_chat_resume(thread: ThreadDict):
     cl.user_session.set("task_list", None)
     cl.user_session.set("tasks", {})
     cl.user_session.set("capture_mode", False)
+    cl.user_session.set("research_mode", False)
 
 
 # Auth
