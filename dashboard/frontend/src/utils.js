@@ -26,21 +26,6 @@ export function escapeAttr(str) {
     return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
 
-export function generateSessionId() {
-    return 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
-
-export function generateColors(n) {
-    const base = [
-        '#06b6d4', '#a855f7', '#f43f5e', '#10b981', '#3b82f6',
-        '#ec4899', '#eab308', '#8b5cf6', '#14b8a6', '#f59e0b',
-        '#84cc16', '#e879f9', '#22d3ee', '#fb923c', '#4ade80',
-    ];
-    const out = [];
-    for (let i = 0; i < n; i++) out.push(base[i % base.length]);
-    return out;
-}
-
 /** Convert markdown text to HTML (used for analysis/chat rendering) */
 export function markdownToHtml(text) {
     if (!text) return '';
@@ -94,33 +79,3 @@ export function markdownToHtml(text) {
     return html;
 }
 
-/** Process an SSE stream from a fetch Response, calling handlers for each event type */
-export async function processSSEStream(response, handlers) {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') continue;
-
-            try {
-                const event = JSON.parse(data);
-                if (handlers[event.type]) {
-                    handlers[event.type](event);
-                }
-            } catch (e) {
-                // Skip non-JSON lines
-            }
-        }
-    }
-}

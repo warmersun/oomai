@@ -39,29 +39,3 @@ export const postIdeaCheck = (body) => postJSON(`${BASE}/api/idea/check`, body);
 export const postMap = (body) => postJSON(`${BASE}/api/map`, body);
 export const postAdvFilter = (body) => postJSON(`${BASE}/api/advancement/filter`, body);
 export const postPathway = (body) => postJSON(`${BASE}/api/advancement/pathway`, body);
-export const postChatReset = (body) => postJSON(`${BASE}/api/chat/reset`, body);
-
-// SSE streaming endpoints — return the raw fetch response for streaming
-export async function postChatStream(body) {
-    return fetch(`${BASE}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-}
-
-export async function postXArticleStream(body) {
-    return fetch(`${BASE}/api/chat/xarticle`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-}
-
-export async function postCaptureStream(body) {
-    return fetch(`${BASE}/api/chat/capture`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-}
