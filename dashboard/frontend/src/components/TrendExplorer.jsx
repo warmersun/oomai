@@ -15,6 +15,7 @@ export default function TrendExplorer({
     const [activeIdx, setActiveIdx] = useState(null);
     const [detailView, setDetailView] = useState(null); // 'detail' | 'chart' | 'spotted' | null
     const [detailData, setDetailData] = useState(null);
+    const [chartData, setChartData] = useState(null);
     const [chartLoading, setChartLoading] = useState(false);
     const [doublingInfo, setDoublingInfo] = useState('');
     const chartRef = useRef(null);
@@ -37,6 +38,7 @@ export default function TrendExplorer({
         setActiveIdx(null);
         setDetailView(null);
         setDetailData(null);
+        setChartData(null);
         setDoublingInfo('');
         setSpotTopic('');
         if (chartInstance.current) { chartInstance.current.destroy(); chartInstance.current = null; }
@@ -46,6 +48,7 @@ export default function TrendExplorer({
         setActiveIdx(idx);
         setDetailView('detail');
         setDetailData(uniqueTrends[idx]);
+        setChartData(null);
         setDoublingInfo('');
         if (chartInstance.current) { chartInstance.current.destroy(); chartInstance.current = null; }
     };
@@ -65,7 +68,8 @@ export default function TrendExplorer({
             }
             // Store for follow-up
             window._lastTrendAnalysis = data;
-            renderChart(data);
+            setChartData(data);
+            setDetailView('chart');
         } catch (err) {
             setDetailView('detail');
             setDetailData({ ...trend, _error: err.message });
@@ -73,6 +77,11 @@ export default function TrendExplorer({
             setChartLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (detailView !== 'chart' || !chartData || !chartRef.current) return;
+        renderChart(chartData);
+    }, [detailView, chartData]);
 
     const renderChart = (data) => {
         if (!chartRef.current) return;
@@ -164,6 +173,7 @@ export default function TrendExplorer({
             }
             setDetailView('spotted');
             setDetailData({ spotted: data.spotted, emtech: data.emtech });
+            setChartData(null);
             window._spottedTrend = { trend_name: data.spotted.trend_name, description: data.spotted.description, capabilities: data.spotted.capabilities, emtech: data.emtech };
         } catch (err) {
             setDetailView('detail');
