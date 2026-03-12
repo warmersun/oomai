@@ -125,7 +125,6 @@ sources:
     source_type: X
     handles:
       - meta
-      - ylecun
       - alexandr_wang
 
   - name: google_research_updates
@@ -241,6 +240,7 @@ sources:
       - CyberRobooo
       - adcock_brett
       - TheRundownAI
+      - lukas_m_ziegler
 
   - name: quantum_computing_news
     prompt: >
