@@ -26,6 +26,8 @@ from .visual_ops import display_mermaid_diagram
 
 from .core_x_search import core_x_search
 from .chainlit_x_search import x_search
+from .core_multi_agent_research import core_multi_agent_research
+from .chainlit_multi_agent_research import multi_agent_research
 from .core_perplexity_search import core_perplexity_search
 from .youtube_transcript import fetch_recent_transcripts
 from .tool_def import TOOLS_DEFINITIONS

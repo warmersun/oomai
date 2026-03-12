@@ -39,6 +39,7 @@ from function_tools import (
     visualize_oom,
     TOOLS_DEFINITIONS,
     x_search,
+    multi_agent_research,
 )
 from chainlit_xai_util import generate_response
 from utils import Neo4jDateEncoder
@@ -89,6 +90,7 @@ TOOLS_READONLY = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
+    TOOLS_DEFINITIONS["multi_agent_research"],
 ]
 
 AVAILABLE_FUNCTIONS_READONLY = {
@@ -105,6 +107,7 @@ AVAILABLE_FUNCTIONS_READONLY = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
+    "multi_agent_research": multi_agent_research,
 }
 
 TOOLS_VISUALIZATION = [
@@ -112,6 +115,7 @@ TOOLS_VISUALIZATION = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
+    TOOLS_DEFINITIONS["multi_agent_research"],
 ]
 
 AVAILABLE_FUNCTIONS_VISUALIZATION = {
@@ -119,6 +123,7 @@ AVAILABLE_FUNCTIONS_VISUALIZATION = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
+    "multi_agent_research": multi_agent_research,
 }
 
 TOOLS_STEP2_CAPTURE = [
@@ -130,6 +135,7 @@ TOOLS_STEP2_CAPTURE = [
     TOOLS_DEFINITIONS["display_convergence_canvas"],
     TOOLS_DEFINITIONS["visualize_oom"],
     TOOLS_DEFINITIONS["x_search"],
+    TOOLS_DEFINITIONS["multi_agent_research"],
     TOOLS_DEFINITIONS["create_node"],
     TOOLS_DEFINITIONS["create_edge"],
 ]
@@ -143,6 +149,7 @@ AVAILABLE_FUNCTIONS_STEP2_CAPTURE = {
     "display_convergence_canvas": display_convergence_canvas,
     "visualize_oom": visualize_oom,
     "x_search": x_search,
+    "multi_agent_research": multi_agent_research,
     "create_node": create_node,
     "create_edge": create_edge,
 }
@@ -245,6 +252,7 @@ async def start():
     ]
     cl.user_session.set("functions_with_ctx", functions_with_ctx)
     cl.user_session.set("capture_mode", False)
+    cl.user_session.set("research_mode", False)
 
 
 @cl.on_settings_update
@@ -628,11 +636,12 @@ async def tts(action: cl.Action):
 
 def _process_command(message: cl.Message) -> str:
     capture_mode = message.command == "capture"
+    research_mode = message.command == "research"
     cl.user_session.set("capture_mode", capture_mode)
-    if message.command:
-        if message.command in COMMAND_DATA:
-            template = COMMAND_DATA[message.command]['template']
-            return template.format(user_input=message.content)
+    cl.user_session.set("research_mode", research_mode)
+    if message.command and message.command in COMMAND_DATA:
+        template = COMMAND_DATA[message.command]['template']
+        return template.format(user_input=message.content)
     return message.content
 
 
@@ -741,6 +750,7 @@ async def on_chat_resume(thread: ThreadDict):
     cl.user_session.set("task_list", None)
     cl.user_session.set("tasks", {})
     cl.user_session.set("capture_mode", False)
+    cl.user_session.set("research_mode", False)
 
 
 # Auth
