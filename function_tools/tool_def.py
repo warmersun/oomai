@@ -473,6 +473,35 @@ TOOLS_DEFINITIONS = {
         - synthesize a final, cited answer.
 
         Use this when the task needs deeper, multi-step research rather than a quick search.
+
+        Prompting Guide
+
+        Getting the most out of multi-agent research starts with how you frame your request. Here are patterns that work well:
+
+        **Set the scope and depth explicitly**
+
+        Rather than asking a broad question, tell the agents exactly what dimensions to cover:
+
+        ```text
+        ❌  "Tell me about electric vehicles."
+        ✅  "Compare the top 3 EV manufacturers by battery technology, range, charging infrastructure, and 2025 sales projections."
+        ```
+
+        **Ask for structured output**
+
+        Multi-agent research excels when you request organized, structured responses:
+
+        ```text
+        ✅  "Research the pros and cons of microservices vs monolithic architecture. Present your findings as a comparison table with categories: scalability, complexity, deployment, and team size requirements."
+        ```
+
+        **Specify sources or perspectives**
+
+        Guide the agents toward the types of evidence you value:
+
+        ```text
+        ✅  "Analyze the environmental impact of large language model training, citing recent academic papers and industry reports from 2024-2025."
+        ```
         """,
          parameters={
              "type": "object",
