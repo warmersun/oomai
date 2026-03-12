@@ -461,6 +461,33 @@ TOOLS_DEFINITIONS = {
              },
              "required": ["prompt"]
          }),
+    "multi_agent_research":
+    tool(name="multi_agent_research",
+         description="""
+        Runs Grok's multi-agent research mode using the beta model `grok-4.20-multi-agent-beta-0309`.
+
+        This launches a team of collaborating agents (leader + sub-agents) that can simultaneously:
+        - search and gather from web and X,
+        - cross-check findings,
+        - synthesize a final, cited answer.
+
+        Use this when the task needs deeper, multi-step research rather than a quick search.
+        """,
+         parameters={
+             "type": "object",
+             "properties": {
+                 "prompt": {
+                     "type": "string",
+                     "description": "Detailed research brief for the multi-agent team.",
+                 },
+                 "system_prompt": {
+                     "type": "string",
+                     "description": "Optional system instruction controlling format and priorities.",
+                     "default": "Research on X and the web, then return a detailed, cited summary.",
+                 },
+             },
+             "required": ["prompt"]
+         }),
     "perplexity_search":
     tool(name="perplexity_search",
          description="""
