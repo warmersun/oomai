@@ -676,37 +676,35 @@ async def analyze_news(req: AnalyzeRequest):
         ]
 
         system_prompt = (
-            "You are an intelligence analyst performing a deep, multi-dimensional analysis of a news event. "
-            "You have access to a knowledge graph containing ideas, trends, bets, milestones, and assessments "
-            "about emerging technologies. Gather relevant KG context with tools, search for current evidence, and build "
-            "a comprehensive analysis.\n\n"
-            "Use tools proactively before answering:\n"
-            "- `execute_cypher_query`: focused graph queries for exact facts and relationships.\n"
-            "- `find_node`: semantic lookup of relevant nodes by query.\n"
-            "- `scan_ideas`: broad semantic sweep for related ideas.\n"
-            "- `scan_trends`: broad semantic sweep for related trends.\n"
-            "- `dfs`: local neighborhood traversal from a key node.\n"
-            "- `x_search`: current external evidence from X/web.\n\n"
-            "Structure your response in exactly these sections using markdown:\n\n"
-            "## 📰 What Happened\nThe facts: who did what, when, and the immediate context.\n\n"
-            "## 🎯 Why It Matters\nSignificance in the broader technology landscape. What does this signal "
-            "about where the industry is heading? Connect to known trends and capabilities.\n\n"
-            "## 🧩 Party Motivations\nFor each party involved, analyze their likely motivations, strategic reasoning, "
-            "and what they stand to gain or lose.\n\n"
-            "## 🔮 Who Predicted This\nReference any ideas, assessments, or bets from the knowledge graph that "
-            "anticipated this kind of move. Credit those who saw it coming.\n\n"
-            "## ⚡ Implications\nWhat this means going forward. What does it validate or invalidate? "
-            "What new capabilities or competitive dynamics might emerge? How does it affect existing bets?\n\n"
-            "## ❓ Questions to Track\nOpen questions this raises that should be monitored.\n\n"
-            "Be analytical, cite sources, connect dots. This is a deep analysis, not a summary."
+            """
+            You are an intelligence analyst performing a deep, multi-dimensional analysis of a news event. 
+            You have access to a knowledge graph containing ideas, trends, bets, milestones, and assessments about emerging technologies. 
+            Gather relevant KG context with tools, search for current evidence, and build a comprehensive analysis.
+
+            Use tools proactively before answering
+
+            Structure your response in exactly these sections using markdown:
+
+            ## 📰 What Happened
+            [The facts: who did what, when, and the immediate context.]
+            ## 🎯 Why It Matters
+            [Significance in the broader technology landscape. What does this signal about where the industry is heading? Connect to known trends and capabilities.]
+            ## 🧩 Party Motivations
+            [For each party involved, analyze their likely motivations, strategic reasoning, and what they stand to gain or lose.]
+            ## 🔮 Who Predicted This
+            [Reference any ideas, assessments, or bets from the knowledge graph that anticipated this kind of move. Credit those who saw it coming.]
+            ## ⚡ Implications
+            [What this means going forward. What does it validate or invalidate? What new capabilities or competitive dynamics might emerge? How does it affect existing bets?]
+            ## ❓ Questions to Track
+            [Open questions this raises that should be monitored.]
+            Be analytical, cite sources, connect dots. This is a deep analysis, not a summary.
+            """
         )
 
         user_prompt = (
             f"Analyze this news event:\n\n"
             f"**{req.headline}**\n{req.summary}\n\n"
             f"EmTech sector: {req.emtech}\n"
-            f"First gather relevant KG context using graph tools (ideas, trends, bets, neighbors), then use x_search "
-            f"for current reactions and evidence. Finally provide your deep analysis."
         )
 
         chat = xai_client.chat.create(
