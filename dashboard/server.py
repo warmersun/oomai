@@ -852,113 +852,91 @@ class CheckIdeaRequest(BaseModel):
 
 @app.post("/api/idea/check")
 async def check_idea(req: CheckIdeaRequest):
-    """Validate an idea/prediction using KG context + AI analysis, like /check command."""
+    """Validate an idea/prediction with agentic KG + X/web tool use, like /check."""
     try:
-        from xai_sdk import AsyncClient
-        from xai_sdk.chat import system, user
+        xai_client = XAIAsyncClient(api_key=XAI_API_KEY, timeout=180)
+        openai_embedding_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+        ctx = GraphOpsCtx(neo4jdriver=driver, lock=asyncio.Lock())
 
-        # 1. Gather KG context around the idea
-        idea_query = """
-        MATCH (i:Idea {name: $name})
-        OPTIONAL MATCH (i)-[:RELATES_TO]->(c)
-        OPTIONAL MATCH (i)-[:PLACES]->(b:Bet)
-        RETURN i.name AS name, i.description AS description,
-               i.argument AS argument, i.assumptions AS assumptions,
-               i.counterargument AS counterargument,
-               collect(DISTINCT {name: c.name, type: labels(c)[0], description: c.description}) AS related,
-               collect(DISTINCT {name: b.name, description: b.description, result: b.result}) AS bets
-        """
-        async with driver.session() as session:
-            result = await session.run(idea_query, {"name": req.idea_name})
-            idea_data = await result.data()
-
-        if not idea_data:
+        # Ensure idea exists early for clearer API behavior.
+        exists = await core_execute_cypher_query(
+            ctx,
+            "MATCH (i:Idea {name: $name}) RETURN i.name AS name LIMIT 1",
+            {"name": req.idea_name},
+        )
+        if not exists:
             raise HTTPException(status_code=404, detail="Idea not found")
 
-        idea = neo4j_to_json(idea_data[0])
+        tools = [
+            TOOLS_DEFINITIONS["execute_cypher_query"],
+            TOOLS_DEFINITIONS["find_node"],
+            TOOLS_DEFINITIONS["scan_ideas"],
+            TOOLS_DEFINITIONS["scan_trends"],
+            TOOLS_DEFINITIONS["dfs"],
+            TOOLS_DEFINITIONS["x_search"],
+        ]
 
-        # 2. BFS — find related capabilities, milestones, products, applications
-        bfs_query = """
-        MATCH (i:Idea {name: $name})-[:RELATES_TO]->(c)
-        WITH c
-        OPTIONAL MATCH (c)-[:HAS_MILESTONE]->(m:Milestone)
-        OPTIONAL MATCH (ptc:PTC)-[:REACHES]->(m)
-        OPTIONAL MATCH (m)-[:UNLOCKS]->(lac:LAC)
-        OPTIONAL MATCH (ltc:LTC)-[:PROVIDES]->(c)
-        RETURN c.name AS capability, c.description AS cap_desc,
-               collect(DISTINCT {name: m.name, date: m.milestone_reached_date}) AS milestones,
-               collect(DISTINCT ptc.name) AS products,
-               collect(DISTINCT lac.name) AS applications,
-               collect(DISTINCT ltc.name) AS product_categories
-        LIMIT 20
-        """
-        async with driver.session() as session:
-            result = await session.run(bfs_query, {"name": req.idea_name})
-            bfs_data = await result.data()
-
-        bfs_context = neo4j_to_json(bfs_data)
-
-        # 3. Build context string
-        kg_str = f"**Idea**: {idea['name']}\n**Description**: {idea.get('description', 'N/A')}\n"
-        if idea.get('argument'):
-            kg_str += f"**Argument**: {idea['argument']}\n"
-        if idea.get('assumptions'):
-            kg_str += f"**Assumptions**: {idea['assumptions']}\n"
-        if idea.get('counterargument'):
-            kg_str += f"**Counterargument**: {idea['counterargument']}\n"
-
-        if idea.get('bets'):
-            kg_str += "\n**Associated Bets**:\n"
-            for b in idea['bets']:
-                if b.get('name'):
-                    kg_str += f"- {b['name']}: {b.get('description', '')[:200]}\n"
-
-        if bfs_context:
-            kg_str += "\n**Related from Knowledge Graph**:\n"
-            for item in bfs_context[:15]:
-                kg_str += f"\n- **Capability**: {item.get('capability', 'N/A')}"
-                if item.get('milestones'):
-                    dated_ms = [m for m in item['milestones'] if m.get('name')]
-                    if dated_ms:
-                        kg_str += f"\n  Milestones: {', '.join(m['name'] + (' (' + str(m['date']) + ')' if m.get('date') else '') for m in dated_ms[:5])}"
-                if item.get('products'):
-                    prods = [p for p in item['products'] if p]
-                    if prods:
-                        kg_str += f"\n  Products: {', '.join(prods[:5])}"
-                if item.get('applications'):
-                    apps = [a for a in item['applications'] if a]
-                    if apps:
-                        kg_str += f"\n  Applications: {', '.join(apps[:5])}"
-
-        # 4. Send to Grok with /check command structure
         system_prompt = (
             "You are an intelligence analyst validating ideas, assessments, and predictions "
             "against evidence from a knowledge graph and current developments. "
+            "Gather context agentically by using tools before producing your final answer.\n\n"
+            "Available tools:\n"
+            "- execute_cypher_query\n"
+            "- find_node\n"
+            "- scan_ideas\n"
+            "- scan_trends\n"
+            "- dfs\n"
+            "- x_search\n\n"
             "Structure your response in exactly these sections using markdown:\n\n"
             "## 🧐 Validity Check\nCheck if the prediction/idea is valid based on the evidence.\n\n"
             "## 🔮 Future Outlook\nIf the prediction is valid, what to expect going forward.\n\n"
             "## 📉 Reasoning\nIf the prediction is not valid, explain why.\n\n"
-            "Be analytical, cite specific evidence from the knowledge graph context."
+            "Be analytical, cite specific evidence from tool outputs."
         )
 
         user_prompt = (
-            f"Validate this idea/assessment:\n\n{kg_str}\n\n"
+            f"Validate this idea/assessment: {req.idea_name}\n"
             f"EmTech sector: {req.emtech}\n\n"
-            f"Evaluate whether the evidence supports or contradicts this idea. "
-            f"Provide your analysis."
+            "First gather relevant graph context around the idea (related trends, neighbors, bets, "
+            "supporting/contradicting signals), then gather current external evidence with x_search, "
+            "then provide your analysis."
         )
 
-        xai_client = AsyncClient(api_key=XAI_API_KEY, timeout=120)
         chat = xai_client.chat.create(
             model="grok-4-1-fast",
-            messages=[
-                system(system_prompt),
-                user(user_prompt),
-            ],
+            tool_choice="auto",
+            tools=tools,
+            messages=[xai_system(system_prompt), xai_user(user_prompt)],
         )
 
-        response = await chat.sample()
-        return {"content": response.content, "idea_name": req.idea_name, "emtech": req.emtech}
+        for _ in range(40):
+            response = await chat.sample()
+
+            if not getattr(response, "tool_calls", None):
+                return {"content": response.content, "idea_name": req.idea_name, "emtech": req.emtech}
+
+            chat.append(response)
+
+            for tool_call in response.tool_calls:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments or "{}")
+
+                if function_name in FUNCTIONS_WITH_CTX:
+                    function_args = {"ctx": ctx, **function_args}
+                if function_name in FUNCTIONS_WITH_OPENAI:
+                    function_args["openai_embedding_client"] = openai_embedding_client
+                if function_name in FUNCTIONS_WITH_XAI_CLIENT:
+                    function_args["xai_client"] = xai_client
+
+                try:
+                    result = await CHAT_FUNCTION_MAP[function_name](**function_args)
+                    result_payload = result if isinstance(result, str) else json.dumps(result)
+                except Exception as tool_error:
+                    result_payload = json.dumps({"error": str(tool_error)})
+
+                chat.append(xai_tool_result(result_payload))
+
+        raise RuntimeError("Idea check exceeded tool-call iteration limit")
 
     except HTTPException:
         raise
