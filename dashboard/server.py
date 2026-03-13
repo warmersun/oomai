@@ -748,7 +748,7 @@ async def analyze_news(req: AnalyzeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _gather_kg_context(emtech: str, headline: str, summary: str) -> dict:
+
     """Query the knowledge graph for related ideas, trends, and bets."""
     context = {"ideas": [], "trends": [], "bets": []}
 
