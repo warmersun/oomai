@@ -974,132 +974,50 @@ class EvaluateBetRequest(BaseModel):
 
 @app.post("/api/bet/evaluate")
 async def evaluate_bet(req: EvaluateBetRequest):
-    """Comprehensive bet evaluation: validate, find blindspots, check staleness, find contradictions."""
+    """Comprehensive bet evaluation using agentic tool calls for KG + X context gathering."""
     try:
-        from xai_sdk import AsyncClient
-        from xai_sdk.chat import system, user
-        from xai_sdk.tools import web_search, x_search
-        from datetime import datetime, timedelta, timezone
-
-        # 1. Fetch the bet with all relationships
+        # 1) Basic bet fetch for existence + key metadata; deeper context is gathered agentically via tools.
         bet_query = """
         MATCH (b:Bet {name: $name})
-        OPTIONAL MATCH (b)-[:DEPENDS_ON]->(c:Capability)
-        OPTIONAL MATCH (idea:Idea)-[:PLACES]->(b)
-        OPTIONAL MATCH (vm:Milestone)-[v:VALIDATES]->(b)
-        OPTIONAL MATCH (im)-[inv:INVALIDATES]->(b)
-        RETURN b.name AS name, b.description AS description,
-               b.placed_date AS placed_date, b.result AS result,
-               collect(DISTINCT {name: c.name, description: c.description}) AS capabilities,
-               collect(DISTINCT {name: idea.name, description: idea.description,
-                                 argument: idea.argument, assumptions: idea.assumptions,
-                                 counterargument: idea.counterargument}) AS ideas,
-               collect(DISTINCT {milestone: vm.name, date: v.date, desc: vm.description}) AS validations,
-               collect(DISTINCT {source: COALESCE(im.name, labels(im)[0]), date: inv.date}) AS invalidations
+        RETURN b.name AS name,
+               b.description AS description,
+               b.placed_date AS placed_date,
+               b.result AS result,
+               b.validations AS validations,
+               b.invalidations AS invalidations
+        LIMIT 1
         """
         async with driver.session() as session:
             result = await session.run(bet_query, {"name": req.bet_name})
-            bet_data = await result.data()
+            bet_row = await result.single()
 
-        if not bet_data:
+        if not bet_row:
             raise HTTPException(status_code=404, detail="Bet not found")
 
-        bet = neo4j_to_json(bet_data[0])
+        bet = neo4j_to_json(dict(bet_row))
 
-        # 2. Get milestone timeline for dependent capabilities
-        cap_names = [c["name"] for c in bet.get("capabilities", []) if c.get("name")]
-        milestones = []
-        if cap_names:
-            ms_query = """
-            MATCH (c:Capability)-[:HAS_MILESTONE]->(m:Milestone)
-            WHERE c.name IN $caps
-            OPTIONAL MATCH (ptc:PTC)-[:REACHES]->(m)
-            RETURN DISTINCT m.name AS name, m.description AS description,
-                   m.milestone_reached_date AS date, c.name AS capability,
-                   collect(DISTINCT ptc.name) AS reached_by
-            ORDER BY m.milestone_reached_date
-            """
-            async with driver.session() as session:
-                result = await session.run(ms_query, {"caps": cap_names})
-                ms_data = await result.data()
-            milestones = neo4j_to_json(ms_data)
+        # 2) Agentic evaluation with tool calling.
+        xai_client = XAIAsyncClient(api_key=XAI_API_KEY, timeout=180)
+        openai_embedding_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+        ctx = GraphOpsCtx(neo4jdriver=driver, lock=asyncio.Lock())
 
-        # 3. Find potentially contradicting ideas/bets in the same space
-        contradict_query = """
-        MATCH (b:Bet {name: $name})-[:DEPENDS_ON]->(c:Capability)<-[:DEPENDS_ON]-(other:Bet)
-        WHERE other.name <> $name
-        RETURN DISTINCT other.name AS name, other.description AS description,
-               other.placed_date AS placed_date, other.result AS result
-        LIMIT 10
-        """
-        async with driver.session() as session:
-            result = await session.run(contradict_query, {"name": req.bet_name})
-            related_bets_data = await result.data()
-        related_bets = neo4j_to_json(related_bets_data)
+        tools = [
+            TOOLS_DEFINITIONS["execute_cypher_query"],
+            TOOLS_DEFINITIONS["find_node"],
+            TOOLS_DEFINITIONS["scan_ideas"],
+            TOOLS_DEFINITIONS["scan_trends"],
+            TOOLS_DEFINITIONS["dfs"],
+            TOOLS_DEFINITIONS["x_search"],
+        ]
 
-        # 4. Build comprehensive context string
-        kg_str = f"**Bet**: {bet['name']}\n**Description**: {bet.get('description', 'N/A')}\n"
-        if bet.get('placed_date'):
-            kg_str += f"**Placed date**: {bet['placed_date']}\n"
-        if bet.get('result'):
-            kg_str += f"**Current result**: {bet['result']}\n"
-
-        # Dependent capabilities
-        if cap_names:
-            kg_str += f"\n**Depends on capabilities**: {', '.join(cap_names)}\n"
-
-        # Parent ideas with their arguments
-        ideas = [i for i in bet.get("ideas", []) if i.get("name")]
-        if ideas:
-            kg_str += "\n**Parent Ideas/Assessments**:\n"
-            for idea in ideas:
-                kg_str += f"- **{idea['name']}**: {idea.get('description', '')[:300]}\n"
-                if idea.get('argument'):
-                    kg_str += f"  Argument: {idea['argument'][:200]}\n"
-                if idea.get('assumptions'):
-                    kg_str += f"  Assumptions: {idea['assumptions'][:200]}\n"
-                if idea.get('counterargument'):
-                    kg_str += f"  Counterargument: {idea['counterargument'][:200]}\n"
-
-        # Existing validation/invalidation evidence
-        valid = [v for v in bet.get("validations", []) if v.get("milestone")]
-        invalid = [v for v in bet.get("invalidations", []) if v.get("source")]
-        if valid:
-            kg_str += "\n**Existing validating evidence**:\n"
-            for v in valid:
-                kg_str += f"- {v['milestone']}{' (' + str(v.get('date', '')) + ')' if v.get('date') else ''}\n"
-        if invalid:
-            kg_str += "\n**Existing invalidating evidence**:\n"
-            for v in invalid:
-                kg_str += f"- {v['source']}{' (' + str(v.get('date', '')) + ')' if v.get('date') else ''}\n"
-
-        # Milestone timeline
-        if milestones:
-            kg_str += "\n**Milestone timeline for dependent capabilities**:\n"
-            for m in milestones[:20]:
-                kg_str += f"- {m.get('date', '?')}: {m['name']}"
-                reached = [r for r in m.get('reached_by', []) if r]
-                if reached:
-                    kg_str += f" (by: {', '.join(reached[:3])})"
-                kg_str += "\n"
-
-        # Related bets (potential contradictions)
-        if related_bets:
-            kg_str += "\n**Other bets in the same capability space**:\n"
-            for rb in related_bets:
-                kg_str += f"- {rb['name']}: {rb.get('description', '')[:200]}"
-                if rb.get('result'):
-                    kg_str += f" [Result: {rb['result']}]"
-                kg_str += "\n"
-
-        # 5. Send to Grok with combined evaluation prompt
         system_prompt = (
             "You are an intelligence analyst performing a comprehensive evaluation of a strategic bet. "
-            "You have access to a knowledge graph and can search the web and X for the latest developments. "
+            "You have function tools to gather context from the knowledge graph and X. "
+            "Before producing your final answer, proactively call tools to collect concrete evidence. "
             "Your evaluation must cover ALL of the following dimensions:\n\n"
             "Structure your response in exactly these sections using markdown:\n\n"
             "## 📊 Current Evidence\n"
-            "What does the latest data say? Search the web and X for recent developments related to "
+            "What does the latest data say? Use x_search for recent developments related to "
             "this bet's thesis. Compare against the validation/invalidation signals.\n\n"
             "## ⏰ Staleness Check\n"
             "Is this bet outdated? Has the landscape shifted since the bet was placed? "
@@ -1121,35 +1039,61 @@ async def evaluate_bet(req: EvaluateBetRequest):
             "Be analytical, cite specific evidence, and be honest about uncertainty."
         )
 
-        now = datetime.now(timezone.utc)
-        from_date = now - timedelta(hours=168)  # 7 days lookback
-
-        tools = [
-            web_search(excluded_domains=["wikipedia.org", "gartner.com", "weforum.com", "forbes.com", "accenture.com"]),
-            x_search(from_date=from_date, to_date=now),
-        ]
-
         user_prompt = (
-            f"Evaluate this strategic bet:\n\n{kg_str}\n\n"
+            f"Evaluate this strategic bet:\n\n"
+            f"- Bet: {bet.get('name')}\n"
+            f"- Description: {bet.get('description', 'N/A')}\n"
+            f"- Placed date: {bet.get('placed_date', 'N/A')}\n"
+            f"- Current result: {bet.get('result', 'N/A')}\n"
+            f"- Existing validations (if any): {bet.get('validations', [])}\n"
+            f"- Existing invalidations (if any): {bet.get('invalidations', [])}\n\n"
             f"EmTech sector: {req.emtech}\n\n"
-            f"Search the web and X for the latest developments relevant to this bet's thesis. "
-            f"Then provide your comprehensive evaluation covering all five dimensions."
+            "Use tools to gather missing context from the graph and recent X evidence. "
+            "Then provide your comprehensive evaluation covering all five dimensions."
         )
 
-        xai_client = AsyncClient(api_key=XAI_API_KEY, timeout=180)
         chat = xai_client.chat.create(
             model="grok-4-1-fast",
+            tool_choice="auto",
             tools=tools,
             messages=[
-                system(system_prompt),
-                user(user_prompt),
+                xai_system(system_prompt),
+                xai_user(user_prompt),
             ],
         )
 
-        response = await chat.sample()
-        content = response.content
+        content = ""
+        for _ in range(40):
+            response = await chat.sample()
+            if not getattr(response, "tool_calls", None):
+                content = response.content
+                break
 
-        # 6. Persist latest evaluation snapshot on the Bet node so UI/state can
+            chat.append(response)
+
+            for tool_call in response.tool_calls:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments or "{}")
+
+                if function_name in FUNCTIONS_WITH_CTX:
+                    function_args = {"ctx": ctx, **function_args}
+                if function_name in FUNCTIONS_WITH_OPENAI:
+                    function_args["openai_embedding_client"] = openai_embedding_client
+                if function_name in FUNCTIONS_WITH_XAI_CLIENT:
+                    function_args["xai_client"] = xai_client
+
+                try:
+                    result = await CHAT_FUNCTION_MAP[function_name](**function_args)
+                    result_payload = result if isinstance(result, str) else json.dumps(result)
+                except Exception as tool_error:
+                    result_payload = json.dumps({"error": str(tool_error)})
+
+                chat.append(xai_tool_result(result_payload))
+
+        if not content:
+            raise RuntimeError("Bet evaluation exceeded tool-call iteration limit")
+
+        # 3) Persist latest evaluation snapshot on the Bet node so UI/state can
         # immediately reflect the most recent validation and invalidation signals.
         # Keep both `validations` and legacy typo `vallidations` for compatibility.
         evaluation_result = None
@@ -1180,8 +1124,8 @@ async def evaluate_bet(req: EvaluateBetRequest):
         async with driver.session() as session:
             update_result = await session.run(update_query, {
                 "name": req.bet_name,
-                "validations": valid,
-                "invalidations": invalid,
+                "validations": bet.get("validations", []),
+                "invalidations": bet.get("invalidations", []),
                 "evaluation": content,
                 "result": evaluation_result,
             })
@@ -1190,16 +1134,16 @@ async def evaluate_bet(req: EvaluateBetRequest):
         updated_payload = neo4j_to_json(dict(updated_bet)) if updated_bet else {
             "name": req.bet_name,
             "result": evaluation_result,
-            "validations": valid,
-            "invalidations": invalid,
+            "validations": bet.get("validations", []),
+            "invalidations": bet.get("invalidations", []),
         }
 
         return {
             "content": content,
             "bet_name": req.bet_name,
             "emtech": req.emtech,
-            "validations": updated_payload.get("validations", valid),
-            "invalidations": updated_payload.get("invalidations", invalid),
+            "validations": updated_payload.get("validations", bet.get("validations", [])),
+            "invalidations": updated_payload.get("invalidations", bet.get("invalidations", [])),
             "result": updated_payload.get("result", evaluation_result),
         }
 
