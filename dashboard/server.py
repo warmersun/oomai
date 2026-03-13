@@ -26,7 +26,7 @@ from neo4j.time import Date, DateTime
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from xai_sdk import AsyncClient as XAIAsyncClient
-from xai_sdk.chat import system as xai_system
+from xai_sdk.chat import system as xai_system, user as xai_user, tool_result as xai_tool_result
 
 # Core function tools (no Chainlit dependency)
 from function_tools.core_graph_ops import (
@@ -660,32 +660,33 @@ class AnalyzeRequest(BaseModel):
 
 @app.post("/api/analyze")
 async def analyze_news(req: AnalyzeRequest):
-    """Deep-analyze a news event using KG context + X/web research."""
+    """Deep-analyze a news event with agentic KG/X tools."""
     try:
-        from xai_sdk import AsyncClient
-        from xai_sdk.chat import system, user
-        from xai_sdk.tools import web_search, x_search
-        from datetime import datetime, timedelta, timezone
-
-        # 1. Gather KG context in parallel
-        kg_context = await _gather_kg_context(req.emtech, req.headline, req.summary)
-
-        # 2. Run the deep analysis via Grok
-        xai_client = AsyncClient(api_key=XAI_API_KEY, timeout=180)
-
-        now = datetime.now(timezone.utc)
-        from_date = now - timedelta(hours=24)
+        xai_client = XAIAsyncClient(api_key=XAI_API_KEY, timeout=180)
+        openai_embedding_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+        ctx = GraphOpsCtx(neo4jdriver=driver, lock=asyncio.Lock())
 
         tools = [
-            web_search(excluded_domains=["wikipedia.org", "gartner.com", "weforum.com", "forbes.com", "accenture.com"]),
-            x_search(from_date=from_date, to_date=now),
+            TOOLS_DEFINITIONS["execute_cypher_query"],
+            TOOLS_DEFINITIONS["find_node"],
+            TOOLS_DEFINITIONS["scan_ideas"],
+            TOOLS_DEFINITIONS["scan_trends"],
+            TOOLS_DEFINITIONS["dfs"],
+            TOOLS_DEFINITIONS["x_search"],
         ]
 
         system_prompt = (
             "You are an intelligence analyst performing a deep, multi-dimensional analysis of a news event. "
             "You have access to a knowledge graph containing ideas, trends, bets, milestones, and assessments "
-            "about emerging technologies. Use the KG context provided AND your X/web search tools to build "
+            "about emerging technologies. Gather relevant KG context with tools, search for current evidence, and build "
             "a comprehensive analysis.\n\n"
+            "Use tools proactively before answering:\n"
+            "- `execute_cypher_query`: focused graph queries for exact facts and relationships.\n"
+            "- `find_node`: semantic lookup of relevant nodes by query.\n"
+            "- `scan_ideas`: broad semantic sweep for related ideas.\n"
+            "- `scan_trends`: broad semantic sweep for related trends.\n"
+            "- `dfs`: local neighborhood traversal from a key node.\n"
+            "- `x_search`: current external evidence from X/web.\n\n"
             "Structure your response in exactly these sections using markdown:\n\n"
             "## 📰 What Happened\nThe facts: who did what, when, and the immediate context.\n\n"
             "## 🎯 Why It Matters\nSignificance in the broader technology landscape. What does this signal "
@@ -700,40 +701,49 @@ async def analyze_news(req: AnalyzeRequest):
             "Be analytical, cite sources, connect dots. This is a deep analysis, not a summary."
         )
 
-        kg_context_str = ""
-        if kg_context.get("ideas"):
-            kg_context_str += "\n\n### Related Ideas from Knowledge Graph:\n"
-            for idea in kg_context["ideas"][:10]:
-                kg_context_str += f"- **{idea['name']}**: {idea.get('description', '')[:200]}\n"
-        if kg_context.get("trends"):
-            kg_context_str += "\n\n### Related Trends from Knowledge Graph:\n"
-            for trend in kg_context["trends"][:8]:
-                kg_context_str += f"- **{trend['name']}**: {trend.get('description', '')[:200]}\n"
-        if kg_context.get("bets"):
-            kg_context_str += "\n\n### Active Bets from Knowledge Graph:\n"
-            for bet in kg_context["bets"][:5]:
-                kg_context_str += f"- **{bet['name']}**: {bet.get('description', '')[:200]}\n"
-
         user_prompt = (
             f"Analyze this news event:\n\n"
             f"**{req.headline}**\n{req.summary}\n\n"
             f"EmTech sector: {req.emtech}\n"
-            f"{kg_context_str}\n\n"
-            f"Use x_search and web_search to get the full story and latest reactions. "
-            f"Then provide your deep analysis."
+            f"First gather relevant KG context using graph tools (ideas, trends, bets, neighbors), then use x_search "
+            f"for current reactions and evidence. Finally provide your deep analysis."
         )
 
         chat = xai_client.chat.create(
             model="grok-4-1-fast",
+            tool_choice="auto",
             tools=tools,
-            messages=[
-                system(system_prompt),
-                user(user_prompt),
-            ],
+            messages=[xai_system(system_prompt), xai_user(user_prompt)],
         )
 
-        response = await chat.sample()
-        return {"content": response.content, "headline": req.headline, "emtech": req.emtech}
+        for _ in range(40):
+            response = await chat.sample()
+
+            if not getattr(response, "tool_calls", None):
+                return {"content": response.content, "headline": req.headline, "emtech": req.emtech}
+
+            chat.append(response)
+
+            for tool_call in response.tool_calls:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments or "{}")
+
+                if function_name in FUNCTIONS_WITH_CTX:
+                    function_args = {"ctx": ctx, **function_args}
+                if function_name in FUNCTIONS_WITH_OPENAI:
+                    function_args["openai_embedding_client"] = openai_embedding_client
+                if function_name in FUNCTIONS_WITH_XAI_CLIENT:
+                    function_args["xai_client"] = xai_client
+
+                try:
+                    result = await CHAT_FUNCTION_MAP[function_name](**function_args)
+                    result_payload = result if isinstance(result, str) else json.dumps(result)
+                except Exception as tool_error:
+                    result_payload = json.dumps({"error": str(tool_error)})
+
+                chat.append(xai_tool_result(result_payload))
+
+        raise RuntimeError("Analysis exceeded tool-call iteration limit")
 
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
