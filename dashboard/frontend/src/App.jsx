@@ -732,7 +732,13 @@ function IdeaCheckSection({ ideaName, currentEmTech, onFollowUp }) {
         setLoading(true);
         try {
             const data = await postIdeaCheck({ idea_name: ideaName, emtech: currentEmTech });
-            if (data.content) setResult(data.content);
+            if (data?.content) {
+                setResult(data.content);
+            } else if (data?.detail) {
+                setResult(`⚠️ ${data.detail}`);
+            } else {
+                setResult('⚠️ Check failed: unexpected response from server');
+            }
         } catch (err) {
             setResult(`⚠️ Check failed: ${err.message}`);
         } finally {
